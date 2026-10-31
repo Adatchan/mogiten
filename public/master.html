@@ -132,7 +132,8 @@
     <h2>容器代のルール</h2>
     <div class="rule">
       容器代の対象が <input id="ruleFree" type="number" inputmode="numeric" min="0"> 個までは無料、それより多いときは
-      <input id="rulePer" type="number" inputmode="numeric" min="1"> 個ごとに <input id="ruleFee" type="number" inputmode="numeric" min="0"> 円
+      <input id="rulePer" type="number" inputmode="numeric" min="1"> 個ごとに <input id="ruleFee" type="number" inputmode="numeric" min="0"> 円。
+      容器は最大 <input id="ruleMax" type="number" inputmode="numeric" min="0"> 個まで（0 = 上限なし）
       <button class="btn" id="ruleBtn">変更する</button>
     </div>
     <div class="note" id="rulePreview"></div>
@@ -230,7 +231,8 @@
 
   <details>
     <summary>容器代のルールを変える</summary>
-    <p>「容器代の対象が○個までは無料、それより多いときは○個ごとに○円」の3つの数字を入れて「変更する」を押します。入力すると、下に「例：1〜2個 0円 / 3〜4個 10円 …」と結果が出るので確かめてください。</p>
+    <p>「容器代の対象が○個までは無料、それより多いときは○個ごとに○円。容器は最大○個まで」の4つの数字を入れて「変更する」を押します。入力すると、下に「例：1〜2個 0円 / 3〜16個 10円 …」と結果が出るので確かめてください。</p>
+    <p>初期設定は「2個までは無料、3個以上は何個でも容器1個（10円）」です。本数に応じて容器を増やしたいときは、最大の個数を 0（上限なし）にします。</p>
   </details>
 
   <details>
@@ -446,11 +448,11 @@
   // ---------- 容器代のルール ----------
   let ruleDirty = false;
   function renderRule(rule) {
-    if (!ruleDirty) { $('ruleFree').value = rule.freeUpTo; $('rulePer').value = rule.per; $('ruleFee').value = rule.fee; }
+    if (!ruleDirty) { $('ruleFree').value = rule.freeUpTo; $('rulePer').value = rule.per; $('ruleFee').value = rule.fee; $('ruleMax').value = rule.maxCount ?? 0; }
     previewRule();
   }
   function previewRule() {
-    const rule = { freeUpTo: Number($('ruleFree').value), per: Number($('rulePer').value) || 1, fee: Number($('ruleFee').value) };
+    const rule = { freeUpTo: Number($('ruleFree').value), per: Number($('rulePer').value) || 1, fee: Number($('ruleFee').value), maxCount: Number($('ruleMax').value) || 0 };
     const out = [];
     let from = 1;
     for (let n = 1; n <= 16; n++) {
@@ -459,9 +461,9 @@
     }
     $('rulePreview').textContent = '例：' + out.join(' / ') + ' …';
   }
-  ['ruleFree', 'rulePer', 'ruleFee'].forEach(id => $(id).addEventListener('input', () => { ruleDirty = true; previewRule(); }));
+  ['ruleFree', 'rulePer', 'ruleFee', 'ruleMax'].forEach(id => $(id).addEventListener('input', () => { ruleDirty = true; previewRule(); }));
   $('ruleBtn').onclick = async () => {
-    const body = { freeUpTo: Number($('ruleFree').value), per: Number($('rulePer').value), fee: Number($('ruleFee').value) };
+    const body = { freeUpTo: Number($('ruleFree').value), per: Number($('rulePer').value), fee: Number($('ruleFee').value), maxCount: Number($('ruleMax').value) || 0 };
     if (!confirm('容器代のルールを変更しますか？\n' + $('rulePreview').textContent)) return;
     ruleDirty = false;
     await run(() => api('container-rule', body), '容器代のルールを変更しました');
