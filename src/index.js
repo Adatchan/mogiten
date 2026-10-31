@@ -92,13 +92,6 @@ async function registerApi(request, env, url, route) {
     await audit(db, sess.staff, role, '目標金額を変更', yen(n));
     return json(await registerData(db, sess));
   }
-  if (route === 'POST /api/admin/password') {
-    const body = await readJson(request);
-    await login(request, env, role, body.current, '現在のパスワードが違います');
-    await setPassword(db, role, body.next);
-    await audit(db, sess.staff, role, 'レジのパスワードを変更', '');
-    return json({ ok: true });
-  }
   const m = url.pathname.match(/^\/api\/admin\/sales\/(\d+)\/toggle-cancel$/);
   if (request.method === 'POST' && m) {
     const id = Number(m[1]);

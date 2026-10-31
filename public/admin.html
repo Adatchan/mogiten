@@ -100,8 +100,7 @@
   .target-form input { flex: 1; min-width: 0; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; }
   .target-form button { background: var(--brown); color: #fff; border-radius: 8px; padding: 0 16px; font-size: 15px; white-space: nowrap; }
 
-  .pw-form input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; }
-  .pw-form button, .csv-btn { background: var(--brown); color: #fff; border-radius: 8px; padding: 10px 16px; font-size: 15px; }
+  .csv-btn { background: var(--brown); color: #fff; border-radius: 8px; padding: 10px 16px; font-size: 15px; }
   .csv-btn { display: inline-block; text-decoration: none; }
   .note { color: var(--sub); font-size: 12px; margin-top: 6px; }
   details summary { cursor: pointer; font-size: 13px; color: var(--sub); font-weight: 700; }
@@ -217,16 +216,9 @@
   </section>
 
   <section class="card">
-    <details>
-      <summary>レジのパスワードを変更</summary>
-      <div class="pw-form" style="margin-top:10px">
-        <input id="pwCur" type="password" autocomplete="current-password" placeholder="今のパスワード">
-        <input id="pwNew" type="password" autocomplete="new-password" placeholder="新しいパスワード（8文字以上）">
-        <input id="pwNew2" type="password" autocomplete="new-password" placeholder="新しいパスワード（確認）">
-        <button id="pwBtn">変更する</button>
-        <div class="note">ログイン中のほかの端末はそのまま使えます。締め出しはマスター管理画面からできます。</div>
-      </div>
-    </details>
+    <div class="label">管理（マスター）</div>
+    <a class="csv-btn" href="/master" target="_blank">🔐 管理画面を開く ↗</a>
+    <div class="note">レジのパスワード変更や端末の締め出しは、管理画面から行います（マスターパスワードが必要）。</div>
   </section>
 
   <button class="clear" id="logoutBtn">ログアウト（担当者の交代もここから）</button>
@@ -265,7 +257,7 @@
       credentials: 'same-origin',
     });
     const d = await res.json().catch(() => ({}));
-    if (res.status === 401 && path !== 'login' && path !== 'password') showLogin(d.error);
+    if (res.status === 401 && path !== 'login') showLogin(d.error);
     if (!res.ok) throw Object.assign(new Error(d.error || ('通信エラー ' + res.status)), { status: res.status });
     return d;
   }
@@ -312,16 +304,6 @@
     if (!confirm('ログアウトしますか？')) return;
     await api('logout', {}).catch(() => {});
     location.reload();
-  };
-
-  $('pwBtn').onclick = async () => {
-    if ($('pwNew').value !== $('pwNew2').value) { toast('新しいパスワードが一致しません', true); return; }
-    try {
-      await api('password', { current: $('pwCur').value, next: $('pwNew').value });
-      ['pwCur', 'pwNew', 'pwNew2'].forEach(id => $(id).value = '');
-      toast('パスワードを変更しました');
-      refresh();
-    } catch (e) { toast(e.message, true); }
   };
 
   // ---------- 表示 ----------
