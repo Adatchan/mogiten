@@ -181,7 +181,7 @@
   <section class="card">
     <div class="mini">
       <div><div class="v" id="mTotal">—</div><div class="k">売上</div></div>
-      <div><div class="v" id="mRemain">—</div><div class="k">目標まで</div></div>
+      <div><div class="v" id="mRemain">—</div><div class="k" id="mRemainK">目標まで</div></div>
       <div><div class="v" id="mSticks">—</div><div class="k">本数</div></div>
     </div>
     <div class="minibar"><div id="mBar"></div></div>
@@ -388,7 +388,9 @@
   // ---------- 表示 ----------
   function renderData(d) {
     $('mTotal').textContent = yen(d.total);
-    $('mRemain').textContent = d.remaining > 0 ? yen(d.remaining) : '達成🎉';
+    const done = d.total >= d.target;
+    $('mRemain').textContent = done ? yen(d.total - d.target) : yen(d.remaining);
+    $('mRemainK').textContent = done ? '達成！黒字（見込）' : '目標まで';
     $('mSticks').textContent = d.sticks + '本';
     $('mBar').style.width = Math.min(100, d.rate * 100) + '%';
 

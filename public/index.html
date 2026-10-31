@@ -129,7 +129,7 @@
     const hint = document.getElementById('hint');
     if (d.total >= d.target) {
       remain.className = 'remain done';
-      remain.innerHTML = '🎉 目標達成！ <b>+' + yen(d.total - d.target) + '</b>';
+      remain.innerHTML = '🎉 達成！ <b>' + yen(d.total - d.target) + '</b> <span style="white-space:nowrap">の黒字（見込）</span>';
       hint.textContent = 'ありがとうございます！';
     } else {
       remain.className = 'remain';

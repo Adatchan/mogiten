@@ -184,7 +184,8 @@
     $('mTotal').textContent = yen(d.total);
     $('mOrders').textContent = d.orders + '件';
     $('mSticks').textContent = d.sticks + '本';
-    $('mRate').textContent = '目標 ' + yen(d.target) + '（達成率 ' + Math.floor(d.rate * 100) + '%）';
+    $('mRate').textContent = '目標 ' + yen(d.target) + '（達成率 ' + Math.floor(d.rate * 100) + '%）' +
+      (d.total >= d.target ? '　🎉 達成！' + yen(d.total - d.target) + 'の黒字（見込）' : '');
     if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
 
     $('sessions').innerHTML = d.sessions.length ? '<table><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th></th></tr>' +
