@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbf7f0;
+    --card: #ffffff;
+    --ink: #2b2420;
+    --sub: #7a6f66;
+    --line: #ebe3d8;
+    --pink: #e8879f;
+    --green: #7fae5c;
+    --brown: #8a5a3b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
+  header { text-align: center; margin-bottom: 16px; }
+  header .sub { font-size: 14px; color: var(--sub); }
+  header h1 { margin: 2px 0 0; font-size: 34px; letter-spacing: .1em; }
+  .dango { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 8px; }
+  .dango i { width: 14px; height: 14px; border-radius: 50%; display: block; }
+  .dango i:nth-child(1) { background: var(--pink); }
+  .dango i:nth-child(2) { background: #fff; border: 1.5px solid var(--line); }
+  .dango i:nth-child(3) { background: var(--green); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+  .label { font-size: 14px; color: var(--sub); font-weight: 700; }
+  .hero { text-align: center; }
+  .hero .total { font-size: 56px; font-weight: 700; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+  .hero .target { color: var(--sub); font-size: 16px; }
+  .bar { position: relative; height: 26px; background: #f1ebe2; border-radius: 13px; overflow: hidden; margin: 18px 0 8px; }
+  .bar > div { height: 100%; width: 0; border-radius: 13px; background: linear-gradient(90deg, var(--pink), #f2b6a0, var(--green)); transition: width .8s ease; }
+  .bar span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .remain { font-size: 22px; font-weight: 700; margin-top: 10px; }
+  .remain b { color: var(--pink); font-size: 30px; font-variant-numeric: tabular-nums; }
+  .remain.done b { color: var(--green); }
+  .hint { color: var(--sub); font-size: 13px; margin-top: 4px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid .card { margin-bottom: 0; }
+  .stat { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat small { font-size: 18px; margin-left: 2px; }
+  .rows { margin-top: 10px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 16px; }
+  .row:first-child { border-top: none; }
+  .row .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pay-bar { height: 8px; border-radius: 4px; background: #f1ebe2; margin-top: 4px; overflow: hidden; }
+  .pay-bar div { height: 100%; background: var(--brown); width: 0; transition: width .8s ease; }
+  .pay { padding: 8px 0; border-top: 1px dashed var(--line); }
+  .pay:first-child { border-top: none; }
+  .pay .head { display: flex; justify-content: space-between; font-size: 16px; }
+  .pay .head .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  footer { text-align: center; color: var(--sub); font-size: 12px; margin-top: 10px; }
+  .error { color: #c0392b; }
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; }
+    .hero .total { font-size: 46px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="sub" id="shopSub">混声合唱と学祭のための</div>
+    <h1><span class="dango"><i></i><i></i><i></i></span>団子</h1>
+  </header>
+
+  <section class="card hero">
+    <div class="label">現在の売上</div>
+    <div class="total" id="total">—</div>
+    <div class="target">目標 <span id="target">—</span></div>
+    <div class="bar"><div id="barFill"></div><span id="rate">0%</span></div>
+    <div class="remain" id="remain">読み込み中…</div>
+    <div class="hint" id="hint"></div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <div class="label">売れた本数</div>
+      <div class="stat"><span id="sticks">—</span><small>本</small></div>
+      <div class="rows" id="sets"></div>
+    </section>
+    <section class="card">
+      <div class="label">お会計 <span id="orders">—</span> 件</div>
+      <div class="rows" id="pays"></div>
+    </section>
+  </div>
+
+  <footer>最終更新 <span id="updated">—</span>（20秒ごとに自動更新）<div id="err" class="error"></div></footer>
+</div>
+
+<script>
+  const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
+
+  function render(d) {
+    document.getElementById('total').textContent = yen(d.total);
+    document.getElementById('target').textContent = yen(d.target);
+    const pct = Math.round(d.rate * 1000) / 10;
+    document.getElementById('barFill').style.width = Math.min(100, pct) + '%';
+    document.getElementById('rate').textContent = pct + '%';
+
+    const remain = document.getElementById('remain');
+    const hint = document.getElementById('hint');
+    if (d.total >= d.target) {
+      remain.className = 'remain done';
+      remain.innerHTML = '🎉 目標達成！ <b>+' + yen(d.total - d.target) + '</b>';
+      hint.textContent = 'ありがとうございます！';
+    } else {
+      remain.className = 'remain';
+      remain.innerHTML = '目標まであと <b>' + yen(d.remaining) + '</b>';
+      hint.textContent = '5本セットならあと ' + Math.ceil(d.remaining / 500) + ' セット';
+    }
+
+    document.getElementById('sticks').textContent = d.sticks.toLocaleString('ja-JP');
+    document.getElementById('sets').innerHTML = d.setDefs.map(s =>
+      '<div class="row"><span>' + s.sticks + '本セット（' + s.price + '円）</span><span class="v">' + d.sets[s.key] + ' 個</span></div>'
+    ).join('');
+
+    document.getElementById('orders').textContent = d.orders;
+    document.getElementById('pays').innerHTML = d.payments.map(p => {
+      const v = d.byPayment[p];
+      const w = d.total > 0 ? (v.amount / d.total * 100) : 0;
+      return '<div class="pay"><div class="head"><span>' + p + '（' + v.count + '件）</span><span class="v">' + yen(v.amount) + '</span></div>' +
+             '<div class="pay-bar"><div style="width:' + w + '%"></div></div></div>';
+    }).join('');
+
+    document.getElementById('updated').textContent = d.updatedAt;
+    document.getElementById('err').textContent = '';
+  }
+
+  function load() {
+    google.script.run
+      .withSuccessHandler(render)
+      .withFailureHandler(e => { document.getElementById('err').textContent = '更新に失敗しました: ' + e.message; })
+      .getSummary();
+  }
+
+  load();
+  setInterval(load, 20000);
+</script>
+</body>
+</html>
