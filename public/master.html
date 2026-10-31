@@ -72,6 +72,8 @@
   .dirty-badge { font-size: 11px; color: #9a5b00; background: #fde7c8; padding: 2px 7px; border-radius: 10px; }
   .rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
   .rule input { width: 5em; }
+  .danger-zone { border-color: #f2c2bc; background: #fffaf9; }
+  .danger-zone h2 { color: var(--red); }
 
   #login { max-width: 360px; margin: 80px auto; text-align: center; }
   #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
@@ -176,6 +178,20 @@
     <div class="note">変更すると、この端末以外のマスターログインは解除されます。</div>
   </section>
 
+  <section class="card form danger-zone">
+    <h2>売上記録の全リセット（テスト用）</h2>
+    <div class="note" id="resetInfo"></div>
+    <input id="resetConfirm" type="text" autocomplete="off" placeholder="確認のため「リセット」と入力" style="width:100%;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
+    <input id="resetPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+    <button class="btn danger" id="resetBtn">すべての会計を削除する</button>
+    <div class="note">
+      ・取消済みも含めたすべての会計と明細を削除し、会計番号を #1 に戻します。<strong>元に戻せません。</strong><br>
+      ・商品・価格、目標金額、パスワード、ログイン中の端末はそのままです。<br>
+      ・レジ端末に残っているリセット前の未送信の会計は、送られてきても記録されずに破棄されます。<br>
+      ・本番の営業が始まったら使わないでください。必要なら先に CSV を保存してください。
+    </div>
+  </section>
+
   <section class="card">
     <h2>操作の記録</h2>
     <div class="scroll" id="audit"></div>
@@ -203,7 +219,7 @@
       credentials: 'same-origin',
     });
     const d = await res.json().catch(() => ({}));
-    if (res.status === 401 && path !== 'login' && path !== 'master-password') showLogin(d.error);
+    if (res.status === 401 && path !== 'login' && path !== 'master-password' && path !== 'reset-sales') showLogin(d.error);
     if (!res.ok) throw new Error(d.error || ('通信エラー ' + res.status));
     return d;
   }
@@ -247,6 +263,7 @@
     $('lockState').textContent = d.locked.length ? 'ロック中：' + d.locked.join('・') : 'ロックなし';
     $('lockState').className = 'badge ' + (d.locked.length ? 'warn' : 'ok');
 
+    $('resetInfo').textContent = '現在の会計：' + d.allSales.n + ' 件（うち取消 ' + d.allSales.cancelled + ' 件）・売上 ' + yen(d.total);
     renderProducts(d.allProducts);
     renderRule(d.rule);
 
@@ -401,6 +418,16 @@
     if (!(v > 0)) return toast('目標金額を入力してください', true);
     if (!confirm('目標金額を ' + yen(v) + ' に変更しますか？')) return;
     run(() => api('target', { target: v }), '目標金額を変更しました');
+  };
+  $('resetBtn').onclick = () => {
+    if ($('resetConfirm').value.trim() !== 'リセット') return toast('確認のため「リセット」と入力してください', true);
+    if (!$('resetPw').value) return toast('マスターパスワードを入力してください', true);
+    if (!confirm('すべての会計を削除します。元に戻せません。よろしいですか？')) return;
+    run(async () => {
+      const d = await api('reset-sales', { confirm: $('resetConfirm').value, password: $('resetPw').value });
+      $('resetConfirm').value = ''; $('resetPw').value = '';
+      return d;
+    }, '売上記録をリセットしました');
   };
   $('unlockBtn').onclick = () => run(() => api('unlock', {}), 'ログイン制限を解除しました');
   $('regBtn').onclick = () => {

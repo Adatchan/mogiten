@@ -90,6 +90,8 @@ async function registerApi(request, env, url, route) {
   // 取消／戻すを「状態を指定して」設定する（同じ操作を何度送っても結果は同じ）
   if (route === 'POST /api/admin/sales/set-cancel') {
     const body = await readJson(request);
+    // 売上記録の全リセットより前に端末で行った操作は捨てる（リセットした記録を復活させない）
+    if (body.epoch != null && Number(body.epoch) !== await getEpoch(db)) return json({ ok: true, stale: true });
     const row = body.clientId
       ? await db.prepare('SELECT * FROM sales WHERE client_id = ?').bind(String(body.clientId)).first()
       : await db.prepare('SELECT * FROM sales WHERE id = ?').bind(Number(body.id) || 0).first();
@@ -203,6 +205,25 @@ async function masterApi(request, env, url, route) {
       what = `レジ端末 ${n} 台`;
     }
     await audit(db, 'マスター', role, '締め出し', what);
+    return json(await masterData(db, sess));
+  }
+  // 売上記録の全リセット（テスト用）。確認の文字とマスターパスワードの再入力が必要
+  if (route === 'POST /api/master/reset-sales') {
+    const body = await readJson(request);
+    if (String(body.confirm || '').trim() !== 'リセット') throw httpError('確認のため「リセット」と入力してください', 400);
+    await login(request, env, role, body.password, 'マスターパスワードが違います');
+    const before = await db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN cancelled = 0 THEN amount ELSE 0 END), 0) AS total,
+        COALESCE(SUM(cancelled), 0) AS cancelled FROM sales`).first();
+    const epoch = await getEpoch(db);
+    await db.batch([
+      db.prepare('DELETE FROM sale_items'),
+      db.prepare('DELETE FROM sales'),
+      db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('sales', 'sale_items')"),
+      db.prepare("DELETE FROM audit WHERE action IN ('会計を取消', '取消を戻す', '今の価格と違う会計を記録')"),
+      db.prepare("INSERT INTO settings (key, value) VALUES ('sales_epoch', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(epoch + 1)),
+    ]);
+    await audit(db, 'マスター', role, '売上記録を全リセット',
+      `会計 ${before.n} 件（うち取消 ${before.cancelled} 件・売上 ${yen(before.total)}）を削除`);
     return json(await masterData(db, sess));
   }
   if (route === 'POST /api/master/unlock') {
@@ -589,6 +610,12 @@ async function audit(db, actor, role, action, detail) {
     .bind(new Date().toISOString(), actor, role, action, detail || '').run();
 }
 
+/** 売上記録の世代番号（全リセットのたびに 1 増える） */
+async function getEpoch(db) {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'sales_epoch'").first();
+  return row ? Number(row.value) : 1;
+}
+
 async function getTarget(db) {
   const row = await db.prepare("SELECT value FROM settings WHERE key = 'target'").first();
   return row ? Number(row.value) : DEFAULT_TARGET;
@@ -667,6 +694,7 @@ async function registerData(db, sess) {
     ...(await summary(db)),
     recent: await attachItems(db, recent.results),
     salesCount: n,
+    epoch: await getEpoch(db),
     audit: await recentAudit(db, 30),
     me: { staff: sess.staff, expiresAt: sess.expires_at },
   };
@@ -689,6 +717,7 @@ async function masterData(db, sess) {
     },
     locked: locks.results.map((l) => ROLES[l.role].label),
     allProducts: await getProducts(db, { all: true }),
+    allSales: await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(cancelled), 0) AS cancelled FROM sales').first(),
     me: { expiresAt: sess.expires_at },
   };
 }
@@ -697,6 +726,8 @@ async function recordSale(db, body, staff) {
   if (!PAYMENTS.includes(body.payment)) throw httpError('支払方法が不正です', 400);
   const clientId = body.clientId == null ? null : String(body.clientId).slice(0, 64);
   if (clientId && !/^[A-Za-z0-9_-]{8,64}$/.test(clientId)) throw httpError('会計IDが不正です', 400);
+  // 売上記録の全リセットより前に端末で打った会計は捨てる（リセットした記録を復活させない）
+  if (body.epoch != null && Number(body.epoch) !== await getEpoch(db)) return { stale: true };
   // 同じ会計ID がすでにあれば何もしない（再送による二重登録の防止）
   if (clientId && await db.prepare('SELECT id FROM sales WHERE client_id = ?').bind(clientId).first()) return { duplicate: true };
 

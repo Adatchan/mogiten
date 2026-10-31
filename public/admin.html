@@ -447,7 +447,7 @@
 
   // ---------- 表示 ----------
   function renderData(d) {
-    if (!d.cachedAt) saveCachedData(d);
+    if (!d.cachedAt) { checkEpoch(d.epoch); saveCachedData(d); }
     lastData = d;
     $('staffLabel').textContent = '担当: ' + d.me.staff + (d.cachedAt ? '（オフライン表示）' : '');
     $('mTotal').textContent = yen(d.total);
@@ -762,6 +762,22 @@
   function loadCachedData() { const d = readJSON(DATA_KEY, null); return d ? { ...d, cachedAt: d.savedAt || true } : null; }
   function saveCachedData(d) { try { localStorage.setItem(DATA_KEY, JSON.stringify({ ...d, audit: d.audit.slice(0, 10), savedAt: new Date().toISOString() })); } catch {} }
 
+  // 管理画面で売上記録が全リセットされたら、リセット前の未送信・送信済みの表示用データを捨てる
+  const EPOCH_KEY = 'mogiten_epoch_v1';
+  function checkEpoch(epoch) {
+    if (epoch == null) return;
+    const prev = localStorage.getItem(EPOCH_KEY);
+    localStorage.setItem(EPOCH_KEY, String(epoch));
+    if (prev == null || Number(prev) === epoch) return;
+    const q = loadQ();
+    const keep = q.filter(o => o.epoch == null || o.epoch === epoch);
+    saveQ(keep);
+    localStorage.removeItem(SENT_KEY);
+    localStorage.setItem(FAILED_KEY, JSON.stringify(loadFailed().filter(o => o.epoch == null || o.epoch === epoch)));
+    toast('管理画面で売上記録がリセットされました' + (q.length > keep.length ? '（リセット前の未送信 ' + (q.length - keep.length) + ' 件は破棄）' : ''));
+    renderNet();
+  }
+
   function newId() {
     if (crypto.randomUUID) return crypto.randomUUID();
     const a = crypto.getRandomValues(new Uint8Array(16));
@@ -770,7 +786,7 @@
 
   function enqueue(op) {
     const q = loadQ();
-    q.push({ ...op, opId: newId(), wasOffline: !netOk });
+    q.push({ ...op, opId: newId(), wasOffline: !netOk, epoch: lastData && lastData.epoch != null ? lastData.epoch : null });
     saveQ(q);
     renderNet();
   }
@@ -789,14 +805,14 @@
         try {
           if (op.kind === 'sale') {
             await api('sales', {
-              lite: true, clientId: op.clientId, createdAt: op.createdAt, items: op.items, lines: op.lines,
+              lite: true, epoch: op.epoch, clientId: op.clientId, createdAt: op.createdAt, items: op.items, lines: op.lines,
               container: op.container, containerAuto: op.containerAuto, payment: op.payment,
             });
             const sent = loadSent().filter(s => s.clientId !== op.clientId);
             sent.unshift({ ...op, sentAt: new Date().toISOString() });
             localStorage.setItem(SENT_KEY, JSON.stringify(sent.slice(0, 20)));
           } else if (op.kind === 'cancel') {
-            await api('sales/set-cancel', { clientId: op.clientId, id: op.id, cancelled: op.cancelled, offline: !!op.wasOffline });
+            await api('sales/set-cancel', { epoch: op.epoch, clientId: op.clientId, id: op.id, cancelled: op.cancelled, offline: !!op.wasOffline });
           }
           removeOp(op.opId);
           sentAny = true;
