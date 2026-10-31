@@ -135,6 +135,7 @@
   .hist-line .d { flex: 1; }
   .hist-line .a { font-weight: 700; font-variant-numeric: tabular-nums; }
   .hist-line.cancelled .d, .hist-line.cancelled .a { text-decoration: line-through; color: var(--sub); }
+  .more-link { display: block; text-align: center; margin-top: 10px; padding: 10px; border-radius: 10px; background: #f1ebe2; color: var(--brown); font-size: 14px; font-weight: 700; text-decoration: none; }
   .hist-line button { background: #f1ebe2; border-radius: 6px; padding: 5px 8px; font-size: 12px; color: var(--ink); }
 
 
@@ -222,8 +223,9 @@
   </section>
 
   <section class="card">
-    <div class="label">最近の会計（間違えたら「取消」）</div>
+    <div class="label">最近の会計（最新5件・間違えたら「取消」）</div>
     <div class="hist" id="hist"></div>
+    <a class="more-link hidden" id="moreLink" href="/history">すべての会計を見る →</a>
   </section>
 
   <section class="card">
@@ -404,6 +406,8 @@
         '<span class="a">' + yen(r.amount) + '</span>' +
         '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
     }).join('') : '<div class="empty">まだ会計はありません</div>';
+    $('moreLink').classList.toggle('hidden', d.salesCount <= d.recent.length);
+    $('moreLink').textContent = 'すべての会計を見る（全' + d.salesCount + '件）→';
 
     $('auditLog').innerHTML = d.audit.length ? d.audit.map(a =>
       '<div class="log-line"><span class="t">' + fmtTime(a.at) + '</span>' +

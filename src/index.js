@@ -106,6 +106,7 @@ async function registerApi(request, env, url, route) {
 
   if (route === 'GET /api/admin/data') return json(await registerData(db, sess));
   if (route === 'GET /api/admin/sales.csv') return csv(db);
+  if (route === 'GET /api/admin/sales') return json(await salesPage(db, url.searchParams));
   if (route === 'POST /api/admin/sales') {
     await recordSale(db, await readJson(request), sess.staff);
     return json(await registerData(db, sess));
@@ -475,11 +476,25 @@ async function recentAudit(db, limit) {
   return (await db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT ?').bind(limit).all()).results;
 }
 
+/** 会計一覧（新しい順・ページ送り）。取消済みも含む */
+async function salesPage(db, params) {
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(params.get('limit')) || 50)));
+  const before = Math.floor(Number(params.get('before')) || 0);
+  const rows = (before > 0
+    ? await db.prepare('SELECT * FROM sales WHERE id < ? ORDER BY id DESC LIMIT ?').bind(before, limit + 1).all()
+    : await db.prepare('SELECT * FROM sales ORDER BY id DESC LIMIT ?').bind(limit + 1).all()).results;
+  const counts = await db.prepare(`SELECT COUNT(*) AS total, COALESCE(SUM(cancelled), 0) AS cancelled,
+      COALESCE(SUM(CASE WHEN cancelled = 0 THEN amount ELSE 0 END), 0) AS amount FROM sales`).first();
+  return { sales: rows.slice(0, limit), hasMore: rows.length > limit, ...counts };
+}
+
 async function registerData(db, sess) {
-  const recent = await db.prepare('SELECT * FROM sales ORDER BY id DESC LIMIT 15').all();
+  const recent = await db.prepare('SELECT * FROM sales ORDER BY id DESC LIMIT 5').all();
+  const { n } = await db.prepare('SELECT COUNT(*) AS n FROM sales').first();
   return {
     ...(await summary(db)),
     recent: recent.results,
+    salesCount: n,
     audit: await recentAudit(db, 30),
     me: { staff: sess.staff, expiresAt: sess.expires_at },
   };
