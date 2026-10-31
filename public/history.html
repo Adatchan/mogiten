@@ -38,6 +38,7 @@
   .msg { text-align: center; padding: 40px 10px; }
   .msg a { display: inline-block; margin-top: 14px; padding: 12px 20px; border-radius: 10px; background: var(--brown); color: #fff; text-decoration: none; font-weight: 700; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 15px; transition: transform .25s; z-index: 30; max-width: 90%; text-align: center; }
+  .toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.err { background: var(--red); }
   .hidden { display: none !important; }

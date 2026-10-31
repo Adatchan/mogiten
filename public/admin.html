@@ -159,6 +159,7 @@
   #login button { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 16px; transition: transform .25s; z-index: 30; max-width: 90%; text-align: center; white-space: nowrap; }
+  .toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.err { background: #c0392b; }
   .hidden { display: none !important; }

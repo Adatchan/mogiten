@@ -417,6 +417,7 @@ async function ensureSchema(db) {
       count INTEGER NOT NULL
     )`),
     db.prepare('CREATE INDEX IF NOT EXISTS sale_items_sale ON sale_items (sale_id)'),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS products_name ON products (name)'),
     db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       token_hash TEXT NOT NULL UNIQUE,
@@ -448,12 +449,17 @@ async function ensureSchema(db) {
   if (!cols.results.some((c) => c.name === 'staff')) {
     await db.prepare("ALTER TABLE sales ADD COLUMN staff TEXT NOT NULL DEFAULT ''").run();
   }
-  // 商品がまだ 1 つもなければ初期商品を登録
-  const pc = await db.prepare('SELECT COUNT(*) AS n FROM products').first();
-  if (pc.n === 0) {
-    await db.batch(DEFAULT_PRODUCTS.map((p, i) => db.prepare(
-      'INSERT INTO products (name, unit, sets, container, active, sort) VALUES (?, ?, ?, ?, 1, ?)',
-    ).bind(p.name, p.unit, JSON.stringify(p.sets), p.container ? 1 : 0, i + 1)));
+  // 初期商品の登録は最初の 1 回だけ。
+  // 同時に何件もリクエストが来ても、印（products_seeded）を書き込めた 1 件だけが登録する。
+  // 商品名には一意制約も付けているので、万一重なっても同じ名前の商品はできない。
+  const seeded = await db.prepare("INSERT INTO settings (key, value) VALUES ('products_seeded', '1') ON CONFLICT(key) DO NOTHING").run();
+  if (seeded.meta.changes === 1) {
+    const pc = await db.prepare('SELECT COUNT(*) AS n FROM products').first();
+    if (pc.n === 0) {
+      await db.batch(DEFAULT_PRODUCTS.map((p, i) => db.prepare(
+        'INSERT OR IGNORE INTO products (name, unit, sets, container, active, sort) VALUES (?, ?, ?, ?, 1, ?)',
+      ).bind(p.name, p.unit, JSON.stringify(p.sets), p.container ? 1 : 0, i + 1)));
+    }
   }
   schemaReady = true;
 }
