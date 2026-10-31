@@ -30,7 +30,7 @@ export default {
 
       // ---- 公開 API ----
       if (route === 'GET /api/summary') return json(await summary(env.DB));
-      if (route === 'GET /api/sales.csv') return csv(await env.DB.prepare('SELECT * FROM sales ORDER BY id').all());
+      if (route === 'GET /api/sales.csv') return csv(await env.DB.prepare('SELECT * FROM sales WHERE cancelled = 0 ORDER BY id').all());
 
       // ---- 管理 API（パスワード必須） ----
       if (url.pathname.startsWith('/api/admin/')) {
@@ -70,10 +70,16 @@ async function ensureSchema(db) {
       container_auto INTEGER NOT NULL,
       amount INTEGER NOT NULL,
       payment TEXT NOT NULL,
-      cancelled INTEGER NOT NULL DEFAULT 0
+      cancelled INTEGER NOT NULL DEFAULT 0,
+      staff TEXT NOT NULL DEFAULT ''
     )`),
     db.prepare('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)'),
   ]);
+  // 担当者名の列（後から追加したので、古いテーブルには ALTER で足す）
+  const cols = await db.prepare('PRAGMA table_info(sales)').all();
+  if (!cols.results.some((c) => c.name === 'staff')) {
+    await db.prepare("ALTER TABLE sales ADD COLUMN staff TEXT NOT NULL DEFAULT ''").run();
+  }
   schemaReady = true;
 }
 
@@ -134,6 +140,8 @@ async function recordSale(db, body) {
     goods += n * s.price;
   }
   if (goods <= 0) throw httpError('商品が選択されていません', 400);
+  const staff = String(body.staff || '').trim().slice(0, 30);
+  if (!staff) throw httpError('担当者名がありません。ログインし直してください', 400);
 
   const auto = containerFee(sticks);
   // 容器代は手動修正も可（未指定なら自動計算）
@@ -142,9 +150,9 @@ async function recordSale(db, body) {
     : Math.max(0, Math.floor(Number(body.container) || 0));
 
   await db.prepare(`INSERT INTO sales
-      (created_at, s1, s3, s5, sticks, goods, container, container_auto, amount, payment)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(new Date().toISOString(), counts.s1, counts.s3, counts.s5, sticks, goods, container, auto, goods + container, body.payment)
+      (created_at, s1, s3, s5, sticks, goods, container, container_auto, amount, payment, staff)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(new Date().toISOString(), counts.s1, counts.s3, counts.s5, sticks, goods, container, auto, goods + container, body.payment, staff)
     .run();
   return adminData(db);
 }
@@ -175,12 +183,13 @@ function toJst(iso) {
 }
 
 function csv({ results }) {
-  const header = ['ID', '日時', '1本セット', '3本セット', '5本セット', '本数', '商品代', '容器代', '容器代(自動計算)', '合計', '支払方法', '取消'];
+  const header = ['ID', '日時', '1本セット', '3本セット', '5本セット', '本数', '商品代', '容器代', '容器代(自動計算)', '合計', '支払方法', '担当者'];
   const lines = [header].concat(results.map((r) => [
-    r.id, toJst(r.created_at), r.s1, r.s3, r.s5, r.sticks, r.goods, r.container, r.container_auto, r.amount, r.payment, r.cancelled ? '取消' : '',
+    r.id, toJst(r.created_at), r.s1, r.s3, r.s5, r.sticks, r.goods, r.container, r.container_auto, r.amount, r.payment, r.staff,
   ]));
   const body = lines.map((cols) => cols.map((c) => {
-    const s = String(c);
+    let s = String(c);
+    if (/^[=+\-@]/.test(s) && typeof c === 'string') s = "'" + s; // Excel の数式として解釈させない
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }).join(',')).join('\r\n');
   const stamp = toJst(new Date().toISOString()).replace(/[-: ]/g, '').slice(0, 12);

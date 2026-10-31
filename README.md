@@ -16,8 +16,11 @@
 - 売れた本数の合計と、セットごとの個数（1本 / 3本 / 5本）
 - 支払方法ごとの内訳（現金 / PayPay / d払い）
 - **売上明細の CSV ダウンロード**（Excel でも文字化けしません）
+  - 各会計の「担当者」列つき
+  - 取り消した会計は CSV に含めません（データベースには取消フラグ付きで残っています）
 
 **レジ**
+- ログイン時に **担当者名** とパスワードを入力（端末に記憶。交代するときは「ログアウト」から入れ直す）
 - 「1本 150円」「3本 400円」「5本 500円」ボタンでお会計に追加（＋/− で個数を調整）
 - **容器代を自動で計算して合計に加算**（1会計の合計本数で判定）
 
@@ -73,7 +76,7 @@ npx wrangler secret put ADMIN_PASSWORD
 
 あとは、
 - ダッシュボードの URL を QR コードにして店頭に貼る
-- 安達の端末で `/admin` を開いてパスワードを入れる（その端末に記憶されます）
+- レジ係の端末で `/admin` を開いて担当者名とパスワードを入れる（その端末に記憶されます）
 
 で準備完了です。
 
@@ -88,7 +91,7 @@ URL は変わりません。
 ### 当日の前にテストデータを消す
 
 ```bash
-npx wrangler d1 execute mogiten --remote --command "DELETE FROM sales"
+npx wrangler d1 execute mogiten --remote --command "DELETE FROM sales; DELETE FROM sqlite_sequence WHERE name = 'sales'"
 ```
 
 ## ローカルで試す

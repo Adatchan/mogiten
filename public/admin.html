@@ -115,7 +115,8 @@
 
 <div id="login" class="card hidden">
   <h2>団子レジ</h2>
-  <div class="label">パスワードを入力してください</div>
+  <div class="label">担当者名とパスワードを入力してください</div>
+  <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="担当者名（例: 安達）">
   <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード">
   <button id="loginBtn">ログイン</button>
   <div class="hint" style="color:var(--sub);font-size:12px;margin-top:10px">一度ログインするとこの端末に記憶されます</div>
@@ -124,6 +125,7 @@
 <div id="app" class="wrap hidden">
   <div class="top">
     <h1>🍡 団子レジ</h1>
+    <span id="staffLabel" style="font-size:13px;color:var(--sub)"></span>
     <a id="dashLink" href="/" target="_blank">ダッシュボードを開く ↗</a>
   </div>
 
@@ -187,7 +189,7 @@
       <input id="targetInput" type="number" inputmode="numeric">
       <button id="targetBtn">変更</button>
     </div>
-    <button class="clear" id="logoutBtn" style="margin-top:12px">この端末からログアウト</button>
+    <button class="clear" id="logoutBtn" style="margin-top:12px">ログアウト（担当者の交代もここから）</button>
   </section>
 </div>
 
@@ -204,10 +206,13 @@
   const containerFee = sticks => sticks < 3 ? 0 : Math.ceil(sticks / 4) * 10;
 
   const PW_KEY = 'dango_admin_pw';
+  const STAFF_KEY = 'dango_admin_staff';
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
   const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   let password = localStorage.getItem(PW_KEY) || '';
+  let staff = localStorage.getItem(STAFF_KEY) || '';
   let cart = { s1: 0, s3: 0, s5: 0 };
   let manualFee = null;   // null = 自動計算、数値 = 手動で修正した容器代
   let busy = false;
@@ -234,24 +239,34 @@
   }
 
   // ---------- ログイン ----------
-  async function tryLogin(pw) {
+  async function tryLogin(pw, name) {
     password = pw;
+    staff = (name || '').trim();
     try {
-      if (!pw) throw new Error('');
+      if (!pw || !staff) throw new Error('');
       renderData(await api('data'));
       localStorage.setItem(PW_KEY, pw);
+      localStorage.setItem(STAFF_KEY, staff);
+      $('staffLabel').textContent = '担当: ' + staff;
       $('login').classList.add('hidden');
       $('app').classList.remove('hidden');
     } catch (e) {
       if (e.status === 401 || !pw) localStorage.removeItem(PW_KEY);
       $('app').classList.add('hidden');
       $('login').classList.remove('hidden');
-      if (pw) toast(e.message, true);
+      $('staffName').value = staff;
+      if (pw && staff) toast(e.message, true);
     }
   }
-  $('loginBtn').onclick = () => tryLogin($('pw').value);
-  $('pw').onkeydown = e => { if (e.key === 'Enter') tryLogin($('pw').value); };
-  $('logoutBtn').onclick = () => { localStorage.removeItem(PW_KEY); location.reload(); };
+  function submitLogin() {
+    if (!$('staffName').value.trim()) { toast('担当者名を入力してください', true); $('staffName').focus(); return; }
+    if (!$('pw').value) { toast('パスワードを入力してください', true); $('pw').focus(); return; }
+    tryLogin($('pw').value, $('staffName').value);
+  }
+  $('loginBtn').onclick = submitLogin;
+  $('pw').onkeydown = e => { if (e.key === 'Enter') submitLogin(); };
+  $('staffName').onkeydown = e => { if (e.key === 'Enter') $('pw').focus(); };
+  $('logoutBtn').onclick = () => { localStorage.removeItem(PW_KEY); localStorage.removeItem(STAFF_KEY); location.reload(); };
 
   // ---------- 表示 ----------
   function renderData(d) {
@@ -267,7 +282,7 @@
       const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
       return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
         '<span class="t">' + time + '</span>' +
-        '<span class="d">' + desc + ' ' + fee + '　' + r.payment + '</span>' +
+        '<span class="d">' + desc + ' ' + fee + '　' + r.payment + (r.staff ? '（' + esc(r.staff) + '）' : '') + '</span>' +
         '<span class="a">' + yen(r.amount) + '</span>' +
         '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
     }).join('') : '<div class="empty">まだ会計はありません</div>';
@@ -350,7 +365,7 @@
     if (busy || !total) return;
     busy = true; renderCart();
     try {
-      const d = await api('sales', { ...cart, container: currentFee(), payment: method });
+      const d = await api('sales', { ...cart, container: currentFee(), payment: method, staff });
       toast('記録しました：' + yen(total) + '（' + method + '）');
       busy = false;
       resetCart();
@@ -383,7 +398,7 @@
   }
 
   renderCart();
-  tryLogin(password);
+  tryLogin(password, staff);
   setInterval(() => { if (!busy && password && !$('app').classList.contains('hidden')) refresh(); }, 30000);
 </script>
 </body>
