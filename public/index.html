@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<base target="_top">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>団子 売上ダッシュボード</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -69,6 +70,8 @@
   .pay .head { display: flex; justify-content: space-between; font-size: 16px; }
   .pay .head .v { font-weight: 700; font-variant-numeric: tabular-nums; }
 
+  .breakdown { color: var(--sub); font-size: 13px; margin-top: 2px; }
+  .csv { display: inline-block; margin-top: 12px; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--brown); font-size: 14px; font-weight: 700; text-decoration: none; }
   footer { text-align: center; color: var(--sub); font-size: 12px; margin-top: 10px; }
   .error { color: #c0392b; }
   @media (max-width: 480px) {
@@ -87,6 +90,7 @@
   <section class="card hero">
     <div class="label">現在の売上</div>
     <div class="total" id="total">—</div>
+    <div class="breakdown" id="breakdown"></div>
     <div class="target">目標 <span id="target">—</span></div>
     <div class="bar"><div id="barFill"></div><span id="rate">0%</span></div>
     <div class="remain" id="remain">読み込み中…</div>
@@ -105,7 +109,11 @@
     </section>
   </div>
 
-  <footer>最終更新 <span id="updated">—</span>（20秒ごとに自動更新）<div id="err" class="error"></div></footer>
+  <footer>
+    最終更新 <span id="updated">—</span>（20秒ごとに自動更新）
+    <div id="err" class="error"></div>
+    <a class="csv" href="/api/sales.csv" download>⬇ 売上明細をCSVでダウンロード</a>
+  </footer>
 </div>
 
 <script>
@@ -114,6 +122,7 @@
   function render(d) {
     document.getElementById('total').textContent = yen(d.total);
     document.getElementById('target').textContent = yen(d.target);
+    document.getElementById('breakdown').textContent = '（団子 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）';
     const pct = Math.round(d.rate * 1000) / 10;
     document.getElementById('barFill').style.width = Math.min(100, pct) + '%';
     document.getElementById('rate').textContent = pct + '%';
@@ -127,7 +136,9 @@
     } else {
       remain.className = 'remain';
       remain.innerHTML = '目標まであと <b>' + yen(d.remaining) + '</b>';
-      hint.textContent = '5本セットならあと ' + Math.ceil(d.remaining / 500) + ' セット';
+      const big = d.setDefs[d.setDefs.length - 1];
+      const per = big.price + big.fee;
+      hint.textContent = big.sticks + '本セット（容器代込み' + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
     }
 
     document.getElementById('sticks').textContent = d.sticks.toLocaleString('ja-JP');
@@ -143,15 +154,19 @@
              '<div class="pay-bar"><div style="width:' + w + '%"></div></div></div>';
     }).join('');
 
-    document.getElementById('updated').textContent = d.updatedAt;
+    document.getElementById('updated').textContent = new Date(d.updatedAt).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo' });
     document.getElementById('err').textContent = '';
   }
 
-  function load() {
-    google.script.run
-      .withSuccessHandler(render)
-      .withFailureHandler(e => { document.getElementById('err').textContent = '更新に失敗しました: ' + e.message; })
-      .getSummary();
+  async function load() {
+    try {
+      const res = await fetch('/api/summary', { cache: 'no-store' });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || res.status);
+      render(d);
+    } catch (e) {
+      document.getElementById('err').textContent = '更新に失敗しました: ' + e.message;
+    }
   }
 
   load();
