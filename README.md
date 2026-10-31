@@ -59,15 +59,12 @@ npm install
 # 2. Cloudflare にログイン（ブラウザが開きます）
 npx wrangler login
 
-# 3. データベースを作成
-npx wrangler d1 create mogiten
-#    → 表示された database_id を wrangler.toml の「ここに database_id を貼る」に貼り付けて保存
-
-# 4. デプロイ
+# 3. デプロイ（初回はデータベース D1 も自動で作成されます）
 npx wrangler deploy
+#    → D1 の作成を聞かれたらそのまま Enter（既に mogiten を作っていればそれを選ぶ）
 #    → https://mogiten.xxxx.workers.dev が表示されます（これがダッシュボードの URL）
 
-# 5. レジのパスワードを設定（入力を求められるので好きなパスワードを入力）
+# 4. レジのパスワードを設定（入力を求められるので好きなパスワードを入力）
 npx wrangler secret put ADMIN_PASSWORD
 ```
 

@@ -7,11 +7,10 @@ compatibility_date = "2026-10-01"
 directory = "./public"
 
 # 売上データの保存先（Cloudflare D1）
-# `npx wrangler d1 create mogiten` で表示された database_id に書き換えてください
+# database_id は初回の `npx wrangler deploy` で自動作成され、ここに追記されます
 [[d1_databases]]
 binding = "DB"
 database_name = "mogiten"
-database_id = "ここに database_id を貼る"
 
 # レジのパスワードは secret で設定します（このファイルには書かない）
 #   npx wrangler secret put ADMIN_PASSWORD
