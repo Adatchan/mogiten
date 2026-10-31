@@ -6,7 +6,7 @@
  * - ネットワーク優先：つながれば最新を表示してキャッシュも更新、つながらない（または遅い）ときだけキャッシュを使う。
  * - アプリを更新したら VERSION を変える。新しい版が入ると古いキャッシュは消える。
  */
-const VERSION = '2026-11-01-1';
+const VERSION = '2026-11-01-2';
 const CACHE = 'mogiten-register-' + VERSION;
 const FONT_CACHE = 'mogiten-fonts-v1';      // Web フォント（版をまたいで使い回す）
 const SHELL = ['/admin', '/pricing.js'];

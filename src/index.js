@@ -39,6 +39,8 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
+      // 通信できるかの確認用（レジのオンライン／オフライン表示）。DB には触らない
+      if (url.pathname === '/api/ping') return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
       await ensureSchema(env.DB);
       const route = request.method + ' ' + url.pathname;
 

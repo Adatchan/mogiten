@@ -820,9 +820,27 @@
   };
   $('syncBtn').onclick = () => flush();
 
-  window.addEventListener('online', () => { renderNet(); flush(); });
-  window.addEventListener('offline', () => { netOk = false; renderNet(); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) flush(); });
+  /**
+   * 実際にサーバーと通信できるかを確かめる。
+   * 端末の「オフライン」通知だけに頼ると、機種によっては切り替わらないため、小さな確認通信を定期的に送る。
+   */
+  let probing = false;
+  async function probe() {
+    if (probing) return;
+    probing = true;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 4000);
+    try {
+      const res = await fetch('/api/ping?t=' + Date.now(), { cache: 'no-store', signal: ctl.signal });
+      setNet(res.ok);
+    } catch (e) {
+      setNet(false);
+    } finally { clearTimeout(timer); probing = false; }
+  }
+
+  window.addEventListener('online', () => { renderNet(); probe(); flush(); });
+  window.addEventListener('offline', () => { netOk = false; renderNet(); probe(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { probe(); flush(); } });
   // 別のタブで操作されたとき
   window.addEventListener('storage', e => { if (e.key === QUEUE_KEY) { renderNet(); renderHist(); } });
 
@@ -848,6 +866,8 @@
   start();
   setInterval(() => { if (!busy && !$('app').classList.contains('hidden')) refresh(); }, 30000);
   setInterval(() => { if (loadQ().length) flush(); }, 15000);   // 一定間隔で再試行
+  setInterval(() => { if (!document.hidden) probe(); }, 10000);   // 10 秒ごとに通信できるか確認
+  probe();
 </script>
 </body>
 </html>
