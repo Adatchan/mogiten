@@ -96,9 +96,6 @@
   .hist-line.cancelled .d, .hist-line.cancelled .a { text-decoration: line-through; color: var(--sub); }
   .hist-line button { background: #f1ebe2; border-radius: 6px; padding: 5px 8px; font-size: 12px; color: var(--ink); }
 
-  .target-form { display: flex; gap: 8px; }
-  .target-form input { flex: 1; min-width: 0; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; }
-  .target-form button { background: var(--brown); color: #fff; border-radius: 8px; padding: 0 16px; font-size: 15px; white-space: nowrap; }
 
   .csv-btn { background: var(--brown); color: #fff; border-radius: 8px; padding: 10px 16px; font-size: 15px; }
   .csv-btn { display: inline-block; text-decoration: none; }
@@ -195,14 +192,6 @@
   </section>
 
   <section class="card">
-    <div class="label">目標金額</div>
-    <div class="target-form">
-      <input id="targetInput" type="number" inputmode="numeric">
-      <button id="targetBtn">変更</button>
-    </div>
-  </section>
-
-  <section class="card">
     <div class="label">売上明細</div>
     <a class="csv-btn" href="/api/admin/sales.csv" download>⬇ CSVをダウンロード</a>
     <div class="note">取り消した会計は含みません</div>
@@ -218,7 +207,7 @@
   <section class="card">
     <div class="label">管理（マスター）</div>
     <a class="csv-btn" href="/master" target="_blank">🔐 管理画面を開く ↗</a>
-    <div class="note">レジのパスワード変更や端末の締め出しは、管理画面から行います（マスターパスワードが必要）。</div>
+    <div class="note">目標金額の変更、レジのパスワード変更、端末の締め出しは管理画面から行います（マスターパスワードが必要）。</div>
   </section>
 
   <button class="clear" id="logoutBtn">ログアウト（担当者の交代もここから）</button>
@@ -312,7 +301,6 @@
     $('mRemain').textContent = d.remaining > 0 ? yen(d.remaining) : '達成🎉';
     $('mSticks').textContent = d.sticks + '本';
     $('mBar').style.width = Math.min(100, d.rate * 100) + '%';
-    if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
 
     $('hist').innerHTML = d.recent.length ? d.recent.map(r => {
       const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
@@ -428,14 +416,6 @@
       toast(label === '取消' ? '取り消しました' : '元に戻しました');
     } catch (e) { toast(e.message, true); }
   }
-
-  $('targetBtn').onclick = async () => {
-    try {
-      renderData(await api('target', { target: $('targetInput').value }));
-      $('targetInput').blur();
-      toast('目標金額を変更しました');
-    } catch (e) { toast(e.message, true); }
-  };
 
   async function refresh() {
     try { renderData(await api('data')); }

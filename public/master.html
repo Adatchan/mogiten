@@ -86,7 +86,17 @@
       <div><div class="v" id="mOrders">—</div><div class="k">会計数</div></div>
       <div><div class="v" id="mSticks">—</div><div class="k">本数</div></div>
     </div>
+    <div class="note" id="mRate" style="text-align:center"></div>
     <div style="margin-top:12px"><a class="btn sub" href="/api/master/sales.csv" download>⬇ 売上明細CSV（取消分を除く）</a></div>
+  </section>
+
+  <section class="card">
+    <h2>目標金額</h2>
+    <div class="row">
+      <input id="targetInput" type="number" inputmode="numeric" min="1" style="flex:1;min-width:0;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px">
+      <button class="btn" id="targetBtn">変更する</button>
+    </div>
+    <div class="note">ダッシュボードとレジの「目標まで」に反映されます。</div>
   </section>
 
   <section class="card">
@@ -174,6 +184,8 @@
     $('mTotal').textContent = yen(d.total);
     $('mOrders').textContent = d.orders + '件';
     $('mSticks').textContent = d.sticks + '本';
+    $('mRate').textContent = '目標 ' + yen(d.target) + '（達成率 ' + Math.floor(d.rate * 100) + '%）';
+    if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
 
     $('sessions').innerHTML = d.sessions.length ? '<table><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th></th></tr>' +
       d.sessions.map(s => '<tr><td>' + ROLE[s.role] + '</td><td>' + esc(s.staff) + '</td><td>' + esc(s.device) + '</td>' +
@@ -220,6 +232,12 @@
     if (confirm('この端末以外のマスターログインをすべて解除しますか？')) run(() => api('revoke-all', { target: 'master' }), '解除しました');
   };
 
+  $('targetBtn').onclick = () => {
+    const v = Number($('targetInput').value);
+    if (!(v > 0)) return toast('目標金額を入力してください', true);
+    if (!confirm('目標金額を ' + yen(v) + ' に変更しますか？')) return;
+    run(() => api('target', { target: v }), '目標金額を変更しました');
+  };
   $('unlockBtn').onclick = () => run(() => api('unlock', {}), 'ログイン制限を解除しました');
   $('regBtn').onclick = () => {
     if ($('regNew').value !== $('regNew2').value) return toast('新しいパスワードが一致しません', true);

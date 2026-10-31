@@ -87,11 +87,6 @@ async function registerApi(request, env, url, route) {
     await recordSale(db, await readJson(request), sess.staff);
     return json(await registerData(db, sess));
   }
-  if (route === 'POST /api/admin/target') {
-    const n = await setTarget(db, await readJson(request));
-    await audit(db, sess.staff, role, '目標金額を変更', yen(n));
-    return json(await registerData(db, sess));
-  }
   const m = url.pathname.match(/^\/api\/admin\/sales\/(\d+)\/toggle-cancel$/);
   if (request.method === 'POST' && m) {
     const id = Number(m[1]);
@@ -123,6 +118,12 @@ async function masterApi(request, env, url, route) {
   if (route === 'GET /api/master/data') return json(await masterData(db, sess));
   if (route === 'GET /api/master/sales.csv') return csv(db);
 
+  if (route === 'POST /api/master/target') {
+    const before = await getTarget(db);
+    const n = await setTarget(db, await readJson(request));
+    await audit(db, 'マスター', role, '目標金額を変更', `${yen(before)} → ${yen(n)}`);
+    return json(await masterData(db, sess));
+  }
   if (route === 'POST /api/master/register-password') {
     const body = await readJson(request);
     await setPassword(db, 'register', body.next);
