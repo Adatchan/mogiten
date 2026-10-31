@@ -60,6 +60,12 @@
   .stat { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stat small { font-size: 18px; margin-left: 2px; }
   .rows { margin-top: 10px; }
+  .prod + .prod { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); }
+  .prod .ph { display: flex; justify-content: space-between; align-items: baseline; }
+  .prod .ph .n { font-size: 17px; font-weight: 700; }
+  .prod .ph .stat { font-size: 34px; }
+  .prod .rows { margin-top: 4px; }
+  .prod .row { font-size: 14px; padding: 5px 0; }
   .row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 16px; }
   .row:first-child { border-top: none; }
   .row .v { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -98,9 +104,8 @@
 
   <div class="grid">
     <section class="card">
-      <div class="label">売れた本数</div>
-      <div class="stat"><span id="sticks">—</span><small>本</small></div>
-      <div class="rows" id="sets"></div>
+      <div class="label">売れた数</div>
+      <div id="sold"></div>
     </section>
     <section class="card">
       <div class="label">お会計 <span id="orders">—</span> 件</div>
@@ -114,7 +119,9 @@
   </footer>
 </div>
 
-<script>
+<script type="module">
+  import { containerFee, packLabel } from '/pricing.js';
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
 
   function render(d) {
@@ -134,15 +141,29 @@
     } else {
       remain.className = 'remain';
       remain.innerHTML = '目標まであと <b>' + yen(d.remaining) + '</b>';
-      const big = d.setDefs[d.setDefs.length - 1];
-      const per = big.price + big.fee;
-      hint.textContent = big.sticks + '本セット（容器代込み' + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
+      // 先頭の商品のいちばん大きいセットで、あと何セットか
+      const p = d.products[0];
+      if (p) {
+        const big = p.sets[p.sets.length - 1];
+        const per = big.price + (p.container ? containerFee(d.rule, big.qty) : 0);
+        hint.textContent = p.name + 'の' + packLabel(big, p.unit) + '（' + (p.container ? '容器代込み' : '') + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
+      } else hint.textContent = '';
     }
 
-    document.getElementById('sticks').textContent = d.sticks.toLocaleString('ja-JP');
-    document.getElementById('sets').innerHTML = d.setDefs.map(s =>
-      '<div class="row"><span>' + s.sticks + '本セット（' + s.price + '円）</span><span class="v">' + d.sets[s.key] + ' 個</span></div>'
-    ).join('');
+    document.getElementById('sold').innerHTML = d.byProduct.map(g => {
+      // 今の価格表のセットは売れていなくても 0 で表示
+      const cur = d.products.find(p => p.id === g.id);
+      const packs = g.packs.filter(k => k.count > 0);
+      // セットが複数ある商品は、売れていないセットも 0 個で表示
+      if (cur && cur.sets.length > 1) cur.sets.forEach(s => { if (!packs.some(k => k.qty === s.qty && k.price === s.price)) packs.push({ ...s, count: 0 }); });
+      packs.sort((a, b) => a.qty - b.qty || a.price - b.price);
+      const showPacks = packs.length > 1;
+      return '<div class="prod"><div class="ph"><span class="n">' + esc(g.name) + '</span>' +
+        '<span class="stat">' + g.qty.toLocaleString('ja-JP') + '<small>' + esc(g.unit) + '</small></span></div>' +
+        (showPacks ? '<div class="rows">' + packs.map(k =>
+          '<div class="row"><span>' + packLabel(k, esc(g.unit)) + '（' + k.price + '円）</span><span class="v">' + k.count + ' 個</span></div>').join('') + '</div>' : '') +
+        '</div>';
+    }).join('') || '<div class="hint">商品がありません</div>';
 
     document.getElementById('orders').textContent = d.orders;
     document.getElementById('pays').innerHTML = d.payments.map(p => {

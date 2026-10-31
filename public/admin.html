@@ -48,6 +48,9 @@
 
   /* 商品ボタン */
   .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .prod-name { font-size: 18px; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; }
+  .prod-name small { font-size: 12px; color: var(--sub); font-weight: 400; }
+  .cart-group { font-size: 13px; color: var(--sub); font-weight: 700; margin-top: 6px; }
   .item.on { background: var(--pink); color: #fff; }
   .stepper { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
   .stepper button { width: 64px; height: 64px; border-radius: 50%; background: #f1ebe2; font-size: 32px; color: var(--ink); flex-shrink: 0; }
@@ -183,21 +186,12 @@
     <div class="mini">
       <div><div class="v" id="mTotal">—</div><div class="k">売上</div></div>
       <div><div class="v" id="mRemain">—</div><div class="k" id="mRemainK">目標まで</div></div>
-      <div><div class="v" id="mSticks">—</div><div class="k">本数</div></div>
+      <div><div class="v" id="mSticks">—</div><div class="k">販売数</div></div>
     </div>
     <div class="minibar"><div id="mBar"></div></div>
   </section>
 
-  <section class="card">
-    <div class="label">本数</div>
-    <div class="items" id="items"></div>
-    <div class="stepper">
-      <button data-step="-1" aria-label="1本減らす">−</button>
-      <span class="qty-box"><input id="qtyInput" type="number" inputmode="numeric" min="0" max="200" value="0" aria-label="本数"><span class="unit">本</span></span>
-      <button data-step="1" aria-label="1本増やす">＋</button>
-    </div>
-    <div class="qty-note">ボタンで選ぶか、数字をタップして直接入力。セットは自動で一番安く組みます</div>
-  </section>
+  <div id="products"></div>
 
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -208,7 +202,7 @@
     <div id="containerRow"></div>
     <div id="upsell"></div>
     <div class="total">
-      <span class="s" id="cartSticks">0本</span>
+      <span class="s" id="cartSticks"></span>
       <span class="v" id="cartTotal">¥0</span>
     </div>
   </section>
@@ -244,7 +238,7 @@
   <section class="card">
     <div class="label">管理（マスター）</div>
     <a class="csv-btn" href="/master" target="_blank">🔐 管理画面を開く ↗</a>
-    <div class="note">目標金額の変更、レジのパスワード変更、端末の締め出しは管理画面から行います（マスターパスワードが必要）。</div>
+    <div class="note">商品・価格の変更、目標金額の変更、レジのパスワード変更、端末の締め出しは管理画面から行います（マスターパスワードが必要）。</div>
   </section>
 
   <button class="clear" id="logoutBtn">ログアウト（担当者の交代もここから）</button>
@@ -284,36 +278,8 @@
 
 <div class="toast" id="toast"></div>
 
-<script>
-  // 価格を変えるときは src/index.js の SETS も合わせて変更
-  const SETS = [
-    { key: 's1', sticks: 1, price: 150 },
-    { key: 's3', sticks: 3, price: 400 },
-    { key: 's5', sticks: 5, price: 500 },
-  ];
-  /** 容器代: 1〜2本 0円 / 3〜4本 10円 / 5〜8本 20円 / 以降4本ごとに +10円 */
-  const containerFee = sticks => sticks < 3 ? 0 : Math.ceil(sticks / 4) * 10;
-  /**
-   * 本数ちょうどで一番安くなるセットの組み合わせ（お客さんに有利な組み方）。
-   * 同じ金額なら、セットの数が少ない（大きいセットを使う）ほうを選ぶ。
-   */
-  function bestBundle(sticks) {
-    const best = [{ cost: 0, packs: 0, counts: Object.fromEntries(SETS.map((s) => [s.key, 0])) }];
-    for (let i = 1; i <= sticks; i++) {
-      let b = null;
-      for (const s of SETS) {
-        const prev = best[i - s.sticks];
-        if (!prev) continue;
-        const cand = { cost: prev.cost + s.price, packs: prev.packs + 1, key: s.key, prev };
-        if (!b || cand.cost < b.cost || (cand.cost === b.cost && cand.packs < b.packs)) b = cand;
-      }
-      b.counts = { ...b.prev.counts, [b.key]: b.prev.counts[b.key] + 1 };
-      delete b.prev;
-      best[i] = b;
-    }
-    return best[sticks].counts;
-  }
-  const goodsOf = c => SETS.reduce((a, s) => a + c[s.key] * s.price, 0);
+<script type="module">
+  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel } from '/pricing.js';
 
   const STAFF_KEY = 'dango_admin_staff';   // 次回ログイン時の入力補助（名前だけ）
   localStorage.removeItem('dango_admin_pw'); // 以前の版で保存していたパスワードを消す
@@ -322,9 +288,10 @@
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   $('staffName').value = localStorage.getItem(STAFF_KEY) || '';
-  const MAX_STICKS = 200;
-  let qty = 0;            // 本数
-  let cart = bestBundle(0);
+  let products = [];      // 販売中の商品（サーバーから）
+  let rule = { ...DEFAULT_RULE };
+  let productsSig = '';
+  let cart = {};          // { 商品ID: 個数 }
   let manualFee = null;   // null = 自動計算、数値 = 手動で修正した容器代
   let busy = false;
 
@@ -393,12 +360,14 @@
     const done = d.total >= d.target;
     $('mRemain').textContent = done ? yen(d.total - d.target) : yen(d.remaining);
     $('mRemainK').textContent = done ? '達成！黒字（見込）' : '目標まで';
-    $('mSticks').textContent = d.sticks + '本';
+    const units = [...new Set(d.byProduct.filter(g => g.qty).map(g => g.unit).concat(d.units ? [] : d.products.map(p => p.unit)))];
+    $('mSticks').textContent = d.units + (units.length === 1 ? units[0] : '点');
+    syncProducts(d.products, d.rule);
     $('mBar').style.width = Math.min(100, d.rate * 100) + '%';
 
     $('hist').innerHTML = d.recent.length ? d.recent.map(r => {
       const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
-      const desc = SETS.filter(s => r[s.key] > 0).map(s => s.sticks + '本×' + r[s.key]).join(' ');
+      const desc = esc(r.desc);
       const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
       return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
         '<span class="t">' + time + '</span>' +
@@ -417,53 +386,80 @@
   }
   const fmtTime = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  const cartSticks = () => SETS.reduce((a, s) => a + cart[s.key] * s.sticks, 0);
-  const cartGoods = () => SETS.reduce((a, s) => a + cart[s.key] * s.price, 0);
-  const autoFee = () => containerFee(cartSticks());
+  // ---------- 商品とカート ----------
+  function priced() {
+    try { return priceCart(products, rule, cart); }
+    catch { return { lines: [], goods: 0, fee: 0, total: 0, units: 0, containerUnits: 0 }; }
+  }
+  const autoFee = () => priced().fee;
   const currentFee = () => manualFee == null ? autoFee() : manualFee;
-  const cartTotal = () => cartGoods() ? cartGoods() + currentFee() : 0;
+  const cartTotal = () => { const p = priced(); return p.goods ? p.goods + currentFee() : 0; };
 
-  function setQty(n) {
-    n = Math.max(0, Math.min(MAX_STICKS, Math.floor(Number(n) || 0)));
-    if (n !== qty) manualFee = null;   // 本数が変わったら容器代は自動計算に戻す
-    qty = n;
-    cart = bestBundle(qty);
+  /** サーバーの商品一覧が変わったら作り直す（カートは残せる分だけ残す） */
+  function syncProducts(list, r) {
+    const sig = JSON.stringify([list, r]);
+    if (sig === productsSig) return;
+    const first = !productsSig;
+    productsSig = sig;
+    products = list;
+    rule = r;
+    const before = JSON.stringify(cart);
+    for (const id of Object.keys(cart)) if (!products.some(p => String(p.id) === id)) delete cart[id];
+    renderProducts();
+    renderCart();
+    if (!first) toast(JSON.stringify(cart) !== before ? '商品が変更されたため、お会計を一部消しました' : '商品・価格が更新されました', JSON.stringify(cart) !== before);
+  }
+
+  function renderProducts() {
+    $('products').innerHTML = products.map(p =>
+      '<section class="card" data-prod="' + p.id + '">' +
+        '<div class="prod-name"><span>' + esc(p.name) + '</span>' + (p.sets.length > 1 ? '<small>セットは自動で一番安く組みます</small>' : '') + '</div>' +
+        '<div class="items" style="grid-template-columns:repeat(' + Math.min(4, p.sets.length) + ',1fr)">' +
+          p.sets.map(s => '<button class="item" data-pid="' + p.id + '" data-preset="' + s.qty + '"><div class="n">' + s.qty + esc(p.unit) + '</div><div class="p">' + s.price + '円</div></button>').join('') +
+        '</div>' +
+        '<div class="stepper">' +
+          '<button data-pid="' + p.id + '" data-step="-1" aria-label="1' + esc(p.unit) + '減らす">−</button>' +
+          '<span class="qty-box"><input class="qty-input" data-pid="' + p.id + '" type="number" inputmode="numeric" min="0" max="' + MAX_QTY + '" value="0" aria-label="' + esc(p.name) + 'の数"><span class="unit">' + esc(p.unit) + '</span></span>' +
+          '<button data-pid="' + p.id + '" data-step="1" aria-label="1' + esc(p.unit) + '増やす">＋</button>' +
+        '</div>' +
+      '</section>'
+    ).join('') || '<section class="card"><div class="empty">販売中の商品がありません（管理画面で追加してください）</div></section>';
+  }
+
+  const qtyOf = pid => cart[pid] || 0;
+  function setQty(pid, n) {
+    n = Math.max(0, Math.min(MAX_QTY, Math.floor(Number(n) || 0)));
+    if (n !== qtyOf(pid)) manualFee = null;   // 個数が変わったら容器代は自動計算に戻す
+    if (n) cart[pid] = n; else delete cart[pid];
     renderCart();
   }
 
-  /** あと何本か足すと、合計（容器代込み）が同じか安くなる場合の提案 */
-  function upsellFor(n) {
-    if (!n) return null;
-    const total = k => goodsOf(bestBundle(k)) + containerFee(k);
-    let best = null;
-    for (let m = n + 1; m <= Math.min(MAX_STICKS, n + 4); m++) {
-      if (total(m) <= total(n) && (!best || total(m) < total(best))) best = m;
-    }
-    return best && { sticks: best, total: total(best), save: total(n) - total(best) };
-  }
-
   function renderCart() {
-    if (document.activeElement !== $('qtyInput')) $('qtyInput').value = qty;
-    document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', Number(b.dataset.preset) === qty));
-    const lines = SETS.filter(s => cart[s.key] > 0).reverse();
-    $('cart').innerHTML = lines.length ? lines.map(s =>
-      '<div class="cart-line"><span>' + s.sticks + '本セット × ' + cart[s.key] + '</span>' +
-      '<span class="sub">' + yen(cart[s.key] * s.price) + '</span></div>'
-    ).join('') : '<div class="empty">本数を選んでください</div>';
+    document.querySelectorAll('.qty-input').forEach(inp => { if (document.activeElement !== inp) inp.value = qtyOf(inp.dataset.pid); });
+    document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', Number(b.dataset.preset) === qtyOf(b.dataset.pid)));
+    const pr = priced();
 
-    const up = upsellFor(qty);
-    $('upsell').innerHTML = up
-      ? '<div class="upsell"><span>💡 あと' + (up.sticks - qty) + '本で' + yen(up.total) + '（' + (up.save > 0 ? yen(up.save) + '安く' : '同じ金額') + 'なります）</span>' +
-        '<button data-setqty="' + up.sticks + '">' + up.sticks + '本にする</button></div>'
-      : '';
+    $('cart').innerHTML = pr.lines.length ? pr.lines.map(l =>
+      (pr.lines.length > 1 ? '<div class="cart-group">' + esc(l.product.name) + ' ' + l.qty + esc(l.product.unit) + '</div>' : '') +
+      l.packs.map(k => '<div class="cart-line"><span>' + (pr.lines.length > 1 ? '' : esc(l.product.name) + ' ') + packLabel(k, esc(l.product.unit)) + ' × ' + k.count + '</span>' +
+        '<span class="sub">' + yen(k.price * k.count) + '</span></div>').join('')
+    ).join('') : '<div class="empty">商品の数を選んでください</div>';
 
-    if (lines.length) {
+    $('upsell').innerHTML = pr.lines.map(l => {
+      const up = upsell(products, rule, cart, l.product.id);
+      if (!up) return '';
+      const u = esc(l.product.unit);
+      return '<div class="upsell"><span>💡 ' + esc(l.product.name) + 'をあと' + (up.qty - l.qty) + u + 'で合計' + yen(up.total) + '（' + (up.save > 0 ? yen(up.save) + '安く' : '同じ金額') + 'なります）</span>' +
+        '<button data-pid="' + l.product.id + '" data-setqty="' + up.qty + '">' + up.qty + u + 'にする</button></div>';
+    }).join('');
+
+    if (pr.lines.length) {
       const fee = currentFee();
       const isManual = manualFee != null && manualFee !== autoFee();
       $('containerRow').innerHTML =
         '<div class="cart-line fee"><span>容器代<span class="tag' + (isManual ? ' manual' : '') + '">' + (isManual ? '手動' : '自動') + '</span>' +
         (isManual ? '<button class="reset-fee" data-feereset="1">自動に戻す</button>' : '') + '</span>' +
-        '<span class="ctrl"><button data-fee="-10">−</button><span class="qty">' + (fee / 10) + '</span><button data-fee="10">＋</button></span>' +
+        '<span class="ctrl"><button data-fee="-' + (rule.fee || 10) + '">−</button><span class="qty">' + (fee / (rule.fee || 10)) + '</span><button data-fee="' + (rule.fee || 10) + '">＋</button></span>' +
         '<span class="sub">' + yen(fee) + '</span></div>';
     } else {
       $('containerRow').innerHTML = '';
@@ -471,26 +467,22 @@
 
     const total = cartTotal();
     $('cartTotal').textContent = yen(total);
-    $('cartSticks').textContent = cartSticks() + '本';
+    $('cartSticks').textContent = pr.lines.map(l => esc(l.product.name) + l.qty + esc(l.product.unit)).join('・');
     document.querySelectorAll('.pay').forEach(b => b.disabled = busy || total === 0);
   }
 
-  // 本数のプリセット（1本・3本・5本）
-  $('items').innerHTML = SETS.map(s =>
-    '<button class="item" data-preset="' + s.sticks + '"><div class="n">' + s.sticks + '本</div><div class="p">' + s.price + '円</div></button>'
-  ).join('');
-  $('qtyInput').oninput = () => setQty($('qtyInput').value);
-  $('qtyInput').onfocus = () => $('qtyInput').select();
-  $('qtyInput').onblur = () => { $('qtyInput').value = qty; };
-  $('qtyInput').onkeydown = e => { if (e.key === 'Enter') $('qtyInput').blur(); };
+  $('products').addEventListener('input', e => { if (e.target.classList.contains('qty-input')) setQty(e.target.dataset.pid, e.target.value); });
+  $('products').addEventListener('focusin', e => { if (e.target.classList.contains('qty-input')) e.target.select(); });
+  $('products').addEventListener('focusout', e => { if (e.target.classList.contains('qty-input')) e.target.value = qtyOf(e.target.dataset.pid); });
+  $('products').addEventListener('keydown', e => { if (e.target.classList.contains('qty-input') && e.key === 'Enter') e.target.blur(); });
 
   document.addEventListener('click', async e => {
     const b = e.target.closest('button');
     if (!b) return;
     const d = b.dataset;
-    if (d.preset) setQty(d.preset);
-    if (d.step) setQty(qty + Number(d.step));
-    if (d.setqty) setQty(d.setqty);
+    if (d.preset) setQty(d.pid, d.preset);
+    if (d.step) setQty(d.pid, qtyOf(d.pid) + Number(d.step));
+    if (d.setqty) setQty(d.pid, d.setqty);
     if (d.fee) { manualFee = Math.max(0, currentFee() + Number(d.fee)); renderCart(); }
     if (d.feereset) { manualFee = null; renderCart(); }
     if (d.pay) openPay(d.pay);
@@ -500,7 +492,8 @@
 
   function resetCart() {
     manualFee = null;
-    setQty(0);
+    cart = {};
+    renderCart();
   }
 
   // ---------- 操作 ----------
@@ -552,11 +545,12 @@
     $('cfPay').textContent = p.method;
     $('cfPay').className = 'pay-badge ' + PAY_CLASS[p.method];
     const fee = currentFee();
-    $('cfLines').innerHTML = SETS.filter(s => cart[s.key] > 0).reverse().map(s =>
-      '<div class="sum-line"><span>' + s.sticks + '本セット（' + s.price + '円）× ' + cart[s.key] + '</span><span class="sub">' + yen(cart[s.key] * s.price) + '</span></div>'
-    ).join('') +
+    const pr = priced();
+    $('cfLines').innerHTML = pr.lines.map(l => l.packs.map(k =>
+      '<div class="sum-line"><span>' + esc(l.product.name) + ' ' + packLabel(k, esc(l.product.unit)) + '（' + k.price + '円）× ' + k.count + '</span><span class="sub">' + yen(k.price * k.count) + '</span></div>'
+    ).join('')).join('') +
       (fee ? '<div class="sum-line fee"><span>容器代' + (manualFee != null && manualFee !== autoFee() ? '（手動）' : '') + '</span><span class="sub">' + yen(fee) + '</span></div>' : '') +
-      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>本数</span><span>' + cartSticks() + '本</span></div>';
+      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(l => esc(l.product.name) + l.qty + esc(l.product.unit)).join('・') + '</span></div>';
     $('cfTotal').textContent = yen(p.total);
     const isCash = p.method === '現金';
     $('cfCash').classList.toggle('hidden', !isCash);
@@ -585,7 +579,7 @@
     const p = pending;
     busy = true; $('cfYes').disabled = true; renderCart();
     try {
-      const d = await api('sales', { sticks: qty, container: currentFee(), payment: p.method });
+      const d = await api('sales', { items: cart, container: currentFee(), payment: p.method, expectedGoods: priced().goods });
       closePay();
       toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : ''));
       busy = false;
@@ -593,6 +587,7 @@
       renderData(d);
     } catch (e) {
       busy = false; $('cfYes').disabled = false; renderCart();
+      if (e.status === 409) { closePay(); await refresh(); }   // 価格や商品が変わっていた
       toast('記録に失敗しました：' + e.message, true);
     }
   };
@@ -610,7 +605,6 @@
     catch (e) { toast('更新に失敗しました：' + e.message, true); }
   }
 
-  renderCart();
   start();
   setInterval(() => { if (!busy && !$('app').classList.contains('hidden')) refresh(); }, 30000);
 </script>

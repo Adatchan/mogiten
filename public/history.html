@@ -69,13 +69,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script>
-  // admin.html の SETS と合わせる（表示用）
-  const SETS = [
-    { key: 's1', sticks: 1 },
-    { key: 's3', sticks: 3 },
-    { key: 's5', sticks: 5 },
-  ];
+<script type="module">
   const $ = id => document.getElementById(id);
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -126,11 +120,11 @@
         groups[groups.length - 1].items.push(r);
       });
       $('list').innerHTML = groups.map(g => '<div class="day">' + g.day + '</div><section class="card">' + g.items.map(r => {
-        const desc = SETS.filter(s => r[s.key] > 0).reverse().map(s => s.sticks + '本×' + r[s.key]).join(' ');
+        const desc = esc(r.desc);
         const fee = r.container ? '＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') : '';
         return '<div class="line' + (r.cancelled ? ' cancelled' : '') + '">' +
           '<span class="t">' + timeLabel(r.created_at) + '</span>' +
-          '<span class="d">' + desc + '（' + r.sticks + '本）' + (r.cancelled ? '<span class="tag">取消</span>' : '') +
+          '<span class="d">' + desc + (r.cancelled ? '<span class="tag">取消</span>' : '') +
             '<br><span class="s">' + ['#' + r.id, fee, r.payment, r.staff ? '担当 ' + esc(r.staff) : ''].filter(Boolean).map(x => '<span class="nw">' + x + '</span>').join('　') + '</span></span>' +
           '<span class="a">' + yen(r.amount) + '</span>' +
           '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
