@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>団子レジ 管理画面</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f1ec;
+    --card: #ffffff;
+    --ink: #2b2420;
+    --sub: #7a6f66;
+    --line: #e4dccf;
+    --brown: #8a5a3b;
+    --dark: #3d3029;
+    --red: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', sans-serif; background: var(--bg); color: var(--ink); }
+  button, input { font-family: inherit; }
+  button { cursor: pointer; border: none; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
+  .top h1 { font-size: 20px; margin: 0; }
+  .top .links a { font-size: 13px; color: var(--brown); margin-left: 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .note { color: var(--sub); font-size: 12px; margin-top: 6px; line-height: 1.6; }
+  .mini { display: flex; gap: 8px; text-align: center; }
+  .mini > div { flex: 1; }
+  .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mini .k { font-size: 11px; color: var(--sub); }
+
+  .btn { background: var(--dark); color: #fff; border-radius: 8px; padding: 10px 14px; font-size: 14px; text-decoration: none; display: inline-block; }
+  .btn.danger { background: var(--red); }
+  .btn.sub { background: #efe8de; color: var(--ink); }
+  .btn.small { padding: 5px 10px; font-size: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .form input[type=password] { width: 100%; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; }
+  .form label { display: flex; gap: 6px; align-items: center; font-size: 14px; margin-bottom: 8px; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 10px; background: #efe8de; color: var(--sub); vertical-align: middle; }
+  .badge.ok { background: #e3f0d8; color: #3d6b1f; }
+  .badge.warn { background: #fde7c8; color: #9a5b00; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--sub); font-weight: 700; font-size: 12px; border-top: none; }
+  td.t { color: var(--sub); white-space: nowrap; }
+  .empty { color: var(--sub); text-align: center; padding: 10px 0; }
+  .scroll { max-height: 420px; overflow: auto; }
+
+  #login { max-width: 360px; margin: 80px auto; text-align: center; }
+  #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
+  #login button { width: 100%; padding: 14px; font-size: 18px; background: var(--dark); color: #fff; border-radius: 10px; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--dark); color: #fff;
+           padding: 12px 18px; border-radius: 10px; font-size: 14px; transition: transform .25s; max-width: 92vw; z-index: 10; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--red); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="login" class="card hidden">
+  <h2 style="font-size:20px">🔐 管理画面</h2>
+  <div class="note">マスターパスワードを入力してください</div>
+  <input id="pw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+  <button id="loginBtn">ログイン</button>
+  <div class="note">ログインは12時間有効です</div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <div class="top">
+    <h1>🔐 団子レジ 管理画面</h1>
+    <div class="links"><a href="/admin" target="_blank">レジ ↗</a><a href="/" target="_blank">ダッシュボード ↗</a></div>
+  </div>
+
+  <section class="card">
+    <div class="mini">
+      <div><div class="v" id="mTotal">—</div><div class="k">売上</div></div>
+      <div><div class="v" id="mOrders">—</div><div class="k">会計数</div></div>
+      <div><div class="v" id="mSticks">—</div><div class="k">本数</div></div>
+    </div>
+    <div style="margin-top:12px"><a class="btn sub" href="/api/master/sales.csv" download>⬇ 売上明細CSV（取消分を除く）</a></div>
+  </section>
+
+  <section class="card">
+    <h2>ログイン中の端末</h2>
+    <div id="sessions"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn danger" id="revokeRegBtn">レジ端末をすべて締め出す</button>
+      <button class="btn sub" id="revokeMasterBtn">ほかのマスター端末を締め出す</button>
+    </div>
+    <div class="note">締め出された端末は、次の操作でログイン画面に戻ります。パスワードを知っていれば再ログインできるので、端末をなくしたときなどは下でパスワードも変えてください。</div>
+  </section>
+
+  <section class="card">
+    <h2>ログイン制限 <span class="badge" id="lockState"></span></h2>
+    <button class="btn sub" id="unlockBtn">ログイン制限を解除</button>
+    <div class="note">同じ接続元から10分間に5回パスワードを間違えると、その接続元からは10分間ログインできなくなります。学校の Wi-Fi などでは全員が同じ接続元になるため、打ち間違いで巻き込まれたときはここで解除してください（ログイン済みの端末には影響しません）。</div>
+  </section>
+
+  <section class="card form">
+    <h2>レジのパスワードを変更 <span class="badge" id="regPwState"></span></h2>
+    <input id="regNew" type="password" autocomplete="new-password" placeholder="新しいレジ用パスワード（8文字以上）">
+    <input id="regNew2" type="password" autocomplete="new-password" placeholder="新しいレジ用パスワード（確認）">
+    <label><input type="checkbox" id="regRevoke"> 同時にレジ端末をすべて締め出す</label>
+    <button class="btn" id="regBtn">変更する</button>
+    <div class="note">今のパスワードを知らなくても変更できます（マスターだけの操作）。</div>
+  </section>
+
+  <section class="card form">
+    <h2>マスターパスワードを変更 <span class="badge" id="masterPwState"></span></h2>
+    <input id="mCur" type="password" autocomplete="current-password" placeholder="今のマスターパスワード">
+    <input id="mNew" type="password" autocomplete="new-password" placeholder="新しいマスターパスワード（8文字以上）">
+    <input id="mNew2" type="password" autocomplete="new-password" placeholder="新しいマスターパスワード（確認）">
+    <button class="btn" id="mBtn">変更する</button>
+    <div class="note">変更すると、この端末以外のマスターログインは解除されます。</div>
+  </section>
+
+  <section class="card">
+    <h2>操作の記録</h2>
+    <div class="scroll" id="audit"></div>
+  </section>
+
+  <button class="btn sub" id="logoutBtn">ログアウト</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const ROLE = { register: 'レジ', master: 'マスター' };
+
+  async function api(path, body) {
+    const res = await fetch('/api/master/' + path, {
+      method: body ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 401 && path !== 'login' && path !== 'master-password') showLogin(d.error);
+    if (!res.ok) throw new Error(d.error || ('通信エラー ' + res.status));
+    return d;
+  }
+
+  function toast(msg, isErr) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.className = 'toast' + (isErr ? ' err' : ''), 3000);
+  }
+
+  function showLogin(msg) {
+    if (!$('app').classList.contains('hidden') && msg) toast(msg, true);
+    $('app').classList.add('hidden');
+    $('login').classList.remove('hidden');
+  }
+
+  function render(d) {
+    $('login').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    $('mTotal').textContent = yen(d.total);
+    $('mOrders').textContent = d.orders + '件';
+    $('mSticks').textContent = d.sticks + '本';
+
+    $('sessions').innerHTML = d.sessions.length ? '<table><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th></th></tr>' +
+      d.sessions.map(s => '<tr><td>' + ROLE[s.role] + '</td><td>' + esc(s.staff) + '</td><td>' + esc(s.device) + '</td>' +
+        '<td class="t">' + fmt(s.created_at) + '</td><td class="t">' + fmt(s.last_seen) + '</td>' +
+        '<td>' + (s.current ? '<span class="badge ok">この端末</span>' : '<button class="btn danger small" data-revoke="' + s.id + '">締め出す</button>') + '</td></tr>'
+      ).join('') + '</table>' : '<div class="empty">ログイン中の端末はありません</div>';
+
+    const state = (el, changed) => {
+      el.textContent = changed ? '画面から設定済み' : '初期パスワードのまま';
+      el.className = 'badge ' + (changed ? 'ok' : 'warn');
+    };
+    state($('regPwState'), d.passwords.registerChanged);
+    state($('masterPwState'), d.passwords.masterChanged);
+    $('lockState').textContent = d.locked.length ? 'ロック中：' + d.locked.join('・') : 'ロックなし';
+    $('lockState').className = 'badge ' + (d.locked.length ? 'warn' : 'ok');
+
+    $('audit').innerHTML = d.audit.length ? '<table><tr><th>日時</th><th>誰が</th><th>操作</th><th>内容</th></tr>' +
+      d.audit.map(a => '<tr><td class="t">' + fmt(a.at) + '</td><td>' + esc(a.actor) + '</td><td>' + esc(a.action) + '</td><td>' + esc(a.detail) + '</td></tr>').join('') +
+      '</table>' : '<div class="empty">記録はありません</div>';
+  }
+
+  async function run(fn, okMsg) {
+    try { render(await fn()); if (okMsg) toast(okMsg); }
+    catch (e) { toast(e.message, true); }
+  }
+
+  async function login() {
+    if (!$('pw').value) return;
+    await run(() => api('login', { password: $('pw').value }));
+    $('pw').value = '';
+  }
+  $('loginBtn').onclick = login;
+  $('pw').onkeydown = e => { if (e.key === 'Enter') login(); };
+  $('logoutBtn').onclick = async () => { await api('logout', {}).catch(() => {}); location.reload(); };
+
+  $('sessions').onclick = e => {
+    const id = e.target.dataset.revoke;
+    if (id && confirm('この端末を締め出しますか？')) run(() => api('sessions/' + id + '/revoke', {}), '締め出しました');
+  };
+  $('revokeRegBtn').onclick = () => {
+    if (confirm('ログイン中のレジ端末をすべて締め出しますか？\n（営業中のレジもログインし直しになります）')) run(() => api('revoke-all', { target: 'register' }), 'レジ端末を締め出しました');
+  };
+  $('revokeMasterBtn').onclick = () => {
+    if (confirm('この端末以外のマスターログインをすべて解除しますか？')) run(() => api('revoke-all', { target: 'master' }), '解除しました');
+  };
+
+  $('unlockBtn').onclick = () => run(() => api('unlock', {}), 'ログイン制限を解除しました');
+  $('regBtn').onclick = () => {
+    if ($('regNew').value !== $('regNew2').value) return toast('新しいパスワードが一致しません', true);
+    const revokeAll = $('regRevoke').checked;
+    if (revokeAll && !confirm('パスワードを変更して、レジ端末をすべて締め出しますか？')) return;
+    run(async () => {
+      const d = await api('register-password', { next: $('regNew').value, revokeAll });
+      ['regNew', 'regNew2'].forEach(id => $(id).value = '');
+      $('regRevoke').checked = false;
+      return d;
+    }, 'レジのパスワードを変更しました');
+  };
+  $('mBtn').onclick = () => {
+    if ($('mNew').value !== $('mNew2').value) return toast('新しいパスワードが一致しません', true);
+    run(async () => {
+      const d = await api('master-password', { current: $('mCur').value, next: $('mNew').value });
+      ['mCur', 'mNew', 'mNew2'].forEach(id => $(id).value = '');
+      return d;
+    }, 'マスターパスワードを変更しました');
+  };
+
+  api('data').then(render).catch(() => showLogin());
+  setInterval(() => { if (!$('app').classList.contains('hidden')) api('data').then(render).catch(() => {}); }, 30000);
+</script>
+</body>
+</html>
