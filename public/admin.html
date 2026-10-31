@@ -72,11 +72,39 @@
   .clear { background: none; color: var(--sub); font-size: 13px; text-decoration: underline; padding: 4px; }
 
   /* おつり */
-  .change { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .change button { background: #f1ebe2; border-radius: 8px; padding: 8px 10px; font-size: 14px; color: var(--ink); }
-  .change input { width: 90px; padding: 8px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; }
-  .change-result { margin-top: 8px; font-size: 18px; }
-  .change-result b { font-size: 26px; }
+  /* 支払いのポップアップ */
+  .modal { position: fixed; inset: 0; background: rgba(43, 36, 32, .55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+  .sheet { background: var(--card); width: 100%; max-width: 560px; max-height: 94vh; overflow: auto; border-radius: 20px 20px 0 0; padding: 18px 16px 22px; }
+  @media (min-height: 700px) and (min-width: 600px) { .modal { align-items: center; } .sheet { border-radius: 20px; } }
+  .sheet h3 { margin: 0 0 12px; font-size: 18px; text-align: center; }
+  .pay-badge { display: block; text-align: center; color: #fff; font-size: 30px; font-weight: 700; border-radius: 14px; padding: 14px 8px; margin-bottom: 14px; letter-spacing: .05em; }
+  .pay-badge.cash { background: var(--cash); }
+  .pay-badge.paypay { background: var(--paypay); }
+  .pay-badge.dpay { background: var(--dpay); }
+  .sum-lines { font-size: 16px; }
+  .sum-line { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px dashed var(--line); }
+  .sum-line:first-child { border-top: none; }
+  .sum-line .sub { font-variant-numeric: tabular-nums; }
+  .sum-line.fee { color: var(--brown); }
+  .big-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; padding-top: 10px; border-top: 2px solid var(--ink); }
+  .big-total .k { font-size: 15px; color: var(--sub); }
+  .big-total .v { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cash-box { margin-top: 12px; background: #f4f9ef; border: 2px solid var(--cash); border-radius: 14px; padding: 10px 14px; }
+  .cash-box .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 16px; padding: 3px 0; }
+  .cash-box .row .v { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .cash-box .change-v { font-size: 40px; color: var(--cash); }
+  .recv-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
+  .recv-quick button { background: #f1ebe2; border-radius: 10px; padding: 14px 4px; font-size: 17px; font-weight: 700; color: var(--ink); }
+  .recv-quick button.exact { background: #e3f0d8; color: #3d6b1f; }
+  .recv-input { width: 100%; padding: 14px; font-size: 26px; text-align: right; border: 2px solid var(--line); border-radius: 12px; font-variant-numeric: tabular-nums; }
+  .recv-input:focus { outline: none; border-color: var(--cash); }
+  .recv-msg { min-height: 1.6em; margin-top: 8px; font-size: 18px; text-align: right; }
+  .recv-msg.short { color: #c0392b; font-weight: 700; }
+  .modal-btns { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; margin-top: 16px; }
+  .modal-btns button { border-radius: 14px; padding: 18px 4px; font-size: 19px; font-weight: 700; }
+  .modal-btns .no { background: #f1ebe2; color: var(--ink); }
+  .modal-btns .yes { background: var(--brown); color: #fff; }
+  .back-link { display: block; margin: 10px auto 0; background: none; color: var(--brown); font-size: 14px; text-decoration: underline; }
 
   /* 支払ボタン */
   .pays { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -113,7 +141,7 @@
   #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
   #login button { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; }
 
-  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 16px; transition: transform .25s; z-index: 10; max-width: 90%; text-align: center; white-space: nowrap; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 16px; transition: transform .25s; z-index: 30; max-width: 90%; text-align: center; white-space: nowrap; }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.err { background: #c0392b; }
   .hidden { display: none !important; }
@@ -165,19 +193,6 @@
   </section>
 
   <section class="card">
-    <div class="label">お預かり（現金のとき・任意）</div>
-    <div class="change">
-      <button data-recv="500">500</button>
-      <button data-recv="1000">1,000</button>
-      <button data-recv="2000">2,000</button>
-      <button data-recv="5000">5,000</button>
-      <button data-recv="10000">10,000</button>
-      <input id="recv" type="number" inputmode="numeric" placeholder="金額">
-    </div>
-    <div class="change-result" id="changeResult"></div>
-  </section>
-
-  <section class="card">
     <div class="label">支払方法を選んで記録</div>
     <div class="pays">
       <button class="pay cash" data-pay="現金">現金</button>
@@ -211,6 +226,38 @@
   </section>
 
   <button class="clear" id="logoutBtn">ログアウト（担当者の交代もここから）</button>
+</div>
+
+<!-- 支払いのポップアップ（お預かり入力 → 最終確認） -->
+<div id="modal" class="modal hidden">
+  <div class="sheet">
+    <div id="stepRecv" class="hidden">
+      <h3>お預かり金額を入力</h3>
+      <div class="big-total"><span class="k">合計</span><span class="v" id="recvTotal"></span></div>
+      <div class="recv-quick" id="recvQuick"></div>
+      <input id="recvInput" class="recv-input" type="number" inputmode="numeric" min="0" placeholder="お預かり金額">
+      <div class="recv-msg" id="recvMsg"></div>
+      <div class="modal-btns">
+        <button class="no" id="recvCancel">やめる</button>
+        <button class="yes" id="recvNext" disabled>次へ</button>
+      </div>
+    </div>
+    <div id="stepConfirm" class="hidden">
+      <h3>この内容で記録しますか？</h3>
+      <span class="pay-badge" id="cfPay"></span>
+      <div class="sum-lines" id="cfLines"></div>
+      <div class="big-total"><span class="k">合計</span><span class="v" id="cfTotal"></span></div>
+      <div class="cash-box hidden" id="cfCash">
+        <div class="row"><span>お預かり</span><span class="v" id="cfRecv"></span></div>
+        <div class="row"><span>おつり</span><span class="v change-v" id="cfChange"></span></div>
+      </div>
+      <div class="modal-btns">
+        <button class="no" id="cfNo">いいえ</button>
+        <button class="yes" id="cfYes">はい（記録する）</button>
+      </div>
+      <button class="back-link hidden" id="cfBack">← お預かり金額を入力し直す</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -351,17 +398,6 @@
     $('cartTotal').textContent = yen(total);
     $('cartSticks').textContent = cartSticks() + '本';
     document.querySelectorAll('.pay').forEach(b => b.disabled = busy || total === 0);
-    renderChange();
-  }
-
-  function renderChange() {
-    const recv = Number($('recv').value);
-    const total = cartTotal();
-    if (!recv || !total) { $('changeResult').innerHTML = ''; return; }
-    const diff = recv - total;
-    $('changeResult').innerHTML = diff >= 0
-      ? 'おつり <b>' + yen(diff) + '</b>'
-      : '<span style="color:#c0392b">' + yen(-diff) + ' 足りません</span>';
   }
 
   // 商品ボタン
@@ -378,36 +414,110 @@
     if (d.dec) { cart[d.dec] = Math.max(0, cart[d.dec] - 1); renderCart(); }
     if (d.fee) { manualFee = Math.max(0, currentFee() + Number(d.fee)); renderCart(); }
     if (d.feereset) { manualFee = null; renderCart(); }
-    if (d.recv) { $('recv').value = d.recv; renderChange(); }
-    if (d.pay) await pay(d.pay);
+    if (d.pay) openPay(d.pay);
     if (d.cancel) await cancel(d.cancel, b.textContent);
   });
-  $('recv').oninput = renderChange;
   $('clearBtn').onclick = resetCart;
 
   function resetCart() {
     cart = { s1: 0, s3: 0, s5: 0 };
     manualFee = null;
-    $('recv').value = '';
     renderCart();
   }
 
   // ---------- 操作 ----------
-  async function pay(method) {
+  // 支払方法ボタン → （現金ならお預かり入力）→ 最終確認 → 記録
+  const PAY_CLASS = { '現金': 'cash', 'PayPay': 'paypay', 'd払い': 'dpay' };
+  let pending = null;   // { method, total, received }
+
+  function openPay(method) {
     const total = cartTotal();
     if (busy || !total) return;
-    busy = true; renderCart();
+    pending = { method, total, received: null };
+    $('modal').classList.remove('hidden');
+    if (method === '現金') showRecv(); else showConfirm();
+  }
+
+  function closePay() {
+    pending = null;
+    $('modal').classList.add('hidden');
+  }
+
+  function showRecv() {
+    const total = pending.total;
+    $('stepConfirm').classList.add('hidden');
+    $('stepRecv').classList.remove('hidden');
+    $('recvTotal').textContent = yen(total);
+    // よく使う金額（合計以上のものだけ）
+    const quick = [500, 1000, 2000, 5000, 10000].filter(v => v > total).slice(0, 5);
+    $('recvQuick').innerHTML = '<button class="exact" data-mrecv="' + total + '">ちょうど<br>' + yen(total) + '</button>' +
+      quick.map(v => '<button data-mrecv="' + v + '">' + yen(v) + '</button>').join('');
+    $('recvInput').value = pending.received ?? '';
+    renderRecv();
+    setTimeout(() => $('recvInput').focus(), 50);
+  }
+
+  function renderRecv() {
+    const v = Number($('recvInput').value);
+    const ok = $('recvInput').value !== '' && Number.isFinite(v) && v >= pending.total;
+    $('recvNext').disabled = !ok;
+    const msg = $('recvMsg');
+    if ($('recvInput').value === '') { msg.textContent = ''; msg.className = 'recv-msg'; }
+    else if (!ok) { msg.textContent = yen(Math.max(0, pending.total - v)) + ' 足りません'; msg.className = 'recv-msg short'; }
+    else { msg.textContent = 'おつり ' + yen(v - pending.total); msg.className = 'recv-msg'; }
+  }
+
+  function showConfirm() {
+    const p = pending;
+    $('stepRecv').classList.add('hidden');
+    $('stepConfirm').classList.remove('hidden');
+    $('cfPay').textContent = p.method;
+    $('cfPay').className = 'pay-badge ' + PAY_CLASS[p.method];
+    const fee = currentFee();
+    $('cfLines').innerHTML = SETS.filter(s => cart[s.key] > 0).map(s =>
+      '<div class="sum-line"><span>' + s.sticks + '本セット（' + s.price + '円）× ' + cart[s.key] + '</span><span class="sub">' + yen(cart[s.key] * s.price) + '</span></div>'
+    ).join('') +
+      (fee ? '<div class="sum-line fee"><span>容器代' + (manualFee != null && manualFee !== autoFee() ? '（手動）' : '') + '</span><span class="sub">' + yen(fee) + '</span></div>' : '') +
+      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>本数</span><span>' + cartSticks() + '本</span></div>';
+    $('cfTotal').textContent = yen(p.total);
+    const isCash = p.method === '現金';
+    $('cfCash').classList.toggle('hidden', !isCash);
+    $('cfBack').classList.toggle('hidden', !isCash);
+    if (isCash) {
+      $('cfRecv').textContent = yen(p.received);
+      $('cfChange').textContent = yen(p.received - p.total);
+    }
+    $('cfYes').disabled = false;
+  }
+
+  $('recvInput').oninput = renderRecv;
+  $('recvInput').onkeydown = e => { if (e.key === 'Enter' && !$('recvNext').disabled) $('recvNext').click(); };
+  $('recvQuick').onclick = e => {
+    const b = e.target.closest('[data-mrecv]');
+    if (!b) return;
+    $('recvInput').value = b.dataset.mrecv;
+    renderRecv();
+  };
+  $('recvNext').onclick = () => { pending.received = Number($('recvInput').value); showConfirm(); };
+  $('recvCancel').onclick = closePay;
+  $('cfNo').onclick = closePay;
+  $('cfBack').onclick = showRecv;
+  $('cfYes').onclick = async () => {
+    if (!pending || busy) return;
+    const p = pending;
+    busy = true; $('cfYes').disabled = true; renderCart();
     try {
-      const d = await api('sales', { ...cart, container: currentFee(), payment: method });
-      toast('記録しました：' + yen(total) + '（' + method + '）');
+      const d = await api('sales', { ...cart, container: currentFee(), payment: p.method });
+      closePay();
+      toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : ''));
       busy = false;
       resetCart();
       renderData(d);
     } catch (e) {
-      busy = false; renderCart();
+      busy = false; $('cfYes').disabled = false; renderCart();
       toast('記録に失敗しました：' + e.message, true);
     }
-  }
+  };
 
   async function cancel(id, label) {
     if (!confirm(label === '取消' ? 'この会計を取り消しますか？' : '取消を元に戻しますか？')) return;
