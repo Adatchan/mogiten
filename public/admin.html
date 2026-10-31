@@ -164,6 +164,41 @@
   .toast.err { background: #c0392b; }
   .hidden { display: none !important; }
 
+  /* ===== コンパクト表示（スマホ縦画面に 商品 → お会計 → 支払ボタン が収まるように） ===== */
+  .wrap { padding: 8px 10px 40px; }
+  .card { padding: 10px 12px; margin-bottom: 8px; border-radius: 14px; }
+  .label { margin-bottom: 4px; }
+  .top { margin-bottom: 6px; }
+  .top h1 { font-size: 17px; }
+  .mini .v { font-size: 17px; }
+  .mini .k { font-size: 10px; }
+  .minibar { margin-top: 6px; height: 5px; }
+  .prod-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .prod-head .pn { font-size: 17px; font-weight: 700; line-height: 1.25; min-width: 0; }
+  .prod-head .pn small { display: block; font-size: 12px; font-weight: 400; color: var(--sub); }
+  .prod .items { gap: 8px; margin-top: 8px; }
+  .item { padding: 6px 2px; border-radius: 10px; display: flex; align-items: baseline; justify-content: center; gap: 4px; flex-wrap: wrap; }
+  .item .n { font-size: 20px; font-weight: 700; }
+  .item .p { font-size: 13px; margin-top: 0; }
+  .stepper { margin-top: 0; gap: 6px; flex-shrink: 0; }
+  .stepper button { width: 44px; height: 44px; font-size: 24px; }
+  .stepper .qty-box { gap: 2px; }
+  .stepper input { width: 2.4em; font-size: 26px; padding: 2px 0; border-radius: 10px; }
+  .stepper .unit { font-size: 14px; }
+  .cart-line { padding: 4px 0; font-size: 15px; }
+  .cart-line .packs { font-size: 12px; color: var(--sub); margin-left: 2px; }
+  .upsell span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cart-line .ctrl button { width: 30px; height: 30px; font-size: 18px; }
+  .cart-group { margin-top: 2px; }
+  .upsell { margin-top: 6px; padding: 6px 8px; font-size: 13px; }
+  .upsell button { padding: 6px 8px; font-size: 13px; }
+  .total { margin-top: 6px; padding-top: 6px; }
+  .total .v { font-size: 30px; }
+  .total .s { font-size: 12px; }
+  .pays { gap: 8px; }
+  .pay { padding: 12px 4px; font-size: 17px; border-radius: 12px; }
+  .net { padding: 5px 10px; margin-bottom: 6px; border-radius: 10px; }
+
   /* 通信状態と未送信（オフライン対応） */
   .net { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px;
          background: #eef6e8; border: 1px solid #cfe3bf; color: #2f5a17; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
@@ -237,7 +272,6 @@
   </section>
 
   <section class="card">
-    <div class="label">支払方法を選んで記録</div>
     <div class="pays">
       <button class="pay cash" data-pay="現金">現金</button>
       <button class="pay paypay" data-pay="PayPay">PayPay</button>
@@ -497,16 +531,21 @@
 
   function renderProducts() {
     $('products').innerHTML = products.map(p =>
-      '<section class="card" data-prod="' + p.id + '">' +
-        '<div class="prod-name"><span>' + esc(p.name) + '</span>' + (p.sets.length > 1 ? '<small>セットは自動で一番安く組みます</small>' : '') + '</div>' +
-        '<div class="items" style="grid-template-columns:repeat(' + Math.min(4, p.sets.length) + ',1fr)">' +
-          p.sets.map(s => '<button class="item" data-pid="' + p.id + '" data-preset="' + s.qty + '"><div class="n">' + s.qty + esc(p.unit) + '</div><div class="p">' + s.price + '円</div></button>').join('') +
+      // 1 行目：商品名と −［数］＋　2 行目：セットのボタン（セットが 1 種類だけの商品は省略）
+      '<section class="card prod" data-prod="' + p.id + '">' +
+        '<div class="prod-head">' +
+          '<div class="pn">' + esc(p.name) + (p.sets.length > 1 ? '' : '<small>' + p.sets[0].price + '円／' + esc(p.unit) + '</small>') + '</div>' +
+          '<div class="stepper">' +
+            '<button data-pid="' + p.id + '" data-step="-1" aria-label="1' + esc(p.unit) + '減らす">−</button>' +
+            '<span class="qty-box"><input class="qty-input" data-pid="' + p.id + '" type="number" inputmode="numeric" min="0" max="' + MAX_QTY + '" value="0" aria-label="' + esc(p.name) + 'の数"><span class="unit">' + esc(p.unit) + '</span></span>' +
+            '<button data-pid="' + p.id + '" data-step="1" aria-label="1' + esc(p.unit) + '増やす">＋</button>' +
+          '</div>' +
         '</div>' +
-        '<div class="stepper">' +
-          '<button data-pid="' + p.id + '" data-step="-1" aria-label="1' + esc(p.unit) + '減らす">−</button>' +
-          '<span class="qty-box"><input class="qty-input" data-pid="' + p.id + '" type="number" inputmode="numeric" min="0" max="' + MAX_QTY + '" value="0" aria-label="' + esc(p.name) + 'の数"><span class="unit">' + esc(p.unit) + '</span></span>' +
-          '<button data-pid="' + p.id + '" data-step="1" aria-label="1' + esc(p.unit) + '増やす">＋</button>' +
-        '</div>' +
+        (p.sets.length > 1
+          ? '<div class="items" style="grid-template-columns:repeat(' + Math.min(4, p.sets.length) + ',1fr)">' +
+              p.sets.map(s => '<button class="item" data-pid="' + p.id + '" data-preset="' + s.qty + '"><span class="n">' + s.qty + esc(p.unit) + '</span><span class="p">' + s.price + '円</span></button>').join('') +
+            '</div>'
+          : '') +
       '</section>'
     ).join('') || '<section class="card"><div class="empty">販売中の商品がありません（管理画面で追加してください）</div></section>';
   }
@@ -524,17 +563,19 @@
     document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', Number(b.dataset.preset) === qtyOf(b.dataset.pid)));
     const pr = priced();
 
-    $('cart').innerHTML = pr.lines.length ? pr.lines.map(l =>
-      (pr.lines.length > 1 ? '<div class="cart-group">' + esc(l.product.name) + ' ' + l.qty + esc(l.product.unit) + '</div>' : '') +
-      l.packs.map(k => '<div class="cart-line"><span>' + (pr.lines.length > 1 ? '' : esc(l.product.name) + ' ') + packLabel(k, esc(l.product.unit)) + ' × ' + k.count + '</span>' +
-        '<span class="sub">' + yen(k.price * k.count) + '</span></div>').join('')
-    ).join('') : '<div class="empty">商品の数を選んでください</div>';
+    // 商品ごとに 1 行（セットの組み方はかっこ書き）
+    $('cart').innerHTML = pr.lines.length ? pr.lines.map(l => {
+      const u = esc(l.product.unit);
+      const detail = l.packs.length > 1 || l.packs[0].qty > 1
+        ? '<small class="packs">（' + l.packs.map(k => packLabel(k, u) + (k.count > 1 ? '×' + k.count : '')).join('＋') + '）</small>' : '';
+      return '<div class="cart-line"><span>' + esc(l.product.name) + ' ' + l.qty + u + detail + '</span><span class="sub">' + yen(l.subtotal) + '</span></div>';
+    }).join('') : '<div class="empty">商品の数を選んでください</div>';
 
     $('upsell').innerHTML = pr.lines.map(l => {
       const up = upsell(products, rule, cart, l.product.id);
       if (!up) return '';
       const u = esc(l.product.unit);
-      return '<div class="upsell"><span>💡 ' + esc(l.product.name) + 'をあと' + (up.qty - l.qty) + u + 'で合計' + yen(up.total) + '（' + (up.save > 0 ? yen(up.save) + '安く' : '同じ金額') + 'なります）</span>' +
+      return '<div class="upsell"><span>💡 ' + (pr.lines.length > 1 ? esc(l.product.name) : '') + 'あと' + (up.qty - l.qty) + u + 'で' + (up.save > 0 ? yen(up.save) + 'お得' : '同じ金額') + '</span>' +
         '<button data-pid="' + l.product.id + '" data-setqty="' + up.qty + '">' + up.qty + u + 'にする</button></div>';
     }).join('');
 
