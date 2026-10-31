@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/help.css">
 <style>
   :root {
     --bg: #f4f1ec;
@@ -26,6 +27,7 @@
   .wrap { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
   .top h1 { font-size: 20px; margin: 0; }
+  .top .links { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 4px 0; }
   .top .links a { font-size: 13px; color: var(--brown); margin-left: 10px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
   h2 { font-size: 15px; margin: 0 0 10px; }
@@ -55,7 +57,7 @@
 
   #login { max-width: 360px; margin: 80px auto; text-align: center; }
   #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
-  #login button { width: 100%; padding: 14px; font-size: 18px; background: var(--dark); color: #fff; border-radius: 10px; }
+  #login button:not(.btn-help) { width: 100%; padding: 14px; font-size: 18px; background: var(--dark); color: #fff; border-radius: 10px; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--dark); color: #fff;
            padding: 12px 18px; border-radius: 10px; font-size: 14px; transition: transform .25s; max-width: 92vw; z-index: 10; }
@@ -72,12 +74,13 @@
   <input id="pw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
   <button id="loginBtn">ログイン</button>
   <div class="note">ログインは12時間有効です</div>
+  <button class="btn-help" type="button" data-help-open style="margin-top:14px"><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
 <div id="app" class="wrap hidden">
   <div class="top">
     <h1>🔐 団子レジ 管理画面</h1>
-    <div class="links"><a href="/admin" target="_blank">レジ ↗</a><a href="/" target="_blank">ダッシュボード ↗</a></div>
+    <div class="links"><button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button><a href="/admin" target="_blank">レジ ↗</a><a href="/" target="_blank">ダッシュボード ↗</a></div>
   </div>
 
   <section class="card">
@@ -140,6 +143,63 @@
 
   <button class="btn sub" id="logoutBtn">ログアウト</button>
 </div>
+
+<!-- ヘルプ（使い方・FAQ） -->
+<dialog id="help-dialog" aria-label="ヘルプ">
+  <div class="help-head">
+    <h2>管理画面の使い方</h2>
+    <button class="help-close" type="button">閉じる</button>
+  </div>
+
+  <h3 class="help-group">はじめに</h3>
+
+  <details open>
+    <summary>管理画面でできること</summary>
+    <p>店の責任者向けの画面です。目標金額の変更、レジのパスワードの変更、ログイン中の端末の締め出し、ログイン制限の解除ができます。入るにはマスターパスワードが必要で、ログインは<b>12時間</b>有効です。</p>
+    <p>会計の入力や取り消しは、ここではなくレジ画面で行います。</p>
+  </details>
+
+  <h3 class="help-group">よく使う操作</h3>
+
+  <details>
+    <summary>目標金額を変える</summary>
+    <figure><img src="/help/master-target.webp" width="692" height="123" loading="lazy" alt="目標金額の入力欄と変更するボタン"></figure>
+    <p>欄に新しい金額を数字で入れて「変更する」を押します。ダッシュボードとレジの「目標まで」に反映されます。変更は操作の記録に残ります。</p>
+  </details>
+
+  <details>
+    <summary>端末を締め出す（ログインを解除する）</summary>
+    <figure><img src="/help/master-sessions.webp" width="692" height="243" loading="lazy" alt="ログイン中の端末の一覧。種類、名前、端末、ログイン時刻、最終利用時刻と、締め出すボタン"></figure>
+    <p>「ログイン中の端末」に、今ログインしている端末が名前つきで並びます。1台ずつ締め出すときは、その行の「締め出す」を押します。「レジ端末をすべて締め出す」で、レジの端末をまとめて解除できます。</p>
+    <p>締め出された端末は、次の操作でログイン画面に戻ります。パスワードを知っていれば再びログインできるので、スマホをなくしたときなどは、下でレジのパスワードも変えてください。</p>
+  </details>
+
+  <details>
+    <summary>「ログインできない」と言われたとき</summary>
+    <figure><img src="/help/master-unlock.webp" width="692" height="159" loading="lazy" alt="ログイン制限のカード。ログイン制限を解除ボタンと説明"></figure>
+    <p>同じ接続元から10分間に5回パスワードを間違えると、その接続元からは10分間ログインできなくなります。同じ Wi-Fi やテザリングを使っている人はまとめて止まるので、打ち間違いで巻き込まれた人がいるときは「ログイン制限を解除」を押してください。ログイン済みの端末には影響しません。</p>
+  </details>
+
+  <h3 class="help-group">パスワード</h3>
+
+  <details>
+    <summary>レジのパスワードを変える</summary>
+    <p>新しいパスワード（8文字以上）を2回入れて「変更する」を押します。今のパスワードを知らなくても変更できます。「同時にレジ端末をすべて締め出す」にチェックを入れると、ログイン中のレジもすべて解除され、全員が新しいパスワードで入り直すことになります。</p>
+  </details>
+
+  <details>
+    <summary>マスターパスワードを変える／忘れた</summary>
+    <p>変えるときは、今のマスターパスワードと新しいパスワード（8文字以上）を入れて「変更する」を押します。この端末以外のマスターログインは解除されます。</p>
+    <p>忘れたときは画面からは戻せません。Cloudflare の設定ができる人に、README の「メモ」にある手順で初期パスワードに戻してもらってください。</p>
+  </details>
+
+  <h3 class="help-group">そのほか</h3>
+
+  <details>
+    <summary>売上明細と操作の記録</summary>
+    <p>いちばん上の「売上明細CSV」で、会計ごとの明細（担当者名つき、取り消した会計を除く）を保存できます。Excel で開いても文字化けしません。「操作の記録」には、取消、目標の変更、ログインなどを誰がいつしたかが並びます。</p>
+  </details>
+</dialog>
 
 <div class="toast" id="toast"></div>
 
@@ -262,5 +322,6 @@
   api('data').then(render).catch(() => showLogin());
   setInterval(() => { if (!$('app').classList.contains('hidden')) api('data').then(render).catch(() => {}); }, 30000);
 </script>
+<script src="/help.js"></script>
 </body>
 </html>

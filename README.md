@@ -54,6 +54,9 @@
 - ログイン制限（打ち間違いによるロック）の解除
 - 操作の記録の閲覧、CSV ダウンロード
 
+**ヘルプ**
+- 3画面とも、画面上部の「?使い方」（ダッシュボードは「?見方」）ボタンで、スクリーンショットつきの使い方とよくある質問を表示します（レジと管理画面はログイン画面からも開けます）
+
 ## セキュリティのしくみ
 
 - ログインに成功すると、ランダムなセッショントークンを **HttpOnly・Secure・SameSite=Strict の Cookie** に入れます。パスワードは端末に保存しません。サーバーにはトークンのハッシュだけを保存します。
@@ -69,6 +72,9 @@
 public/index.html   ダッシュボード
 public/admin.html   レジ
 public/master.html  管理画面（マスター）
+public/help.css     ヘルプ（使い方）ダイアログの共通スタイル
+public/help.js      ヘルプダイアログの開閉
+public/help/        ヘルプに載せているスクリーンショット
 src/index.js        API（Cloudflare Worker）
 wrangler.toml       Cloudflare の設定
 ```

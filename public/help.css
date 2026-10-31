@@ -1,0 +1,143 @@
+/* ヘルプ（使い方・FAQ）。3画面で共通。色は各画面の :root の変数を使う */
+
+/* ── ヘルプボタン ───────────────────────────────────── */
+.btn-help {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.btn-help:hover { background: #f7f2ea; }
+.btn-help:active { transform: scale(.97); }
+.btn-help:focus-visible { outline: 2px solid var(--brown); outline-offset: 2px; }
+.help-badge {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brown);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── ヘルプダイアログ ───────────────────────────────── */
+#help-dialog {
+  width: calc(100vw - 24px);
+  max-width: 640px;
+  max-height: 86vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0 18px 20px;
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+}
+#help-dialog::backdrop { background: rgba(43, 36, 32, .5); }
+
+/* 開閉アニメーション。閉じるときは JS が .closing を付け、animationend 後に close() する */
+#help-dialog[open] { animation: help-in .18s cubic-bezier(.2, .8, .3, 1); }
+#help-dialog[open]::backdrop { animation: help-fade-in .18s ease; }
+#help-dialog.closing[open] { animation: help-out .15s ease forwards; }
+#help-dialog.closing[open]::backdrop { animation: help-fade-out .15s ease forwards; }
+@keyframes help-in { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+@keyframes help-out { to { opacity: 0; transform: translateY(6px) scale(.97); } }
+@keyframes help-fade-in { from { opacity: 0; } }
+@keyframes help-fade-out { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #help-dialog[open], #help-dialog.closing[open],
+  #help-dialog[open]::backdrop, #help-dialog.closing[open]::backdrop { animation-duration: .01ms; }
+}
+
+/* 見出しと「閉じる」はスクロールしても上に残す */
+#help-dialog .help-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -18px;
+  padding: 14px 18px 10px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+#help-dialog .help-head h2 { margin: 0; font-size: 17px; }
+#help-dialog .help-close {
+  flex: none;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  background: #f1ebe2;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* グループ見出し（はじめに／会計のしかた 等） */
+#help-dialog .help-group {
+  margin: 20px 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--brown);
+}
+#help-dialog .help-group:first-of-type { margin-top: 14px; }
+
+#help-dialog details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+#help-dialog summary {
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.5;
+}
+#help-dialog details p,
+#help-dialog details li {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink);
+}
+#help-dialog details p { margin: 8px 0 4px; }
+#help-dialog details ul,
+#help-dialog details ol { margin: 6px 0 4px; padding-left: 1.4em; }
+#help-dialog b { color: var(--brown); }
+#help-dialog a { color: var(--brown); }
+
+/* スクリーンショット */
+#help-dialog figure { margin: 10px 0 6px; }
+#help-dialog figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(43, 36, 32, .08);
+}
+#help-dialog figure.narrow img { max-width: 360px; width: 100%; }
+#help-dialog figcaption {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--sub);
+}

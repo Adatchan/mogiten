@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/help.css">
 <style>
   :root {
     --bg: #fbf7f0;
@@ -27,7 +28,8 @@
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
-  header { text-align: center; margin-bottom: 16px; }
+  header { position: relative; text-align: center; margin-bottom: 16px; }
+  header .btn-help { position: absolute; top: 0; right: 0; }
   header .sub { font-size: 14px; color: var(--sub); }
   header h1 { margin: 2px 0 0; font-size: 34px; letter-spacing: .1em; }
   .dango { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 8px; }
@@ -82,6 +84,7 @@
 <body>
 <div class="wrap">
   <header>
+    <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>見方</button>
     <div class="sub" id="shopSub">混声合唱と学祭のための</div>
     <h1><span class="dango"><i></i><i></i><i></i></span>団子</h1>
   </header>
@@ -113,6 +116,53 @@
     <div id="err" class="error"></div>
   </footer>
 </div>
+
+<!-- ヘルプ（使い方・FAQ） -->
+<dialog id="help-dialog" aria-label="ヘルプ">
+  <div class="help-head">
+    <h2>ダッシュボードの見方</h2>
+    <button class="help-close" type="button">閉じる</button>
+  </div>
+
+  <h3 class="help-group">はじめに</h3>
+
+  <details open>
+    <summary>このページは何ですか？</summary>
+    <p>団子の売上が、目標に対して今どこまで来ているかを見るためのページです。レジで会計を記録すると、ここの数字に反映されます。ページは<b>20秒ごとに自動で更新</b>されるので、開いたままにしておけば最新の状況が分かります。</p>
+    <p>ログインなしで、URL を知っている人なら誰でも見られます。表示しているのは合計の数字だけで、会計ごとの明細や担当者名は出ません。</p>
+  </details>
+
+  <h3 class="help-group">数字の見方</h3>
+
+  <details>
+    <summary>「現在の売上」と目標の表示</summary>
+    <figure><img src="/help/dash-hero.webp" width="358" height="240" loading="lazy" alt="現在の売上6,570円、団子6,400円と容器代170円の内訳、目標70,000円、達成率9.4パーセントのバー、目標まであと63,430円、5本セットならあと122セット"></figure>
+    <p><b>現在の売上</b>は、お客さんから受け取った金額の合計です。団子代と容器代の両方を含み、カッコ内にその内訳が出ます。レジで取り消した会計は含みません。</p>
+    <p>バーは目標に対する達成率です。その下に<b>目標まであといくら</b>かと、それを5本セット（容器代込み）で売るとあと何セットか、の目安が出ます。目標を超えると「目標達成」の表示に変わり、超えた金額が出ます。</p>
+  </details>
+
+  <details>
+    <summary>「売れた本数」とセットの個数</summary>
+    <p>売れた団子の本数の合計と、セットごとの個数です。レジは本数からセットを自動で組むので、たとえば4本の会計は「3本セット1個と1本セット1個」として数えます。</p>
+  </details>
+
+  <details>
+    <summary>「お会計○件」と支払方法</summary>
+    <p>記録された会計の件数と、支払方法（現金、PayPay、d払い）ごとの件数と金額です。バーの長さは、売上全体に占める割合を表します。</p>
+  </details>
+
+  <h3 class="help-group">うまくいかないとき</h3>
+
+  <details>
+    <summary>数字が変わらない／「更新に失敗しました」と出る</summary>
+    <p>電波が弱いなどで、最新の数字を取りに行けなかったときです。ページは20秒ごとに自動で取り直すので、電波が戻れば元に戻ります。いちばん下の「最終更新」の時刻で、いつの数字かを確認できます。</p>
+  </details>
+
+  <details>
+    <summary>ここから会計を入力できますか？</summary>
+    <p>できません。このページは見るだけです。会計の記録や取り消しは、レジ担当のスマホのレジ画面で行います。</p>
+  </details>
+</dialog>
 
 <script>
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
@@ -170,5 +220,6 @@
   load();
   setInterval(load, 20000);
 </script>
+<script src="/help.js"></script>
 </body>
 </html>

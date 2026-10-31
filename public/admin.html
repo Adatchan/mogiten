@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/help.css">
 <style>
   :root {
     --bg: #fbf7f0;
@@ -37,6 +38,7 @@
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .top h1 { font-size: 20px; margin: 0; }
   .top a { font-size: 13px; color: var(--brown); }
+  .top-sub { margin-top: -4px; }
 
   /* ミニサマリー */
   .mini { display: flex; gap: 8px; text-align: center; }
@@ -152,7 +154,7 @@
   /* ログイン */
   #login { max-width: 360px; margin: 80px auto; text-align: center; }
   #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
-  #login button { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; }
+  #login button:not(.btn-help) { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 16px; transition: transform .25s; z-index: 30; max-width: 90%; text-align: center; white-space: nowrap; }
   .toast.show { transform: translateX(-50%) translateY(0); }
@@ -169,11 +171,15 @@
   <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード">
   <button id="loginBtn">ログイン</button>
   <div class="hint" style="color:var(--sub);font-size:12px;margin-top:10px">ログインは3日間有効です（パスワードは端末に保存しません）</div>
+  <button class="btn-help" type="button" data-help-open style="margin-top:14px"><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
 <div id="app" class="wrap hidden">
   <div class="top">
     <h1>🍡 団子レジ</h1>
+    <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
+  </div>
+  <div class="top top-sub">
     <span id="staffLabel" style="font-size:13px;color:var(--sub)"></span>
     <a id="dashLink" href="/" target="_blank">ダッシュボードを開く ↗</a>
   </div>
@@ -279,6 +285,135 @@
     </div>
   </div>
 </div>
+
+<!-- ヘルプ（使い方・FAQ） -->
+<dialog id="help-dialog" aria-label="ヘルプ">
+  <div class="help-head">
+    <h2>レジの使い方（よくある質問）</h2>
+    <button class="help-close" type="button">閉じる</button>
+  </div>
+
+  <h3 class="help-group">はじめに</h3>
+
+  <details open>
+    <summary>会計の基本の流れは？</summary>
+    <ol>
+      <li>「本数」でお客さんが買う本数を入れる（セットは自動で一番安く組まれます）</li>
+      <li>「お会計」で合計金額を確認して、お客さんに伝える</li>
+      <li>支払方法（現金、PayPay、d払い）のボタンを押す</li>
+      <li>現金ならお預かり金額を入れる</li>
+      <li>確認画面で内容を見て「はい（記録する）」を押す</li>
+    </ol>
+    <p>記録すると画面下に「記録しました」と出て、お会計は空に戻ります。現金のときは、その表示にもおつりが出ます。</p>
+  </details>
+
+  <details>
+    <summary>ログインのしかたは？</summary>
+    <figure class="narrow"><img src="/help/reg-login.webp" width="360" height="331" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
+    <p>自分の名前（担当者名）と、レジ用のパスワードを入れて「ログイン」を押します。パスワードは店の責任者に聞いてください。名前は会計ごとに記録されるので、本人の名前を入れてください。</p>
+    <p>ログインは<b>3日間</b>有効なので、同じスマホなら翌日もそのまま使えます。パスワードはスマホに保存されません。</p>
+  </details>
+
+  <details>
+    <summary>担当を交代するときは？</summary>
+    <p>画面のいちばん下の「ログアウト（担当者の交代もここから）」を押し、次の人が自分の名前でログインし直してください。ログアウトしないまま別の人が打つと、前の人の名前で記録されます。</p>
+  </details>
+
+  <h3 class="help-group">会計のしかた</h3>
+
+  <details>
+    <summary>本数の入れ方は？</summary>
+    <figure class="narrow"><img src="/help/reg-qty.webp" width="362" height="247" loading="lazy" alt="本数の入力欄。1本、3本、5本のボタンと、マイナス、本数、プラスのボタン"></figure>
+    <p>「1本」「3本」「5本」のボタンを押すと、その本数になります（足し算ではありません）。それ以外の本数は「＋」「−」で増減するか、真ん中の数字をタップして直接入力します。</p>
+    <p>セットの組み方は自動です。たとえば4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。</p>
+  </details>
+
+  <details>
+    <summary>「あと1本で〜安くなります」と出たら？</summary>
+    <figure class="narrow"><img src="/help/reg-cart.webp" width="362" height="292" loading="lazy" alt="お会計欄。3本セットと1本、容器代10円、合計560円。あと1本で520円になるという提案と、5本にするボタン"></figure>
+    <p>本数を少し足したほうが合計が安くなるときに出る提案です。上の例では、4本だと560円ですが、5本にすると520円で40円安くなります。</p>
+    <p>お客さんに「あと1本足すとお得になりますよ」と声をかけて、希望されたら黄色の「5本にする」ボタンを押してください。そのままでよければ、何もせず会計に進んでかまいません。</p>
+  </details>
+
+  <details>
+    <summary>容器代はどうなっている？</summary>
+    <p>容器代は、1回の会計の合計本数から<b>自動で</b>計算して、合計に足しています。</p>
+    <ul>
+      <li>1〜2本: なし</li>
+      <li>3〜4本: 10円</li>
+      <li>5〜8本: 20円</li>
+      <li>9〜12本: 30円（以降4本ごとに10円ずつ増える）</li>
+    </ul>
+    <p>容器がいらないお客さんなど、変える必要があるときは、容器代の「−」「＋」で10円ずつ直せます。直すと「手動」と表示され、「自動に戻す」で元に戻せます。本数を変えたときも自動に戻ります。</p>
+  </details>
+
+  <details>
+    <summary>支払方法のボタンを押したあとは？</summary>
+    <figure class="narrow"><img src="/help/reg-pay.webp" width="362" height="110" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
+    <p>お客さんの支払方法のボタンを押すと、記録の前に確認の画面が出ます。ボタンを押しただけでは、まだ記録されません。</p>
+    <p>PayPay、d払いのときは、お客さんの支払いが済んだのを確かめてから、確認画面の「はい（記録する）」を押してください。</p>
+  </details>
+
+  <details>
+    <summary>現金のとき（お預かりとおつり）は？</summary>
+    <figure class="narrow"><img src="/help/reg-recv.webp" width="390" height="429" loading="lazy" alt="お預かり金額の入力画面。合計520円、ちょうどや1,000円などのボタン、入力欄、おつり480円の表示"></figure>
+    <p>現金では、先に<b>お預かり金額</b>を入れます。「ちょうど」や「¥1,000」などのボタンを押すか、下の欄に金額を入力してください。入れるとおつりが表示されます。合計より少ない金額では「次へ」が押せません。</p>
+  </details>
+
+  <details>
+    <summary>確認画面では何を見ればいい？</summary>
+    <figure class="narrow"><img src="/help/reg-confirm.webp" width="390" height="491" loading="lazy" alt="確認画面。現金の表示、5本セット500円、容器代20円、合計520円、お預かり1,000円、おつり480円、いいえとはいのボタン"></figure>
+    <p>いちばん上の色つきの帯が支払方法です（現金は緑、PayPay と d払いは赤）。本数、合計金額、現金ならおつりを確かめて、よければ「はい（記録する）」を押します。</p>
+    <p>間違いに気づいたら「いいえ」を押すと、入力したお会計はそのままで前の画面に戻ります。現金で、お預かり金額だけを直したいときは「← お預かり金額を入力し直す」を押してください。</p>
+  </details>
+
+  <h3 class="help-group">間違えたとき、うまくいかないとき</h3>
+
+  <details>
+    <summary>記録した会計を間違えた</summary>
+    <figure class="narrow"><img src="/help/reg-hist.webp" width="362" height="220" loading="lazy" alt="最近の会計の一覧。2行目は取消済みで取り消し線が引かれ、戻すボタンになっている"></figure>
+    <p>「最近の会計」の一覧で、その会計の「取消」を押します。取り消した会計には取り消し線が引かれ、売上と本数から外れます。正しい内容で、もう一度会計し直してください。</p>
+    <p>取り消しを間違えたときは、同じ行の「戻す」で元に戻せます。取消と戻すは、誰がいつしたかが記録されます。</p>
+  </details>
+
+  <details>
+    <summary>入力の途中でやり直したい</summary>
+    <p>「お会計」の右上の「クリア」を押すと、本数と容器代が空に戻ります。記録前なら、何も残りません。</p>
+  </details>
+
+  <details>
+    <summary>「記録に失敗しました」と出た</summary>
+    <p>多くは電波が弱くて、通信が届かなかったときです。お会計の内容は消えずに残っているので、電波を確かめて（少し場所を変える、数秒待つなど）、もう一度支払方法のボタンから進めてください。</p>
+    <p>まれに、記録はできていて返事だけが届かなかった、ということがあります。押し直す前に「最近の会計」に同じ会計が載っていないか確かめると、二重に記録するのを防げます。</p>
+  </details>
+
+  <details>
+    <summary>急にログイン画面に戻った</summary>
+    <p>ログインから3日たったか、店の責任者が管理画面からログインを解除した（締め出した）ときです。もう一度、自分の名前とパスワードでログインしてください。パスワードが変わっていることもあるので、通らないときは責任者に確認してください。</p>
+  </details>
+
+  <details>
+    <summary>パスワードを入れてもログインできない</summary>
+    <p>パスワードを何度か間違えると、しばらく（10分間）ログインできなくなります。同じ Wi-Fi やテザリングを使っているほかの人も巻き込まれることがあります。急ぐときは、店の責任者に管理画面から解除してもらってください。</p>
+  </details>
+
+  <h3 class="help-group">そのほか</h3>
+
+  <details>
+    <summary>今の売上はどこで見られる？</summary>
+    <p>レジ画面のいちばん上に、売上、目標までの残り、売れた本数が出ています（30秒ごとと、会計を記録するたびに更新）。くわしい内訳は、右上の「ダッシュボードを開く」で見られます。ダッシュボードはログインなしで誰でも見られるので、スタッフで共有するのに使ってください。</p>
+  </details>
+
+  <details>
+    <summary>売上の明細や操作の記録は？</summary>
+    <p>「売上明細」の「CSVをダウンロード」で、会計ごとの明細（担当者名つき）を Excel で開けるファイルとして保存できます。取り消した会計は含まれません。「操作の記録」を開くと、取消やログインなどを誰がいつしたかを確認できます。</p>
+  </details>
+
+  <details>
+    <summary>目標金額やパスワードを変えたい</summary>
+    <p>目標金額の変更、レジのパスワードの変更、ログインの締め出しは、「管理画面を開く」から行います。管理画面にはマスターパスワードが必要なので、店の責任者に頼んでください。</p>
+  </details>
+</dialog>
 
 <div class="toast" id="toast"></div>
 
@@ -608,5 +743,6 @@
   start();
   setInterval(() => { if (!busy && !$('app').classList.contains('hidden')) refresh(); }, 30000);
 </script>
+<script src="/help.js"></script>
 </body>
 </html>
