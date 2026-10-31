@@ -1,15 +1,15 @@
 /**
  * レジ画面のオフライン対応（Service Worker）
  *
- * - レジ画面（/admin）と料金計算（/pricing.js）だけをキャッシュする。
+ * - レジ画面（/admin）と料金計算（/pricing.js）、レジのヘルプ（help.css / help.js / 画像）だけをキャッシュする。
  *   ダッシュボード・管理画面・会計一覧・API には手を出さない（そのまま通信する）。
  * - ネットワーク優先：つながれば最新を表示してキャッシュも更新、つながらない（または遅い）ときだけキャッシュを使う。
  * - アプリを更新したら VERSION を変える。新しい版が入ると古いキャッシュは消える。
  */
-const VERSION = '2026-11-01-4';
+const VERSION = '2026-11-01-5';
 const CACHE = 'mogiten-register-' + VERSION;
 const FONT_CACHE = 'mogiten-fonts-v1';      // Web フォント（版をまたいで使い回す）
-const SHELL = ['/admin', '/pricing.js'];
+const SHELL = ['/admin', '/pricing.js', '/help.css', '/help.js'];
 const NETWORK_TIMEOUT = 4000;               // これ以上待ったらキャッシュを表示（テザリングが不安定なとき用）
 
 self.addEventListener('install', (event) => {
@@ -42,8 +42,10 @@ self.addEventListener('fetch', (event) => {
   if (url.origin === self.location.origin) {
     if (url.pathname === '/admin' || url.pathname === '/admin/') {
       event.respondWith(networkFirst(req, '/admin'));
-    } else if (url.pathname === '/pricing.js') {
-      event.respondWith(networkFirst(req, '/pricing.js'));
+    } else if (SHELL.includes(url.pathname)) {
+      event.respondWith(networkFirst(req, url.pathname));
+    } else if (url.pathname.startsWith('/help/') && isFromRegister(event)) {
+      event.respondWith(cacheFirstSameOrigin(req));   // ヘルプの画像：一度表示したらオフラインでも出る
     }
     return;   // それ以外（ダッシュボード・API など）は何もしない
   }
@@ -73,6 +75,20 @@ async function networkFirst(req, key) {
     }
     return network;   // キャッシュもなければ通信の結果（エラー）をそのまま返す
   }
+}
+
+// レジ画面から読まれた画像だけを対象にする（ダッシュボード・管理画面の動きは変えない）
+function isFromRegister(event) {
+  try { return new URL(event.request.referrer).pathname.startsWith('/admin'); } catch (e) { return false; }
+}
+
+async function cacheFirstSameOrigin(req) {
+  const cache = await caches.open(CACHE);
+  const hit = await cache.match(req);
+  if (hit) return hit;
+  const res = await fetch(req);
+  if (res.ok) await cache.put(req, res.clone());
+  return res;
 }
 
 async function cacheFirst(req) {

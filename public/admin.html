@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/help.css">
 <style>
   :root {
     --bg: #fbf7f0;
@@ -37,6 +38,12 @@
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .top h1 { font-size: 20px; margin: 0; }
   .top a { font-size: 13px; color: var(--brown); }
+  .top { gap: 8px; }
+  .top h1 { flex-shrink: 0; white-space: nowrap; }
+  #staffLabel { flex: 1; min-width: 0; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #dashLink { flex-shrink: 0; white-space: nowrap; font-size: 12px; }
+  .top .btn-help { flex-shrink: 0; }
+  @media (max-width: 420px) { .top .help-label { display: none; } .top .btn-help { padding-left: 6px; padding-right: 6px; } }
 
   /* ミニサマリー */
   .mini { display: flex; gap: 8px; text-align: center; }
@@ -156,7 +163,7 @@
   /* ログイン */
   #login { max-width: 360px; margin: 80px auto; text-align: center; }
   #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
-  #login button { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; }
+  #login button:not(.btn-help) { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 16px; transition: transform .25s; z-index: 30; max-width: 90%; text-align: center; white-space: nowrap; }
   .toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; }
@@ -200,10 +207,12 @@
   .net { padding: 5px 10px; margin-bottom: 6px; border-radius: 10px; }
 
   /* 通信状態と未送信（オフライン対応） */
-  .net { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px;
+  .net { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; font-size: 13px;
          background: #eef6e8; border: 1px solid #cfe3bf; color: #2f5a17; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
   .net.off { background: #fdecea; border-color: #f2c2bc; color: #8c2a1f; }
   .net.wait { background: #fff6e0; border-color: #f0d79b; color: #7a5300; }
+  #netText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  #qInfo, .net button { flex-shrink: 0; }
   .net .dot { width: 10px; height: 10px; border-radius: 50%; background: #5b9a2f; flex-shrink: 0; }
   .net.off .dot { background: #c0392b; }
   .net.wait .dot { background: #e0a400; }
@@ -233,16 +242,18 @@
   <div class="login-off hidden" id="loginOff">オフラインのためログインできません。電波のある場所でログインしてください。</div>
   <div class="login-off hidden" id="loginQueue"></div>
   <div class="hint" style="color:var(--sub);font-size:12px;margin-top:10px">ログインは3日間有効です（パスワードは端末に保存しません）</div>
+  <button class="btn-help" type="button" data-help-open style="margin-top:14px"><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
 <div id="app" class="wrap hidden">
   <div class="top">
     <h1>🍡 団子レジ</h1>
-    <span id="staffLabel" style="font-size:13px;color:var(--sub)"></span>
-    <a id="dashLink" href="/" target="_blank">ダッシュボードを開く ↗</a>
+    <span id="staffLabel"></span>
+    <a id="dashLink" href="/" target="_blank">ダッシュボード ↗</a>
+    <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
   </div>
 
-  <div id="net" class="net"><span class="dot"></span><span id="netText">確認中…</span><span class="sp"></span><span id="qInfo"></span><button id="syncBtn" class="hidden">今すぐ送信</button></div>
+  <div id="net" class="net"><span class="dot"></span><span id="netText">確認中…</span><span class="sp"></span><span id="qInfo"></span><button id="syncBtn" class="hidden">送信</button></div>
   <div id="failedBox" class="failed hidden"><details><summary id="failedSum"></summary><div id="failedList"></div></details></div>
   <div id="updateBox" class="update hidden">新しい版のレジがあります。会計の合間に切り替えてください。<button id="reloadBtn">再読み込み</button></div>
 
@@ -338,6 +349,149 @@
     </div>
   </div>
 </div>
+
+<!-- ヘルプ（使い方・FAQ） -->
+<dialog id="help-dialog" aria-label="ヘルプ">
+  <div class="help-head">
+    <h2>レジの使い方（よくある質問）</h2>
+    <button class="help-close" type="button">閉じる</button>
+  </div>
+
+  <h3 class="help-group">はじめに</h3>
+
+  <details open>
+    <summary>会計の基本の流れは？</summary>
+    <ol>
+      <li>商品（団子、焼きマシュマロ）ごとに、お客さんが買う本数を入れる（セットは自動で一番安く組まれます）</li>
+      <li>「お会計」で合計金額を確認して、お客さんに伝える</li>
+      <li>支払方法（現金、PayPay、d払い）のボタンを押す</li>
+      <li>現金ならお預かり金額を入れる</li>
+      <li>確認画面で内容を見て「はい（記録する）」を押す</li>
+    </ol>
+    <p>記録すると画面下に「記録しました」と出て、お会計は空に戻ります。現金のときは、その表示にもおつりが出ます。電波がなくても記録できます（あとで自動で送信されます）。</p>
+  </details>
+
+  <details>
+    <summary>ログインのしかたは？</summary>
+    <figure class="narrow"><img src="/help/reg-login.webp" width="360" height="363" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
+    <p>自分の名前（担当者名）と、レジ用のパスワードを入れて「ログイン」を押します。パスワードは店の責任者に聞いてください。名前は会計ごとに記録されるので、本人の名前を入れてください。</p>
+    <p>ログインは<b>3日間</b>有効なので、同じスマホなら翌日もそのまま使えます。パスワードはスマホに保存されません。</p>
+  </details>
+
+  <details>
+    <summary>担当を交代するときは？</summary>
+    <p>画面のいちばん下の「ログアウト（担当者の交代もここから）」を押し、次の人が自分の名前でログインし直してください。ログアウトしないまま別の人が打つと、前の人の名前で記録されます。</p>
+    <p>未送信の会計が残っているときと、電波がないときはログアウトできません。電波のある場所で、上の「未送信」が 0 件になってからログアウトしてください。</p>
+  </details>
+
+  <h3 class="help-group">会計のしかた</h3>
+
+  <details>
+    <summary>本数の入れ方は？</summary>
+    <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="184" loading="lazy" alt="商品ごとの本数の入力欄。団子はマイナス、本数、プラスのボタンと、1本、3本、5本のボタン。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
+    <p>商品ごとに本数を入れます。団子は「1本」「3本」「5本」のボタンを押すと、その本数になります（足し算ではありません）。それ以外の本数は「＋」「−」で増減するか、数字をタップして直接入力します。焼きマシュマロのようにセットのない商品は「＋」「−」で入れます。</p>
+    <p>セットの組み方は自動です。たとえば団子4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。団子と焼きマシュマロを1回の会計で一緒に記録できます。</p>
+  </details>
+
+  <details>
+    <summary>「あと1本で〜お得」と出たら？</summary>
+    <figure class="narrow"><img src="/help/reg-cart.webp" width="370" height="193" loading="lazy" alt="お会計欄。団子4本（3本セットと1本）、容器代10円、合計560円。あと1本で40円お得という提案と、5本にするボタン"></figure>
+    <p>本数を少し足したほうが合計が安くなるときに出る提案です。上の例では、団子4本だと560円ですが、5本にすると520円で40円安くなります。</p>
+    <p>お客さんに「あと1本足すとお得になりますよ」と声をかけて、希望されたら黄色の「5本にする」ボタンを押してください。そのままでよければ、何もせず会計に進んでかまいません。</p>
+  </details>
+
+  <details>
+    <summary>容器代はどうなっている？</summary>
+    <p>容器代は、1回の会計の<b>団子の本数</b>から<b>自動で</b>計算して、合計に足しています（焼きマシュマロは対象外です。対象の商品とルールは管理画面で変えられます）。</p>
+    <ul>
+      <li>1〜2本: なし</li>
+      <li>3〜4本: 10円</li>
+      <li>5〜8本: 20円</li>
+      <li>9〜12本: 30円（以降4本ごとに10円ずつ増える）</li>
+    </ul>
+    <p>容器がいらないお客さんなど、変える必要があるときは、容器代の「−」「＋」で10円ずつ直せます。直すと「手動」と表示され、「自動に戻す」で元に戻せます。本数を変えたときも自動に戻ります。</p>
+  </details>
+
+  <details>
+    <summary>支払方法のボタンを押したあとは？</summary>
+    <figure class="narrow"><img src="/help/reg-pay.webp" width="370" height="63" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
+    <p>お客さんの支払方法のボタンを押すと、記録の前に確認の画面が出ます。ボタンを押しただけでは、まだ記録されません。</p>
+    <p>PayPay、d払いのときは、お客さんの支払いが済んだのを確かめてから、確認画面の「はい（記録する）」を押してください。</p>
+  </details>
+
+  <details>
+    <summary>現金のとき（お預かりとおつり）は？</summary>
+    <figure class="narrow"><img src="/help/reg-recv.webp" width="358" height="389" loading="lazy" alt="お預かり金額の入力画面。合計520円、ちょうどや1,000円などのボタン、入力欄、おつり480円の表示"></figure>
+    <p>現金では、先に<b>お預かり金額</b>を入れます。「ちょうど」や「¥1,000」などのボタンを押すか、下の欄に金額を入力してください。入れるとおつりが表示されます。合計より少ない金額では「次へ」が押せません。</p>
+  </details>
+
+  <details>
+    <summary>確認画面では何を見ればいい？</summary>
+    <figure class="narrow"><img src="/help/reg-confirm.webp" width="358" height="451" loading="lazy" alt="確認画面。現金の表示、団子5本セット500円、容器代20円、合計520円、お預かり1,000円、おつり480円、いいえとはいのボタン"></figure>
+    <p>いちばん上の色つきの帯が支払方法です（現金は緑、PayPay と d払いは赤）。本数、合計金額、現金ならおつりを確かめて、よければ「はい（記録する）」を押します。</p>
+    <p>間違いに気づいたら「いいえ」を押すと、入力したお会計はそのままで前の画面に戻ります。現金で、お預かり金額だけを直したいときは「← お預かり金額を入力し直す」を押してください。</p>
+  </details>
+
+  <h3 class="help-group">間違えたとき、うまくいかないとき</h3>
+
+  <details>
+    <summary>記録した会計を間違えた</summary>
+    <figure class="narrow"><img src="/help/reg-hist.webp" width="370" height="305" loading="lazy" alt="最近の会計の一覧。2行目は取消済みで取り消し線が引かれ、戻すボタンになっている"></figure>
+    <p>「最近の会計」の一覧で、その会計の「取消」を押します。取り消した会計には取り消し線が引かれ、売上と本数から外れます。正しい内容で、もう一度会計し直してください。</p>
+    <p>取り消しを間違えたときは、同じ行の「戻す」で元に戻せます。取消と戻すは、誰がいつしたかが記録されます。電波がないときも取り消せます（あとで自動で送信されます）。</p>
+    <p>ここに出るのは最新の5件です。それより前の会計は、下の「すべての会計を見る」から探して取り消してください（こちらは電波が必要です）。</p>
+  </details>
+
+  <details>
+    <summary>入力の途中でやり直したい</summary>
+    <p>「お会計」の右上の「クリア」を押すと、本数と容器代が空に戻ります。記録前なら、何も残りません。</p>
+  </details>
+
+  <details>
+    <summary>電波がないとき（オフライン）は？</summary>
+    <figure class="narrow"><img src="/help/reg-offline.webp" width="370" height="40" loading="lazy" alt="画面上部の赤い帯。オフライン、未送信2件"></figure>
+    <p>そのまま会計を続けてください。電波がないと画面の上の帯が<b>赤い「オフライン（端末に保存）」</b>になり、会計と取消は<b>スマホの中に保存</b>されます。保存した件数と金額は「未送信 ○件」に出ます。最近の会計にも「未送信」と付いて表示されます。</p>
+    <p>電波が戻ると、古い順に<b>自動で送信</b>され、「未送信 0 件」になります。すぐ送りたいときは帯の右の「送信」を押してください。同じ会計が二重に記録されることはありません。</p>
+    <p>電波がない状態で画面を開き直しても、レジは開けます（一度でも電波のある場所で開いていれば）。ダッシュボードの数字には、送信されてから反映されます。</p>
+  </details>
+
+  <details>
+    <summary>「送信できなかった操作があります」と出た</summary>
+    <p>サーバーが受け付けなかった会計や取消です（内容の不備など）。消さずにスマホの中に残しているので、タップして内容を確かめ、必要ならその内容で会計し直してから「この端末から消す」を押してください。</p>
+  </details>
+
+  <details>
+    <summary>「新しい版のレジがあります」と出た</summary>
+    <p>レジのアプリが更新されたときに出ます。会計の合間に「再読み込み」を押してください。未送信の会計は消えません（会計の途中でなければ自動で切り替わります）。</p>
+  </details>
+
+  <details>
+    <summary>急にログイン画面に戻った</summary>
+    <p>ログインから3日たったか、店の責任者が管理画面からログインを解除した（締め出した）ときです。もう一度、自分の名前とパスワードでログインしてください。パスワードが変わっていることもあるので、通らないときは責任者に確認してください。</p>
+  </details>
+
+  <details>
+    <summary>パスワードを入れてもログインできない</summary>
+    <p>パスワードを何度か間違えると、しばらく（10分間）ログインできなくなります。同じ Wi-Fi やテザリングを使っているほかの人も巻き込まれることがあります。急ぐときは、店の責任者に管理画面から解除してもらってください。</p>
+  </details>
+
+  <h3 class="help-group">そのほか</h3>
+
+  <details>
+    <summary>今の売上はどこで見られる？</summary>
+    <p>レジ画面のいちばん上に、売上、目標までの残り、売れた本数が出ています（30秒ごとと、会計を記録するたびに更新）。くわしい内訳は、上の「ダッシュボード ↗」で見られます。ダッシュボードはログインなしで誰でも見られるので、スタッフで共有するのに使ってください。</p>
+  </details>
+
+  <details>
+    <summary>売上の明細や操作の記録は？</summary>
+    <p>「売上明細」の「CSVをダウンロード」で、会計ごとの明細（担当者名つき）を Excel で開けるファイルとして保存できます。取り消した会計は含まれません。「操作の記録」を開くと、取消やログインなどを誰がいつしたかを確認できます。</p>
+  </details>
+
+  <details>
+    <summary>商品・価格、目標金額、パスワードを変えたい</summary>
+    <p>商品や価格の変更、目標金額の変更、レジのパスワードの変更、ログインの締め出しは、「管理画面を開く」から行います。管理画面にはマスターパスワードが必要なので、店の責任者に頼んでください。</p>
+  </details>
+</dialog>
 
 <div class="toast" id="toast"></div>
 
@@ -855,9 +1009,9 @@
     box.className = 'net' + (online ? (q.length ? ' wait' : '') : ' off');
     $('netText').textContent = online
       ? (q.length ? 'オンライン・送信中…' : 'オンライン')
-      : 'オフライン（会計は端末に保存し、つながったら自動で送ります）';
+      : 'オフライン（端末に保存）';
     $('qInfo').innerHTML = q.length
-      ? '未送信 <b>' + q.length + '</b> 件' + (sales.length ? '（会計 ' + sales.length + ' 件 ' + yen(sales.reduce((a, o) => a + o.amount, 0)) + '）' : '')
+      ? '未送信 <b>' + q.length + '</b> 件' + (sales.length ? ' ' + yen(sales.reduce((a, o) => a + o.amount, 0)) : '')
       : '未送信 <b>0</b> 件';
     $('syncBtn').classList.toggle('hidden', !q.length);
     $('failedBox').classList.toggle('hidden', !failed.length);
@@ -926,5 +1080,6 @@
   setInterval(() => { if (!document.hidden) probe(); }, 10000);   // 10 秒ごとに通信できるか確認
   probe();
 </script>
+<script src="/help.js"></script>
 </body>
 </html>
