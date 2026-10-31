@@ -60,6 +60,29 @@
   .stat { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stat small { font-size: 18px; margin-left: 2px; }
   .rows { margin-top: 10px; }
+
+  /* 目標に対する内訳の円グラフ（円全体 = 目標金額、届いていない分はグレー） */
+  .pie-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+  .pie-box { position: relative; width: 220px; height: 220px; flex-shrink: 0; }
+  #pie { width: 100%; height: 100%; display: block; }
+  #pie path { cursor: pointer; transition: opacity .15s; }
+  #pie.hovering path:not(.on) { opacity: .45; }
+  .pie-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .pc-v { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pc-k { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .pie-tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 13px; line-height: 1.5; padding: 6px 10px; border-radius: 8px;
+             white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .1s; z-index: 2; }
+  .pie-tip.show { opacity: 1; }
+  .pie-legend { flex: 1; min-width: 240px; border-collapse: collapse; font-size: 15px; }
+  .pie-legend td { padding: 7px 4px; border-top: 1px dashed var(--line); }
+  .pie-legend tr:first-child td { border-top: none; }
+  .pie-legend .sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; vertical-align: -2px; margin-right: 8px; }
+  .pie-legend .sw.gap { background: #e4e0d9; }
+  .pie-legend .num { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pie-legend .pct { text-align: right; color: var(--sub); font-variant-numeric: tabular-nums; white-space: nowrap; width: 3.5em; }
+  .pie-legend tr.rest td { color: var(--sub); }
+  .pie-legend tr.rest .num { font-weight: 400; }
+  .pie-legend tr.on td { background: #faf6ef; }
   .prod + .prod { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); }
   .prod .ph { display: flex; justify-content: space-between; align-items: baseline; }
   .prod .ph .n { font-size: 17px; font-weight: 700; }
@@ -102,6 +125,18 @@
     <div class="hint" id="hint"></div>
   </section>
 
+  <section class="card">
+    <div class="label">目標に対する売上の内訳</div>
+    <div class="pie-wrap">
+      <div class="pie-box">
+        <svg id="pie" viewBox="0 0 200 200" role="img" aria-labelledby="pieTitle"><title id="pieTitle">目標に対する商品別の売上</title></svg>
+        <div class="pie-center"><div class="pc-v" id="pieRate">—</div><div class="pc-k" id="pieRateK">達成率</div></div>
+        <div class="pie-tip" id="pieTip" role="tooltip"></div>
+      </div>
+      <table class="pie-legend" id="pieLegend"></table>
+    </div>
+  </section>
+
   <div class="grid">
     <section class="card">
       <div class="label">売れた数</div>
@@ -124,7 +159,80 @@
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
 
+  // 商品の色（固定の順番。色覚の違いでも見分けられる組み合わせを検証済み）
+  const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+  const REST = '#e4e0d9';   // 未達（グレー）
+  let pieSegs = [];
+
+  /** 円グラフ：円全体 = 目標金額（目標を超えたら売上合計）。商品ごと＋容器代、残りは「未達」 */
+  function renderPie(d) {
+    const segs = d.byProduct.filter(g => g.amount > 0).map(g => {
+      const i = d.products.findIndex(p => p.id === g.id);
+      return { name: g.name, amount: g.amount, color: SERIES[(i >= 0 ? i : d.products.length) % SERIES.length] };
+    });
+    if (d.container > 0) segs.push({ name: '容器代', amount: d.container, color: SERIES[Math.min(d.products.length, SERIES.length - 1)] });
+    const rest = Math.max(0, d.target - d.total);
+    const whole = Math.max(d.target, d.total) || 1;
+    const all = rest > 0 ? segs.concat([{ name: '未達', amount: rest, color: REST, rest: true }]) : segs;
+    pieSegs = all;
+
+    // ドーナツ（中心に達成率）。区切りに 2px の隙間
+    const cx = 100, cy = 100, R = 84, W = 26, gap = all.length > 1 ? 2 / R : 0;
+    const pt = a => [cx + R * Math.sin(a), cy - R * Math.cos(a)];
+    let a = 0, html = '<title>目標に対する商品別の売上</title>';
+    if (all.length === 1) {
+      html += '<circle cx="100" cy="100" r="' + R + '" fill="none" stroke="' + all[0].color + '" stroke-width="' + W + '"/>';
+      html += '<path data-i="0" d="M100 ' + (cy - R) + ' A' + R + ' ' + R + ' 0 1 1 99.99 ' + (cy - R) + '" fill="none" stroke="transparent" stroke-width="' + (W + 12) + '"/>';
+    } else {
+      all.forEach((s, i) => {
+        const span = s.amount / whole * Math.PI * 2;
+        const a0 = a + gap / 2, a1 = a + span - gap / 2;
+        a += span;
+        if (a1 <= a0) return;
+        const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
+        html += '<path data-i="' + i + '" d="M' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' A' + R + ' ' + R + ' 0 ' + (a1 - a0 > Math.PI ? 1 : 0) + ' 1 ' +
+          x1.toFixed(2) + ' ' + y1.toFixed(2) + '" fill="none" stroke="' + s.color + '" stroke-width="' + W + '"><title>' + esc(s.name) + '</title></path>';
+      });
+    }
+    const svg = document.getElementById('pie');
+    svg.innerHTML = html;
+
+    const done = d.total >= d.target;
+    document.getElementById('pieRate').textContent = Math.floor(d.rate * 100) + '%';
+    document.getElementById('pieRateK').textContent = done ? '達成！' : '達成率';
+
+    const pct = v => (v / (d.target || 1) * 100).toFixed(1) + '%';
+    document.getElementById('pieLegend').innerHTML = all.map((s, i) =>
+      '<tr data-i="' + i + '"' + (s.rest ? ' class="rest"' : '') + '>' +
+        '<td><span class="sw' + (s.rest ? ' gap' : '') + '" style="background:' + s.color + '"></span>' + esc(s.name) + '</td>' +
+        '<td class="num">' + yen(s.amount) + '</td><td class="pct">' + pct(s.amount) + '</td></tr>'
+    ).join('') + (done ? '<tr class="rest"><td colspan="3">円全体は売上合計（目標 ' + yen(d.target) + ' を超えたため）</td></tr>' : '') +
+      (segs.length ? '' : '<tr class="rest"><td colspan="3">まだ売上はありません</td></tr>');
+  }
+
+  // ホバー／タップで、その部分の金額と目標に対する割合を表示
+  function pieFocus(i, ev) {
+    const svg = document.getElementById('pie'), tip = document.getElementById('pieTip');
+    document.querySelectorAll('#pie path, #pieLegend tr').forEach(el => el.classList.toggle('on', el.dataset.i === String(i)));
+    if (i == null || !pieSegs[i]) { svg.classList.remove('hovering'); tip.classList.remove('show'); return; }
+    svg.classList.add('hovering');
+    const s = pieSegs[i], box = svg.parentElement.getBoundingClientRect();
+    const tgt = lastData ? lastData.target : 0;
+    tip.innerHTML = '<b>' + esc(s.name) + '</b><br>' + yen(s.amount) + (tgt ? '（目標の ' + (s.amount / tgt * 100).toFixed(1) + '%）' : '');
+    const x = ev && ev.clientX != null ? ev.clientX - box.left : box.width / 2;
+    const y = ev && ev.clientY != null ? ev.clientY - box.top : box.height / 2;
+    tip.style.left = Math.max(60, Math.min(box.width - 60, x)) + 'px';
+    tip.style.top = y + 'px';
+    tip.classList.add('show');
+  }
+  let lastData = null;
+  document.getElementById('pie').addEventListener('pointermove', e => { const p = e.target.closest('path'); pieFocus(p ? Number(p.dataset.i) : null, e); });
+  document.getElementById('pie').addEventListener('pointerleave', () => pieFocus(null));
+  document.getElementById('pieLegend').addEventListener('pointerover', e => { const tr = e.target.closest('tr[data-i]'); pieFocus(tr ? Number(tr.dataset.i) : null); });
+  document.getElementById('pieLegend').addEventListener('pointerleave', () => pieFocus(null));
+
   function render(d) {
+    lastData = d;
     document.getElementById('total').textContent = yen(d.total);
     document.getElementById('target').textContent = yen(d.target);
     document.getElementById('breakdown').textContent = '（団子 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）';
@@ -149,6 +257,8 @@
         hint.textContent = p.name + 'の' + packLabel(big, p.unit) + '（' + (p.container ? '容器代込み' : '') + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
       } else hint.textContent = '';
     }
+
+    renderPie(d);
 
     document.getElementById('sold').innerHTML = d.byProduct.map(g => {
       // 今の価格表のセットは売れていなくても 0 で表示
