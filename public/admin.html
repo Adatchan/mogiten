@@ -38,7 +38,12 @@
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .top h1 { font-size: 20px; margin: 0; }
   .top a { font-size: 13px; color: var(--brown); }
-  .top-sub { margin-top: -4px; }
+  .top { gap: 8px; }
+  .top h1 { flex-shrink: 0; white-space: nowrap; }
+  #staffLabel { flex: 1; min-width: 0; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #dashLink { flex-shrink: 0; white-space: nowrap; font-size: 12px; }
+  .top .btn-help { flex-shrink: 0; }
+  @media (max-width: 420px) { .top .help-label { display: none; } .top .btn-help { padding-left: 6px; padding-right: 6px; } }
 
   /* ミニサマリー */
   .mini { display: flex; gap: 8px; text-align: center; }
@@ -50,6 +55,9 @@
 
   /* 商品ボタン */
   .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .prod-name { font-size: 18px; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; }
+  .prod-name small { font-size: 12px; color: var(--sub); font-weight: 400; }
+  .cart-group { font-size: 13px; color: var(--sub); font-weight: 700; margin-top: 6px; }
   .item.on { background: var(--pink); color: #fff; }
   .stepper { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
   .stepper button { width: 64px; height: 64px; border-radius: 50%; background: #f1ebe2; font-size: 32px; color: var(--ink); flex-shrink: 0; }
@@ -137,6 +145,7 @@
   .hist-line .d { flex: 1; }
   .hist-line .a { font-weight: 700; font-variant-numeric: tabular-nums; }
   .hist-line.cancelled .d, .hist-line.cancelled .a { text-decoration: line-through; color: var(--sub); }
+  .more-link { display: block; text-align: center; margin-top: 10px; padding: 10px; border-radius: 10px; background: #f1ebe2; color: var(--brown); font-size: 14px; font-weight: 700; text-decoration: none; }
   .hist-line button { background: #f1ebe2; border-radius: 6px; padding: 5px 8px; font-size: 12px; color: var(--ink); }
 
 
@@ -157,9 +166,69 @@
   #login button:not(.btn-help) { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 16px; transition: transform .25s; z-index: 30; max-width: 90%; text-align: center; white-space: nowrap; }
+  .toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.err { background: #c0392b; }
   .hidden { display: none !important; }
+
+  /* ===== コンパクト表示（スマホ縦画面に 商品 → お会計 → 支払ボタン が収まるように） ===== */
+  .wrap { padding: 8px 10px 40px; }
+  .card { padding: 10px 12px; margin-bottom: 8px; border-radius: 14px; }
+  .label { margin-bottom: 4px; }
+  .top { margin-bottom: 6px; }
+  .top h1 { font-size: 17px; }
+  .mini .v { font-size: 17px; }
+  .mini .k { font-size: 10px; }
+  .minibar { margin-top: 6px; height: 5px; }
+  .prod-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .prod-head .pn { font-size: 17px; font-weight: 700; line-height: 1.25; min-width: 0; }
+  .prod-head .pn small { display: block; font-size: 12px; font-weight: 400; color: var(--sub); }
+  .prod .items { gap: 8px; margin-top: 8px; }
+  .item { padding: 6px 2px; border-radius: 10px; display: flex; align-items: baseline; justify-content: center; gap: 4px; flex-wrap: wrap; }
+  .item .n { font-size: 20px; font-weight: 700; }
+  .item .p { font-size: 13px; margin-top: 0; }
+  .stepper { margin-top: 0; gap: 6px; flex-shrink: 0; }
+  .stepper button { width: 44px; height: 44px; font-size: 24px; }
+  .stepper .qty-box { gap: 2px; }
+  .stepper input { width: 2.4em; font-size: 26px; padding: 2px 0; border-radius: 10px; }
+  .stepper .unit { font-size: 14px; }
+  .cart-line { padding: 4px 0; font-size: 15px; }
+  .cart-line .packs { font-size: 12px; color: var(--sub); margin-left: 2px; }
+  .upsell span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cart-line .ctrl button { width: 30px; height: 30px; font-size: 18px; }
+  .cart-group { margin-top: 2px; }
+  .upsell { margin-top: 6px; padding: 6px 8px; font-size: 13px; }
+  .upsell button { padding: 6px 8px; font-size: 13px; }
+  .total { margin-top: 6px; padding-top: 6px; }
+  .total .v { font-size: 30px; }
+  .total .s { font-size: 12px; }
+  .pays { gap: 8px; }
+  .pay { padding: 12px 4px; font-size: 17px; border-radius: 12px; }
+  .net { padding: 5px 10px; margin-bottom: 6px; border-radius: 10px; }
+
+  /* 通信状態と未送信（オフライン対応） */
+  .net { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; font-size: 13px;
+         background: #eef6e8; border: 1px solid #cfe3bf; color: #2f5a17; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+  .net.off { background: #fdecea; border-color: #f2c2bc; color: #8c2a1f; }
+  .net.wait { background: #fff6e0; border-color: #f0d79b; color: #7a5300; }
+  #netText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  #qInfo, .net button { flex-shrink: 0; }
+  .net .dot { width: 10px; height: 10px; border-radius: 50%; background: #5b9a2f; flex-shrink: 0; }
+  .net.off .dot { background: #c0392b; }
+  .net.wait .dot { background: #e0a400; }
+  .net b { font-variant-numeric: tabular-nums; }
+  .net .sp { flex: 1; }
+  .net button { background: #fff; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+  .failed { background: #fdecea; border: 1px solid #f2c2bc; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; color: #8c2a1f; }
+  .failed summary { cursor: pointer; font-weight: 700; }
+  .failed .fl { padding: 6px 0; border-top: 1px dashed #f2c2bc; display: flex; gap: 8px; align-items: center; }
+  .failed .fl:first-child { border-top: none; }
+  .failed .fl span { flex: 1; }
+  .failed .fl button { background: #fff; border: 1px solid #c0392b; color: #c0392b; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+  .update { background: #e8f0fb; border: 1px solid #b9cdea; color: #1f4c86; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .update button { margin-left: auto; background: #2a78d6; color: #fff; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 700; }
+  .hist-line .q { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #fff6e0; color: #7a5300; margin-left: 4px; white-space: nowrap; }
+  .login-off { margin-top: 10px; font-size: 13px; color: #8c2a1f; }
 </style>
 </head>
 <body>
@@ -170,6 +239,8 @@
   <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="担当者名（例: 安達）">
   <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード">
   <button id="loginBtn">ログイン</button>
+  <div class="login-off hidden" id="loginOff">オフラインのためログインできません。電波のある場所でログインしてください。</div>
+  <div class="login-off hidden" id="loginQueue"></div>
   <div class="hint" style="color:var(--sub);font-size:12px;margin-top:10px">ログインは3日間有効です（パスワードは端末に保存しません）</div>
   <button class="btn-help" type="button" data-help-open style="margin-top:14px"><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
@@ -177,32 +248,25 @@
 <div id="app" class="wrap hidden">
   <div class="top">
     <h1>🍡 団子レジ</h1>
-    <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
+    <span id="staffLabel"></span>
+    <a id="dashLink" href="/" target="_blank">ダッシュボード ↗</a>
+    <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
   </div>
-  <div class="top top-sub">
-    <span id="staffLabel" style="font-size:13px;color:var(--sub)"></span>
-    <a id="dashLink" href="/" target="_blank">ダッシュボードを開く ↗</a>
-  </div>
+
+  <div id="net" class="net"><span class="dot"></span><span id="netText">確認中…</span><span class="sp"></span><span id="qInfo"></span><button id="syncBtn" class="hidden">送信</button></div>
+  <div id="failedBox" class="failed hidden"><details><summary id="failedSum"></summary><div id="failedList"></div></details></div>
+  <div id="updateBox" class="update hidden">新しい版のレジがあります。会計の合間に切り替えてください。<button id="reloadBtn">再読み込み</button></div>
 
   <section class="card">
     <div class="mini">
       <div><div class="v" id="mTotal">—</div><div class="k">売上</div></div>
-      <div><div class="v" id="mRemain">—</div><div class="k">目標まで</div></div>
-      <div><div class="v" id="mSticks">—</div><div class="k">本数</div></div>
+      <div><div class="v" id="mRemain">—</div><div class="k" id="mRemainK">目標まで</div></div>
+      <div><div class="v" id="mSticks">—</div><div class="k">販売数</div></div>
     </div>
     <div class="minibar"><div id="mBar"></div></div>
   </section>
 
-  <section class="card">
-    <div class="label">本数</div>
-    <div class="items" id="items"></div>
-    <div class="stepper">
-      <button data-step="-1" aria-label="1本減らす">−</button>
-      <span class="qty-box"><input id="qtyInput" type="number" inputmode="numeric" min="0" max="200" value="0" aria-label="本数"><span class="unit">本</span></span>
-      <button data-step="1" aria-label="1本増やす">＋</button>
-    </div>
-    <div class="qty-note">ボタンで選ぶか、数字をタップして直接入力。セットは自動で一番安く組みます</div>
-  </section>
+  <div id="products"></div>
 
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -213,13 +277,12 @@
     <div id="containerRow"></div>
     <div id="upsell"></div>
     <div class="total">
-      <span class="s" id="cartSticks">0本</span>
+      <span class="s" id="cartSticks"></span>
       <span class="v" id="cartTotal">¥0</span>
     </div>
   </section>
 
   <section class="card">
-    <div class="label">支払方法を選んで記録</div>
     <div class="pays">
       <button class="pay cash" data-pay="現金">現金</button>
       <button class="pay paypay" data-pay="PayPay">PayPay</button>
@@ -228,8 +291,9 @@
   </section>
 
   <section class="card">
-    <div class="label">最近の会計（間違えたら「取消」）</div>
+    <div class="label">最近の会計（最新5件・間違えたら「取消」）</div>
     <div class="hist" id="hist"></div>
+    <a class="more-link hidden" id="moreLink" href="/history">すべての会計を見る →</a>
   </section>
 
   <section class="card">
@@ -248,7 +312,7 @@
   <section class="card">
     <div class="label">管理（マスター）</div>
     <a class="csv-btn" href="/master" target="_blank">🔐 管理画面を開く ↗</a>
-    <div class="note">目標金額の変更、レジのパスワード変更、端末の締め出しは管理画面から行います（マスターパスワードが必要）。</div>
+    <div class="note">商品・価格の変更、目標金額の変更、レジのパスワード変更、端末の締め出しは管理画面から行います（マスターパスワードが必要）。</div>
   </section>
 
   <button class="clear" id="logoutBtn">ログアウト（担当者の交代もここから）</button>
@@ -298,18 +362,18 @@
   <details open>
     <summary>会計の基本の流れは？</summary>
     <ol>
-      <li>「本数」でお客さんが買う本数を入れる（セットは自動で一番安く組まれます）</li>
+      <li>商品（団子、焼きマシュマロ）ごとに、お客さんが買う本数を入れる（セットは自動で一番安く組まれます）</li>
       <li>「お会計」で合計金額を確認して、お客さんに伝える</li>
       <li>支払方法（現金、PayPay、d払い）のボタンを押す</li>
       <li>現金ならお預かり金額を入れる</li>
       <li>確認画面で内容を見て「はい（記録する）」を押す</li>
     </ol>
-    <p>記録すると画面下に「記録しました」と出て、お会計は空に戻ります。現金のときは、その表示にもおつりが出ます。</p>
+    <p>記録すると画面下に「記録しました」と出て、お会計は空に戻ります。現金のときは、その表示にもおつりが出ます。電波がなくても記録できます（あとで自動で送信されます）。</p>
   </details>
 
   <details>
     <summary>ログインのしかたは？</summary>
-    <figure class="narrow"><img src="/help/reg-login.webp" width="360" height="331" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-login.webp" width="360" height="363" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
     <p>自分の名前（担当者名）と、レジ用のパスワードを入れて「ログイン」を押します。パスワードは店の責任者に聞いてください。名前は会計ごとに記録されるので、本人の名前を入れてください。</p>
     <p>ログインは<b>3日間</b>有効なので、同じスマホなら翌日もそのまま使えます。パスワードはスマホに保存されません。</p>
   </details>
@@ -317,27 +381,28 @@
   <details>
     <summary>担当を交代するときは？</summary>
     <p>画面のいちばん下の「ログアウト（担当者の交代もここから）」を押し、次の人が自分の名前でログインし直してください。ログアウトしないまま別の人が打つと、前の人の名前で記録されます。</p>
+    <p>未送信の会計が残っているときと、電波がないときはログアウトできません。電波のある場所で、上の「未送信」が 0 件になってからログアウトしてください。</p>
   </details>
 
   <h3 class="help-group">会計のしかた</h3>
 
   <details>
     <summary>本数の入れ方は？</summary>
-    <figure class="narrow"><img src="/help/reg-qty.webp" width="362" height="247" loading="lazy" alt="本数の入力欄。1本、3本、5本のボタンと、マイナス、本数、プラスのボタン"></figure>
-    <p>「1本」「3本」「5本」のボタンを押すと、その本数になります（足し算ではありません）。それ以外の本数は「＋」「−」で増減するか、真ん中の数字をタップして直接入力します。</p>
-    <p>セットの組み方は自動です。たとえば4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。</p>
+    <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="184" loading="lazy" alt="商品ごとの本数の入力欄。団子はマイナス、本数、プラスのボタンと、1本、3本、5本のボタン。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
+    <p>商品ごとに本数を入れます。団子は「1本」「3本」「5本」のボタンを押すと、その本数になります（足し算ではありません）。それ以外の本数は「＋」「−」で増減するか、数字をタップして直接入力します。焼きマシュマロのようにセットのない商品は「＋」「−」で入れます。</p>
+    <p>セットの組み方は自動です。たとえば団子4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。団子と焼きマシュマロを1回の会計で一緒に記録できます。</p>
   </details>
 
   <details>
-    <summary>「あと1本で〜安くなります」と出たら？</summary>
-    <figure class="narrow"><img src="/help/reg-cart.webp" width="362" height="292" loading="lazy" alt="お会計欄。3本セットと1本、容器代10円、合計560円。あと1本で520円になるという提案と、5本にするボタン"></figure>
-    <p>本数を少し足したほうが合計が安くなるときに出る提案です。上の例では、4本だと560円ですが、5本にすると520円で40円安くなります。</p>
+    <summary>「あと1本で〜お得」と出たら？</summary>
+    <figure class="narrow"><img src="/help/reg-cart.webp" width="370" height="193" loading="lazy" alt="お会計欄。団子4本（3本セットと1本）、容器代10円、合計560円。あと1本で40円お得という提案と、5本にするボタン"></figure>
+    <p>本数を少し足したほうが合計が安くなるときに出る提案です。上の例では、団子4本だと560円ですが、5本にすると520円で40円安くなります。</p>
     <p>お客さんに「あと1本足すとお得になりますよ」と声をかけて、希望されたら黄色の「5本にする」ボタンを押してください。そのままでよければ、何もせず会計に進んでかまいません。</p>
   </details>
 
   <details>
     <summary>容器代はどうなっている？</summary>
-    <p>容器代は、1回の会計の合計本数から<b>自動で</b>計算して、合計に足しています。</p>
+    <p>容器代は、1回の会計の<b>団子の本数</b>から<b>自動で</b>計算して、合計に足しています（焼きマシュマロは対象外です。対象の商品とルールは管理画面で変えられます）。</p>
     <ul>
       <li>1〜2本: なし</li>
       <li>3〜4本: 10円</li>
@@ -349,20 +414,20 @@
 
   <details>
     <summary>支払方法のボタンを押したあとは？</summary>
-    <figure class="narrow"><img src="/help/reg-pay.webp" width="362" height="110" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
+    <figure class="narrow"><img src="/help/reg-pay.webp" width="370" height="63" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
     <p>お客さんの支払方法のボタンを押すと、記録の前に確認の画面が出ます。ボタンを押しただけでは、まだ記録されません。</p>
     <p>PayPay、d払いのときは、お客さんの支払いが済んだのを確かめてから、確認画面の「はい（記録する）」を押してください。</p>
   </details>
 
   <details>
     <summary>現金のとき（お預かりとおつり）は？</summary>
-    <figure class="narrow"><img src="/help/reg-recv.webp" width="390" height="429" loading="lazy" alt="お預かり金額の入力画面。合計520円、ちょうどや1,000円などのボタン、入力欄、おつり480円の表示"></figure>
+    <figure class="narrow"><img src="/help/reg-recv.webp" width="358" height="389" loading="lazy" alt="お預かり金額の入力画面。合計520円、ちょうどや1,000円などのボタン、入力欄、おつり480円の表示"></figure>
     <p>現金では、先に<b>お預かり金額</b>を入れます。「ちょうど」や「¥1,000」などのボタンを押すか、下の欄に金額を入力してください。入れるとおつりが表示されます。合計より少ない金額では「次へ」が押せません。</p>
   </details>
 
   <details>
     <summary>確認画面では何を見ればいい？</summary>
-    <figure class="narrow"><img src="/help/reg-confirm.webp" width="390" height="491" loading="lazy" alt="確認画面。現金の表示、5本セット500円、容器代20円、合計520円、お預かり1,000円、おつり480円、いいえとはいのボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-confirm.webp" width="358" height="451" loading="lazy" alt="確認画面。現金の表示、団子5本セット500円、容器代20円、合計520円、お預かり1,000円、おつり480円、いいえとはいのボタン"></figure>
     <p>いちばん上の色つきの帯が支払方法です（現金は緑、PayPay と d払いは赤）。本数、合計金額、現金ならおつりを確かめて、よければ「はい（記録する）」を押します。</p>
     <p>間違いに気づいたら「いいえ」を押すと、入力したお会計はそのままで前の画面に戻ります。現金で、お預かり金額だけを直したいときは「← お預かり金額を入力し直す」を押してください。</p>
   </details>
@@ -371,9 +436,10 @@
 
   <details>
     <summary>記録した会計を間違えた</summary>
-    <figure class="narrow"><img src="/help/reg-hist.webp" width="362" height="220" loading="lazy" alt="最近の会計の一覧。2行目は取消済みで取り消し線が引かれ、戻すボタンになっている"></figure>
+    <figure class="narrow"><img src="/help/reg-hist.webp" width="370" height="305" loading="lazy" alt="最近の会計の一覧。2行目は取消済みで取り消し線が引かれ、戻すボタンになっている"></figure>
     <p>「最近の会計」の一覧で、その会計の「取消」を押します。取り消した会計には取り消し線が引かれ、売上と本数から外れます。正しい内容で、もう一度会計し直してください。</p>
-    <p>取り消しを間違えたときは、同じ行の「戻す」で元に戻せます。取消と戻すは、誰がいつしたかが記録されます。</p>
+    <p>取り消しを間違えたときは、同じ行の「戻す」で元に戻せます。取消と戻すは、誰がいつしたかが記録されます。電波がないときも取り消せます（あとで自動で送信されます）。</p>
+    <p>ここに出るのは最新の5件です。それより前の会計は、下の「すべての会計を見る」から探して取り消してください（こちらは電波が必要です）。</p>
   </details>
 
   <details>
@@ -382,9 +448,21 @@
   </details>
 
   <details>
-    <summary>「記録に失敗しました」と出た</summary>
-    <p>多くは電波が弱くて、通信が届かなかったときです。お会計の内容は消えずに残っているので、電波を確かめて（少し場所を変える、数秒待つなど）、もう一度支払方法のボタンから進めてください。</p>
-    <p>まれに、記録はできていて返事だけが届かなかった、ということがあります。押し直す前に「最近の会計」に同じ会計が載っていないか確かめると、二重に記録するのを防げます。</p>
+    <summary>電波がないとき（オフライン）は？</summary>
+    <figure class="narrow"><img src="/help/reg-offline.webp" width="370" height="40" loading="lazy" alt="画面上部の赤い帯。オフライン、未送信2件"></figure>
+    <p>そのまま会計を続けてください。電波がないと画面の上の帯が<b>赤い「オフライン（端末に保存）」</b>になり、会計と取消は<b>スマホの中に保存</b>されます。保存した件数と金額は「未送信 ○件」に出ます。最近の会計にも「未送信」と付いて表示されます。</p>
+    <p>電波が戻ると、古い順に<b>自動で送信</b>され、「未送信 0 件」になります。すぐ送りたいときは帯の右の「送信」を押してください。同じ会計が二重に記録されることはありません。</p>
+    <p>電波がない状態で画面を開き直しても、レジは開けます（一度でも電波のある場所で開いていれば）。ダッシュボードの数字には、送信されてから反映されます。</p>
+  </details>
+
+  <details>
+    <summary>「送信できなかった操作があります」と出た</summary>
+    <p>サーバーが受け付けなかった会計や取消です（内容の不備など）。消さずにスマホの中に残しているので、タップして内容を確かめ、必要ならその内容で会計し直してから「この端末から消す」を押してください。</p>
+  </details>
+
+  <details>
+    <summary>「新しい版のレジがあります」と出た</summary>
+    <p>レジのアプリが更新されたときに出ます。会計の合間に「再読み込み」を押してください。未送信の会計は消えません（会計の途中でなければ自動で切り替わります）。</p>
   </details>
 
   <details>
@@ -401,7 +479,7 @@
 
   <details>
     <summary>今の売上はどこで見られる？</summary>
-    <p>レジ画面のいちばん上に、売上、目標までの残り、売れた本数が出ています（30秒ごとと、会計を記録するたびに更新）。くわしい内訳は、右上の「ダッシュボードを開く」で見られます。ダッシュボードはログインなしで誰でも見られるので、スタッフで共有するのに使ってください。</p>
+    <p>レジ画面のいちばん上に、売上、目標までの残り、売れた本数が出ています（30秒ごとと、会計を記録するたびに更新）。くわしい内訳は、上の「ダッシュボード ↗」で見られます。ダッシュボードはログインなしで誰でも見られるので、スタッフで共有するのに使ってください。</p>
   </details>
 
   <details>
@@ -410,43 +488,15 @@
   </details>
 
   <details>
-    <summary>目標金額やパスワードを変えたい</summary>
-    <p>目標金額の変更、レジのパスワードの変更、ログインの締め出しは、「管理画面を開く」から行います。管理画面にはマスターパスワードが必要なので、店の責任者に頼んでください。</p>
+    <summary>商品・価格、目標金額、パスワードを変えたい</summary>
+    <p>商品や価格の変更、目標金額の変更、レジのパスワードの変更、ログインの締め出しは、「管理画面を開く」から行います。管理画面にはマスターパスワードが必要なので、店の責任者に頼んでください。</p>
   </details>
 </dialog>
 
 <div class="toast" id="toast"></div>
 
-<script>
-  // 価格を変えるときは src/index.js の SETS も合わせて変更
-  const SETS = [
-    { key: 's1', sticks: 1, price: 150 },
-    { key: 's3', sticks: 3, price: 400 },
-    { key: 's5', sticks: 5, price: 500 },
-  ];
-  /** 容器代: 1〜2本 0円 / 3〜4本 10円 / 5〜8本 20円 / 以降4本ごとに +10円 */
-  const containerFee = sticks => sticks < 3 ? 0 : Math.ceil(sticks / 4) * 10;
-  /**
-   * 本数ちょうどで一番安くなるセットの組み合わせ（お客さんに有利な組み方）。
-   * 同じ金額なら、セットの数が少ない（大きいセットを使う）ほうを選ぶ。
-   */
-  function bestBundle(sticks) {
-    const best = [{ cost: 0, packs: 0, counts: Object.fromEntries(SETS.map((s) => [s.key, 0])) }];
-    for (let i = 1; i <= sticks; i++) {
-      let b = null;
-      for (const s of SETS) {
-        const prev = best[i - s.sticks];
-        if (!prev) continue;
-        const cand = { cost: prev.cost + s.price, packs: prev.packs + 1, key: s.key, prev };
-        if (!b || cand.cost < b.cost || (cand.cost === b.cost && cand.packs < b.packs)) b = cand;
-      }
-      b.counts = { ...b.prev.counts, [b.key]: b.prev.counts[b.key] + 1 };
-      delete b.prev;
-      best[i] = b;
-    }
-    return best[sticks].counts;
-  }
-  const goodsOf = c => SETS.reduce((a, s) => a + c[s.key] * s.price, 0);
+<script type="module">
+  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel, describeItems } from '/pricing.js';
 
   const STAFF_KEY = 'dango_admin_staff';   // 次回ログイン時の入力補助（名前だけ）
   localStorage.removeItem('dango_admin_pw'); // 以前の版で保存していたパスワードを消す
@@ -455,21 +505,33 @@
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   $('staffName').value = localStorage.getItem(STAFF_KEY) || '';
-  const MAX_STICKS = 200;
-  let qty = 0;            // 本数
-  let cart = bestBundle(0);
+  let products = [];      // 販売中の商品（サーバーから）
+  let rule = { ...DEFAULT_RULE };
+  let productsSig = '';
+  let cart = {};          // { 商品ID: 個数 }
   let manualFee = null;   // null = 自動計算、数値 = 手動で修正した容器代
   let busy = false;
 
   // ---------- サーバー呼び出し ----------
-  async function api(path, body) {
-    const res = await fetch('/api/admin/' + path, {
-      method: body ? 'POST' : 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      body: body ? JSON.stringify(body) : undefined,
-      cache: 'no-store',
-      credentials: 'same-origin',
-    });
+  async function api(path, body, timeoutMs = 15000) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    let res;
+    try {
+      res = await fetch('/api/admin/' + path, {
+        method: body ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal: ctl.signal,
+      });
+    } catch (e) {
+      // 電波がない・タイムアウト
+      setNet(false);
+      throw Object.assign(new Error('通信できません（オフライン）'), { network: true });
+    } finally { clearTimeout(timer); }
+    setNet(true);
     const d = await res.json().catch(() => ({}));
     if (res.status === 401 && path !== 'login') showLogin(d.error);
     if (!res.ok) throw Object.assign(new Error(d.error || ('通信エラー ' + res.status)), { status: res.status });
@@ -487,7 +549,6 @@
   // ---------- ログイン ----------
   function showApp(d) {
     renderData(d);
-    $('staffLabel').textContent = '担当: ' + d.me.staff;
     $('login').classList.add('hidden');
     $('app').classList.remove('hidden');
   }
@@ -495,6 +556,9 @@
     if (!$('app').classList.contains('hidden') && msg) toast(msg, true);
     $('app').classList.add('hidden');
     $('login').classList.remove('hidden');
+    const n = loadQ().length;
+    $('loginQueue').textContent = n ? 'この端末に未送信の操作が ' + n + ' 件あります。ログインすると自動で送信します。' : '';
+    $('loginQueue').classList.toggle('hidden', !n);
   }
   async function submitLogin() {
     const name = $('staffName').value.trim();
@@ -504,39 +568,54 @@
       const d = await api('login', { staff: name, password: $('pw').value });
       localStorage.setItem(STAFF_KEY, name);
       $('pw').value = '';
+      $('loginOff').classList.add('hidden');
       showApp(d);
-    } catch (e) { toast(e.message, true); }
+      flush();
+    } catch (e) {
+      if (e.network) $('loginOff').classList.remove('hidden');
+      toast(e.message, true);
+    }
   }
   async function start() {
-    try { showApp(await api('data')); }
-    catch (e) { showLogin(); }
+    const t0 = Date.now();
+    try { const d = await api('data'); pruneSent(t0); showApp(d); flush(); }
+    catch (e) {
+      // 電波がないときは、最後に受け取った画面データでレジを開く（会計は端末に保存）
+      const cached = e.network && loadCachedData();
+      if (cached) showApp(cached);
+      else { showLogin(); if (e.network) $('loginOff').classList.remove('hidden'); }
+    }
   }
   $('loginBtn').onclick = submitLogin;
   $('pw').onkeydown = e => { if (e.key === 'Enter') submitLogin(); };
   $('staffName').onkeydown = e => { if (e.key === 'Enter') $('pw').focus(); };
   $('logoutBtn').onclick = async () => {
+    const n = loadQ().length;
+    if (n) { alert('未送信の操作が ' + n + ' 件あります。送信が終わってからログアウトしてください。'); return; }
+    if (!netOk) { alert('オフライン中はログアウトできません。電波のある場所で操作してください。'); return; }
     if (!confirm('ログアウトしますか？')) return;
-    await api('logout', {}).catch(() => {});
+    try { await api('logout', {}); } catch (e) { if (e.network) { toast(e.message, true); return; } }
+    localStorage.removeItem(DATA_KEY);
     location.reload();
   };
 
   // ---------- 表示 ----------
   function renderData(d) {
+    if (!d.cachedAt) { checkEpoch(d.epoch); saveCachedData(d); }
+    lastData = d;
+    $('staffLabel').textContent = '担当: ' + d.me.staff + (d.cachedAt ? '（オフライン表示）' : '');
     $('mTotal').textContent = yen(d.total);
-    $('mRemain').textContent = d.remaining > 0 ? yen(d.remaining) : '達成🎉';
-    $('mSticks').textContent = d.sticks + '本';
+    const done = d.total >= d.target;
+    $('mRemain').textContent = done ? yen(d.total - d.target) : yen(d.remaining);
+    $('mRemainK').textContent = done ? '達成！黒字（見込）' : '目標まで';
+    const units = [...new Set(d.byProduct.filter(g => g.qty).map(g => g.unit).concat(d.units ? [] : d.products.map(p => p.unit)))];
+    $('mSticks').textContent = d.units + (units.length === 1 ? units[0] : '点');
+    syncProducts(d.products, d.rule);
     $('mBar').style.width = Math.min(100, d.rate * 100) + '%';
 
-    $('hist').innerHTML = d.recent.length ? d.recent.map(r => {
-      const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
-      const desc = SETS.filter(s => r[s.key] > 0).map(s => s.sticks + '本×' + r[s.key]).join(' ');
-      const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
-      return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
-        '<span class="t">' + time + '</span>' +
-        '<span class="d">' + desc + ' ' + fee + '　' + r.payment + (r.staff ? '（' + esc(r.staff) + '）' : '') + '</span>' +
-        '<span class="a">' + yen(r.amount) + '</span>' +
-        '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
-    }).join('') : '<div class="empty">まだ会計はありません</div>';
+    renderHist();
+    $('moreLink').classList.toggle('hidden', d.salesCount <= d.recent.length);
+    $('moreLink').textContent = 'すべての会計を見る（全' + d.salesCount + '件）→';
 
     $('auditLog').innerHTML = d.audit.length ? d.audit.map(a =>
       '<div class="log-line"><span class="t">' + fmtTime(a.at) + '</span>' +
@@ -544,55 +623,123 @@
       '<span class="what">' + esc(a.action) + (a.detail ? '　<span style="color:var(--sub)">' + esc(a.detail) + '</span>' : '') + '</span></div>'
     ).join('') : '<div class="empty">記録はありません</div>';
   }
+  /** 最近の会計：サーバーの記録＋この端末の未送信／送信直後の会計をまとめて新しい順に 5 件 */
+  function renderHist() {
+    const d = lastData;
+    if (!d) return;
+    const q = loadQ();
+    const local = q.filter(o => o.kind === 'sale').map(o => ({ ...o, _state: 'pending' }))
+      .concat(loadSent().map(o => ({ ...o, _state: 'sent' })));
+    const localIds = new Set(local.map(o => o.clientId));
+    const rows = local.map(o => ({
+      key: 'c:' + o.clientId, clientId: o.clientId, id: null, created_at: o.createdAt, desc: o.desc, container: o.container,
+      container_auto: o.containerAuto, payment: o.payment, staff: o.staff, amount: o.amount, cancelled: 0, state: o._state,
+    })).concat(d.recent.filter(r => !r.client_id || !localIds.has(r.client_id)).map(r => ({
+      key: r.client_id ? 'c:' + r.client_id : 'i:' + r.id, clientId: r.client_id, id: r.id, created_at: r.created_at, desc: r.desc,
+      container: r.container, container_auto: r.container_auto, payment: r.payment, staff: r.staff, amount: r.amount, cancelled: r.cancelled, state: 'server',
+    })));
+    // まだ送っていない取消／戻すを表示に反映
+    for (const o of q) {
+      if (o.kind !== 'cancel') continue;
+      const row = rows.find(r => (o.clientId && r.clientId === o.clientId) || (o.id && r.id === o.id));
+      if (row) { row.cancelled = o.cancelled ? 1 : 0; row.cancelPending = true; }
+    }
+    rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    $('hist').innerHTML = rows.length ? rows.slice(0, 5).map(r => {
+      const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
+      const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
+      const tag = r.state === 'pending' ? '<span class="q">未送信</span>' : r.cancelPending ? '<span class="q">取消は未送信</span>' : '';
+      return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
+        '<span class="t">' + time + '</span>' +
+        '<span class="d">' + esc(r.desc) + ' ' + fee + '　' + r.payment + (r.staff ? '（' + esc(r.staff) + '）' : '') + tag + '</span>' +
+        '<span class="a">' + yen(r.amount) + '</span>' +
+        '<button data-cancel="' + esc(r.key) + '" data-to="' + (r.cancelled ? 0 : 1) + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
+    }).join('') : '<div class="empty">まだ会計はありません</div>';
+  }
+
   const fmtTime = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  const cartSticks = () => SETS.reduce((a, s) => a + cart[s.key] * s.sticks, 0);
-  const cartGoods = () => SETS.reduce((a, s) => a + cart[s.key] * s.price, 0);
-  const autoFee = () => containerFee(cartSticks());
+  // ---------- 商品とカート ----------
+  function priced() {
+    try { return priceCart(products, rule, cart); }
+    catch { return { lines: [], goods: 0, fee: 0, total: 0, units: 0, containerUnits: 0 }; }
+  }
+  const autoFee = () => priced().fee;
   const currentFee = () => manualFee == null ? autoFee() : manualFee;
-  const cartTotal = () => cartGoods() ? cartGoods() + currentFee() : 0;
+  const cartTotal = () => { const p = priced(); return p.goods ? p.goods + currentFee() : 0; };
 
-  function setQty(n) {
-    n = Math.max(0, Math.min(MAX_STICKS, Math.floor(Number(n) || 0)));
-    if (n !== qty) manualFee = null;   // 本数が変わったら容器代は自動計算に戻す
-    qty = n;
-    cart = bestBundle(qty);
+  /** サーバーの商品一覧が変わったら作り直す（カートは残せる分だけ残す） */
+  function syncProducts(list, r) {
+    const sig = JSON.stringify([list, r]);
+    if (sig === productsSig) return;
+    const first = !productsSig;
+    productsSig = sig;
+    products = list;
+    rule = r;
+    const before = JSON.stringify(cart);
+    for (const id of Object.keys(cart)) if (!products.some(p => String(p.id) === id)) delete cart[id];
+    renderProducts();
+    renderCart();
+    if (!first) toast(JSON.stringify(cart) !== before ? '商品が変更されたため、お会計を一部消しました' : '商品・価格が更新されました', JSON.stringify(cart) !== before);
+  }
+
+  function renderProducts() {
+    $('products').innerHTML = products.map(p =>
+      // 1 行目：商品名と −［数］＋　2 行目：セットのボタン（セットが 1 種類だけの商品は省略）
+      '<section class="card prod" data-prod="' + p.id + '">' +
+        '<div class="prod-head">' +
+          '<div class="pn">' + esc(p.name) + (p.sets.length > 1 ? '' : '<small>' + p.sets[0].price + '円／' + esc(p.unit) + '</small>') + '</div>' +
+          '<div class="stepper">' +
+            '<button data-pid="' + p.id + '" data-step="-1" aria-label="1' + esc(p.unit) + '減らす">−</button>' +
+            '<span class="qty-box"><input class="qty-input" data-pid="' + p.id + '" type="number" inputmode="numeric" min="0" max="' + MAX_QTY + '" value="0" aria-label="' + esc(p.name) + 'の数"><span class="unit">' + esc(p.unit) + '</span></span>' +
+            '<button data-pid="' + p.id + '" data-step="1" aria-label="1' + esc(p.unit) + '増やす">＋</button>' +
+          '</div>' +
+        '</div>' +
+        (p.sets.length > 1
+          ? '<div class="items" style="grid-template-columns:repeat(' + Math.min(4, p.sets.length) + ',1fr)">' +
+              p.sets.map(s => '<button class="item" data-pid="' + p.id + '" data-preset="' + s.qty + '"><span class="n">' + s.qty + esc(p.unit) + '</span><span class="p">' + s.price + '円</span></button>').join('') +
+            '</div>'
+          : '') +
+      '</section>'
+    ).join('') || '<section class="card"><div class="empty">販売中の商品がありません（管理画面で追加してください）</div></section>';
+  }
+
+  const qtyOf = pid => cart[pid] || 0;
+  function setQty(pid, n) {
+    n = Math.max(0, Math.min(MAX_QTY, Math.floor(Number(n) || 0)));
+    if (n !== qtyOf(pid)) manualFee = null;   // 個数が変わったら容器代は自動計算に戻す
+    if (n) cart[pid] = n; else delete cart[pid];
     renderCart();
   }
 
-  /** あと何本か足すと、合計（容器代込み）が同じか安くなる場合の提案 */
-  function upsellFor(n) {
-    if (!n) return null;
-    const total = k => goodsOf(bestBundle(k)) + containerFee(k);
-    let best = null;
-    for (let m = n + 1; m <= Math.min(MAX_STICKS, n + 4); m++) {
-      if (total(m) <= total(n) && (!best || total(m) < total(best))) best = m;
-    }
-    return best && { sticks: best, total: total(best), save: total(n) - total(best) };
-  }
-
   function renderCart() {
-    if (document.activeElement !== $('qtyInput')) $('qtyInput').value = qty;
-    document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', Number(b.dataset.preset) === qty));
-    const lines = SETS.filter(s => cart[s.key] > 0).reverse();
-    $('cart').innerHTML = lines.length ? lines.map(s =>
-      '<div class="cart-line"><span>' + s.sticks + '本セット × ' + cart[s.key] + '</span>' +
-      '<span class="sub">' + yen(cart[s.key] * s.price) + '</span></div>'
-    ).join('') : '<div class="empty">本数を選んでください</div>';
+    document.querySelectorAll('.qty-input').forEach(inp => { if (document.activeElement !== inp) inp.value = qtyOf(inp.dataset.pid); });
+    document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', Number(b.dataset.preset) === qtyOf(b.dataset.pid)));
+    const pr = priced();
 
-    const up = upsellFor(qty);
-    $('upsell').innerHTML = up
-      ? '<div class="upsell"><span>💡 あと' + (up.sticks - qty) + '本で' + yen(up.total) + '（' + (up.save > 0 ? yen(up.save) + '安く' : '同じ金額') + 'なります）</span>' +
-        '<button data-setqty="' + up.sticks + '">' + up.sticks + '本にする</button></div>'
-      : '';
+    // 商品ごとに 1 行（セットの組み方はかっこ書き）
+    $('cart').innerHTML = pr.lines.length ? pr.lines.map(l => {
+      const u = esc(l.product.unit);
+      const detail = l.packs.length > 1 || l.packs[0].qty > 1
+        ? '<small class="packs">（' + l.packs.map(k => packLabel(k, u) + (k.count > 1 ? '×' + k.count : '')).join('＋') + '）</small>' : '';
+      return '<div class="cart-line"><span>' + esc(l.product.name) + ' ' + l.qty + u + detail + '</span><span class="sub">' + yen(l.subtotal) + '</span></div>';
+    }).join('') : '<div class="empty">商品の数を選んでください</div>';
 
-    if (lines.length) {
+    $('upsell').innerHTML = pr.lines.map(l => {
+      const up = upsell(products, rule, cart, l.product.id);
+      if (!up) return '';
+      const u = esc(l.product.unit);
+      return '<div class="upsell"><span>💡 ' + (pr.lines.length > 1 ? esc(l.product.name) : '') + 'あと' + (up.qty - l.qty) + u + 'で' + (up.save > 0 ? yen(up.save) + 'お得' : '同じ金額') + '</span>' +
+        '<button data-pid="' + l.product.id + '" data-setqty="' + up.qty + '">' + up.qty + u + 'にする</button></div>';
+    }).join('');
+
+    if (pr.lines.length) {
       const fee = currentFee();
       const isManual = manualFee != null && manualFee !== autoFee();
       $('containerRow').innerHTML =
         '<div class="cart-line fee"><span>容器代<span class="tag' + (isManual ? ' manual' : '') + '">' + (isManual ? '手動' : '自動') + '</span>' +
         (isManual ? '<button class="reset-fee" data-feereset="1">自動に戻す</button>' : '') + '</span>' +
-        '<span class="ctrl"><button data-fee="-10">−</button><span class="qty">' + (fee / 10) + '</span><button data-fee="10">＋</button></span>' +
+        '<span class="ctrl"><button data-fee="-' + (rule.fee || 10) + '">−</button><span class="qty">' + (fee / (rule.fee || 10)) + '</span><button data-fee="' + (rule.fee || 10) + '">＋</button></span>' +
         '<span class="sub">' + yen(fee) + '</span></div>';
     } else {
       $('containerRow').innerHTML = '';
@@ -600,36 +747,33 @@
 
     const total = cartTotal();
     $('cartTotal').textContent = yen(total);
-    $('cartSticks').textContent = cartSticks() + '本';
+    $('cartSticks').textContent = pr.lines.map(l => esc(l.product.name) + l.qty + esc(l.product.unit)).join('・');
     document.querySelectorAll('.pay').forEach(b => b.disabled = busy || total === 0);
   }
 
-  // 本数のプリセット（1本・3本・5本）
-  $('items').innerHTML = SETS.map(s =>
-    '<button class="item" data-preset="' + s.sticks + '"><div class="n">' + s.sticks + '本</div><div class="p">' + s.price + '円</div></button>'
-  ).join('');
-  $('qtyInput').oninput = () => setQty($('qtyInput').value);
-  $('qtyInput').onfocus = () => $('qtyInput').select();
-  $('qtyInput').onblur = () => { $('qtyInput').value = qty; };
-  $('qtyInput').onkeydown = e => { if (e.key === 'Enter') $('qtyInput').blur(); };
+  $('products').addEventListener('input', e => { if (e.target.classList.contains('qty-input')) setQty(e.target.dataset.pid, e.target.value); });
+  $('products').addEventListener('focusin', e => { if (e.target.classList.contains('qty-input')) e.target.select(); });
+  $('products').addEventListener('focusout', e => { if (e.target.classList.contains('qty-input')) e.target.value = qtyOf(e.target.dataset.pid); });
+  $('products').addEventListener('keydown', e => { if (e.target.classList.contains('qty-input') && e.key === 'Enter') e.target.blur(); });
 
   document.addEventListener('click', async e => {
     const b = e.target.closest('button');
     if (!b) return;
     const d = b.dataset;
-    if (d.preset) setQty(d.preset);
-    if (d.step) setQty(qty + Number(d.step));
-    if (d.setqty) setQty(d.setqty);
+    if (d.preset) setQty(d.pid, d.preset);
+    if (d.step) setQty(d.pid, qtyOf(d.pid) + Number(d.step));
+    if (d.setqty) setQty(d.pid, d.setqty);
     if (d.fee) { manualFee = Math.max(0, currentFee() + Number(d.fee)); renderCart(); }
     if (d.feereset) { manualFee = null; renderCart(); }
     if (d.pay) openPay(d.pay);
-    if (d.cancel) await cancel(d.cancel, b.textContent);
+    if (d.cancel) cancel(d.cancel, d.to === '1');
   });
   $('clearBtn').onclick = resetCart;
 
   function resetCart() {
     manualFee = null;
-    setQty(0);
+    cart = {};
+    renderCart();
   }
 
   // ---------- 操作 ----------
@@ -681,11 +825,12 @@
     $('cfPay').textContent = p.method;
     $('cfPay').className = 'pay-badge ' + PAY_CLASS[p.method];
     const fee = currentFee();
-    $('cfLines').innerHTML = SETS.filter(s => cart[s.key] > 0).reverse().map(s =>
-      '<div class="sum-line"><span>' + s.sticks + '本セット（' + s.price + '円）× ' + cart[s.key] + '</span><span class="sub">' + yen(cart[s.key] * s.price) + '</span></div>'
-    ).join('') +
+    const pr = priced();
+    $('cfLines').innerHTML = pr.lines.map(l => l.packs.map(k =>
+      '<div class="sum-line"><span>' + esc(l.product.name) + ' ' + packLabel(k, esc(l.product.unit)) + '（' + k.price + '円）× ' + k.count + '</span><span class="sub">' + yen(k.price * k.count) + '</span></div>'
+    ).join('')).join('') +
       (fee ? '<div class="sum-line fee"><span>容器代' + (manualFee != null && manualFee !== autoFee() ? '（手動）' : '') + '</span><span class="sub">' + yen(fee) + '</span></div>' : '') +
-      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>本数</span><span>' + cartSticks() + '本</span></div>';
+      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(l => esc(l.product.name) + l.qty + esc(l.product.unit)).join('・') + '</span></div>';
     $('cfTotal').textContent = yen(p.total);
     const isCash = p.method === '現金';
     $('cfCash').classList.toggle('hidden', !isCash);
@@ -712,36 +857,228 @@
   $('cfYes').onclick = async () => {
     if (!pending || busy) return;
     const p = pending;
-    busy = true; $('cfYes').disabled = true; renderCart();
-    try {
-      const d = await api('sales', { sticks: qty, container: currentFee(), payment: p.method });
-      closePay();
-      toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : ''));
-      busy = false;
-      resetCart();
-      renderData(d);
-    } catch (e) {
-      busy = false; $('cfYes').disabled = false; renderCart();
-      toast('記録に失敗しました：' + e.message, true);
-    }
+    $('cfYes').disabled = true;
+    // まず端末に保存（電波がなくても会計は止めない）→ そのあとサーバーへ送る
+    const pr = priced();
+    enqueue({
+      kind: 'sale',
+      clientId: newId(),
+      createdAt: new Date().toISOString(),
+      items: { ...cart },
+      lines: pr.lines.map(l => ({ productId: l.product.id, name: l.product.name, unit: l.product.unit, packs: l.packs })),
+      goods: pr.goods,
+      container: currentFee(),
+      containerAuto: pr.fee,
+      amount: pr.goods + currentFee(),
+      payment: p.method,
+      staff: lastData && lastData.me ? lastData.me.staff : '',
+      desc: describeItems(pr.lines.flatMap(l => l.packs.map(k => ({ name: l.product.name, unit: l.product.unit, set_qty: k.qty, set_price: k.price, count: k.count })))),
+    });
+    closePay();
+    toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : '') + (netOk ? '' : '・未送信'));
+    resetCart();
+    renderHist();
+    flush();
   };
 
-  async function cancel(id, label) {
-    if (!confirm(label === '取消' ? 'この会計を取り消しますか？' : '取消を元に戻しますか？')) return;
-    try {
-      renderData(await api('sales/' + id + '/toggle-cancel', {}));
-      toast(label === '取消' ? '取り消しました' : '元に戻しました');
-    } catch (e) { toast(e.message, true); }
+  // 取消／戻す：これも端末に保存してから、会計と同じ順番で送る
+  function cancel(key, toCancelled) {
+    if (!confirm(toCancelled ? 'この会計を取り消しますか？' : '取消を元に戻しますか？')) return;
+    const [kind, v] = [key.slice(0, 1), key.slice(2)];
+    enqueue({ kind: 'cancel', clientId: kind === 'c' ? v : null, id: kind === 'i' ? Number(v) : null, cancelled: toCancelled, createdAt: new Date().toISOString() });
+    toast((toCancelled ? '取り消しました' : '元に戻しました') + (netOk ? '' : '・未送信'));
+    renderHist();
+    flush();
   }
 
   async function refresh() {
-    try { renderData(await api('data')); }
-    catch (e) { toast('更新に失敗しました：' + e.message, true); }
+    const t0 = Date.now();
+    try { renderData(await api('data')); pruneSent(t0); renderHist(); }
+    catch (e) { if (!e.network) toast('更新に失敗しました：' + e.message, true); }
   }
 
-  renderCart();
+  // ========== オフライン対応：未送信キュー ==========
+  // 会計・取消はまず localStorage のキューに入れ、古い順にサーバーへ送る。送れたものからキューを消す。
+  // サーバーは会計ID（clientId）が同じなら 1 件として扱うので、何度送り直しても二重にならない。
+  const QUEUE_KEY = 'mogiten_queue_v1';      // 未送信の操作（古い順）
+  const FAILED_KEY = 'mogiten_failed_v1';    // サーバーに受け付けられなかった操作（消さずに残す）
+  const SENT_KEY = 'mogiten_sent_v1';        // 送信できた直後の会計（サーバーの一覧に出るまで表示用に残す）
+  const DATA_KEY = 'mogiten_data_v1';        // 最後に受け取った画面データ（オフラインで開くとき用）
+  let lastData = null;
+  let netOk = navigator.onLine;
+  let flushing = false;
+
+  const readJSON = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } };
+  const loadQ = () => readJSON(QUEUE_KEY, []);
+  const saveQ = q => localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+  const loadFailed = () => readJSON(FAILED_KEY, []);
+  const loadSent = () => readJSON(SENT_KEY, []);
+  function loadCachedData() { const d = readJSON(DATA_KEY, null); return d ? { ...d, cachedAt: d.savedAt || true } : null; }
+  function saveCachedData(d) { try { localStorage.setItem(DATA_KEY, JSON.stringify({ ...d, audit: d.audit.slice(0, 10), savedAt: new Date().toISOString() })); } catch {} }
+
+  // 管理画面で売上記録が全リセットされたら、リセット前の未送信・送信済みの表示用データを捨てる
+  const EPOCH_KEY = 'mogiten_epoch_v1';
+  function checkEpoch(epoch) {
+    if (epoch == null) return;
+    const prev = localStorage.getItem(EPOCH_KEY);
+    localStorage.setItem(EPOCH_KEY, String(epoch));
+    if (prev == null || Number(prev) === epoch) return;
+    const q = loadQ();
+    const keep = q.filter(o => o.epoch == null || o.epoch === epoch);
+    saveQ(keep);
+    localStorage.removeItem(SENT_KEY);
+    localStorage.setItem(FAILED_KEY, JSON.stringify(loadFailed().filter(o => o.epoch == null || o.epoch === epoch)));
+    toast('管理画面で売上記録がリセットされました' + (q.length > keep.length ? '（リセット前の未送信 ' + (q.length - keep.length) + ' 件は破棄）' : ''));
+    renderNet();
+  }
+
+  function newId() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const a = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function enqueue(op) {
+    const q = loadQ();
+    q.push({ ...op, opId: newId(), wasOffline: !netOk, epoch: lastData && lastData.epoch != null ? lastData.epoch : null });
+    saveQ(q);
+    renderNet();
+  }
+  function removeOp(opId) { saveQ(loadQ().filter(o => o.opId !== opId)); }
+
+  /** 未送信の操作を古い順に送る。電波がなければ途中でやめて、あとで再試行 */
+  async function flush() {
+    if (flushing) return;
+    if ($('app').classList.contains('hidden')) return;   // ログインしていない
+    flushing = true;
+    let sentAny = false;
+    try {
+      for (;;) {
+        const op = loadQ()[0];
+        if (!op) break;
+        try {
+          if (op.kind === 'sale') {
+            await api('sales', {
+              lite: true, epoch: op.epoch, clientId: op.clientId, createdAt: op.createdAt, items: op.items, lines: op.lines,
+              container: op.container, containerAuto: op.containerAuto, payment: op.payment,
+            });
+            const sent = loadSent().filter(s => s.clientId !== op.clientId);
+            sent.unshift({ ...op, sentAt: new Date().toISOString() });
+            localStorage.setItem(SENT_KEY, JSON.stringify(sent.slice(0, 20)));
+          } else if (op.kind === 'cancel') {
+            await api('sales/set-cancel', { epoch: op.epoch, clientId: op.clientId, id: op.id, cancelled: op.cancelled, offline: !!op.wasOffline });
+          }
+          removeOp(op.opId);
+          sentAny = true;
+        } catch (e) {
+          if (e.network || e.status === 401 || e.status === 429 || e.status >= 500) break;   // あとで再試行
+          // 受け付けられない操作（内容の不備など）は「送信できなかった操作」に移して先へ進む
+          const failed = loadFailed();
+          failed.push({ ...op, error: e.message, failedAt: new Date().toISOString() });
+          localStorage.setItem(FAILED_KEY, JSON.stringify(failed));
+          removeOp(op.opId);
+        }
+        renderNet();
+        renderHist();
+      }
+    } finally {
+      flushing = false;
+      renderNet();
+      renderHist();
+    }
+    if (sentAny && !loadQ().length) refresh();   // 全部送れたら売上の数字を更新
+  }
+
+  /** サーバーの一覧を取り直したら、送信済みの会計の表示用コピーは不要 */
+  function pruneSent(fetchStartedAt) {
+    localStorage.setItem(SENT_KEY, JSON.stringify(loadSent().filter(s => Date.parse(s.sentAt) >= fetchStartedAt)));
+  }
+
+  function setNet(ok) {
+    if (netOk === ok) return;
+    netOk = ok;
+    renderNet();
+    if (ok) flush();
+  }
+
+  function renderNet() {
+    const q = loadQ(), failed = loadFailed();
+    const sales = q.filter(o => o.kind === 'sale');
+    const box = $('net');
+    const online = netOk && navigator.onLine;
+    box.className = 'net' + (online ? (q.length ? ' wait' : '') : ' off');
+    $('netText').textContent = online
+      ? (q.length ? 'オンライン・送信中…' : 'オンライン')
+      : 'オフライン（端末に保存）';
+    $('qInfo').innerHTML = q.length
+      ? '未送信 <b>' + q.length + '</b> 件' + (sales.length ? ' ' + yen(sales.reduce((a, o) => a + o.amount, 0)) : '')
+      : '未送信 <b>0</b> 件';
+    $('syncBtn').classList.toggle('hidden', !q.length);
+    $('failedBox').classList.toggle('hidden', !failed.length);
+    if (failed.length) {
+      $('failedSum').textContent = '⚠ 送信できなかった操作が ' + failed.length + ' 件あります（タップで内容）';
+      $('failedList').innerHTML = failed.map((o, i) => '<div class="fl"><span>' + fmtTime(o.createdAt) + '　' +
+        (o.kind === 'sale' ? esc(o.desc) + ' ' + yen(o.amount) + ' ' + o.payment : (o.cancelled ? '取消' : '戻す')) + '<br>理由：' + esc(o.error) + '</span>' +
+        '<button data-drop="' + i + '">この端末から消す</button></div>').join('');
+    }
+  }
+  $('failedList').onclick = e => {
+    const b = e.target.closest('[data-drop]');
+    if (!b || !confirm('この操作をこの端末から消しますか？（売上には記録されていません）')) return;
+    const failed = loadFailed(); failed.splice(Number(b.dataset.drop), 1);
+    localStorage.setItem(FAILED_KEY, JSON.stringify(failed));
+    renderNet();
+  };
+  $('syncBtn').onclick = () => flush();
+
+  /**
+   * 実際にサーバーと通信できるかを確かめる。
+   * 端末の「オフライン」通知だけに頼ると、機種によっては切り替わらないため、小さな確認通信を定期的に送る。
+   */
+  let probing = false;
+  async function probe() {
+    if (probing) return;
+    probing = true;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 4000);
+    try {
+      const res = await fetch('/api/ping?t=' + Date.now(), { cache: 'no-store', signal: ctl.signal });
+      setNet(res.ok);
+    } catch (e) {
+      setNet(false);
+    } finally { clearTimeout(timer); probing = false; }
+  }
+
+  window.addEventListener('online', () => { renderNet(); probe(); flush(); });
+  window.addEventListener('offline', () => { netOk = false; renderNet(); probe(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { probe(); flush(); } });
+  // 別のタブで操作されたとき
+  window.addEventListener('storage', e => { if (e.key === QUEUE_KEY) { renderNet(); renderHist(); } });
+
+  // ---------- Service Worker（画面をキャッシュして電波がなくても開けるように） ----------
+  if ('serviceWorker' in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);   // 30 分ごとに新しい版を確認
+    }).catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) return;   // 初回のインストール
+      // 新しい版に切り替わった：会計の途中でなければ自動で再読み込み、途中なら案内を出す
+      const idle = !Object.keys(cart).length && $('modal').classList.contains('hidden');
+      if (idle) location.reload(); else $('updateBox').classList.remove('hidden');
+    });
+  }
+  $('reloadBtn').onclick = () => {
+    if (Object.keys(cart).length && !confirm('お会計の途中です。再読み込みするとカートが消えます。よろしいですか？')) return;
+    location.reload();
+  };
+
+  renderNet();
   start();
   setInterval(() => { if (!busy && !$('app').classList.contains('hidden')) refresh(); }, 30000);
+  setInterval(() => { if (loadQ().length) flush(); }, 15000);   // 一定間隔で再試行
+  setInterval(() => { if (!document.hidden) probe(); }, 10000);   // 10 秒ごとに通信できるか確認
+  probe();
 </script>
 <script src="/help.js"></script>
 </body>

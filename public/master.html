@@ -55,12 +55,35 @@
   .empty { color: var(--sub); text-align: center; padding: 10px 0; }
   .scroll { max-height: 420px; overflow: auto; }
 
+  /* 商品の編集 */
+  .pcard { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fdfbf8; }
+  .pcard.dirty { border-color: #e0a400; background: #fffaf0; }
+  .pcard.off { opacity: .7; }
+  .pcard .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .pcard input[type=text], .pcard input[type=number], .rule input { padding: 8px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; }
+  .pcard .pname { flex: 1; min-width: 8em; font-weight: 700; }
+  .pcard .punit { width: 4em; }
+  .sets { margin: 10px 0 6px; }
+  .set-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 14px; }
+  .set-row input { width: 5.5em; }
+  .set-row .x { background: none; color: var(--sub); font-size: 18px; padding: 0 6px; }
+  .checks { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; margin: 8px 0; }
+  .checks label { display: flex; gap: 6px; align-items: center; }
+  .pactions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .pactions .sp { flex: 1; }
+  .dirty-badge { font-size: 11px; color: #9a5b00; background: #fde7c8; padding: 2px 7px; border-radius: 10px; }
+  .rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
+  .rule input { width: 5em; }
+  .danger-zone { border-color: #f2c2bc; background: #fffaf9; }
+  .danger-zone h2 { color: var(--red); }
+
   #login { max-width: 360px; margin: 80px auto; text-align: center; }
   #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
   #login button:not(.btn-help) { width: 100%; padding: 14px; font-size: 18px; background: var(--dark); color: #fff; border-radius: 10px; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--dark); color: #fff;
            padding: 12px 18px; border-radius: 10px; font-size: 14px; transition: transform .25s; max-width: 92vw; z-index: 10; }
+  .toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.err { background: var(--red); }
   .hidden { display: none !important; }
@@ -87,10 +110,32 @@
     <div class="mini">
       <div><div class="v" id="mTotal">—</div><div class="k">売上</div></div>
       <div><div class="v" id="mOrders">—</div><div class="k">会計数</div></div>
-      <div><div class="v" id="mSticks">—</div><div class="k">本数</div></div>
+      <div><div class="v" id="mSticks">—</div><div class="k">販売数</div></div>
     </div>
     <div class="note" id="mRate" style="text-align:center"></div>
     <div style="margin-top:12px"><a class="btn sub" href="/api/master/sales.csv" download>⬇ 売上明細CSV（取消分を除く）</a></div>
+  </section>
+
+  <section class="card">
+    <h2>商品・価格</h2>
+    <div id="prodList"></div>
+    <button class="btn sub" id="addProdBtn">＋ 商品を追加</button>
+    <div class="note">
+      ・数量ごとの価格（セット）を登録すると、レジでは個数を入れるだけで一番安い組み合わせを自動で選びます。1個（1本）の価格は必須です。<br>
+      ・「容器代の対象」にした商品の数の合計で、容器代を計算します。<br>
+      ・販売の記録がある商品は削除できません。「販売中」を外すとレジに出なくなります。<br>
+      ・価格を変えても、すでに記録した会計の金額は変わりません。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>容器代のルール</h2>
+    <div class="rule">
+      容器代の対象が <input id="ruleFree" type="number" inputmode="numeric" min="0"> 個までは無料、それより多いときは
+      <input id="rulePer" type="number" inputmode="numeric" min="1"> 個ごとに <input id="ruleFee" type="number" inputmode="numeric" min="0"> 円
+      <button class="btn" id="ruleBtn">変更する</button>
+    </div>
+    <div class="note" id="rulePreview"></div>
   </section>
 
   <section class="card">
@@ -136,6 +181,20 @@
     <div class="note">変更すると、この端末以外のマスターログインは解除されます。</div>
   </section>
 
+  <section class="card form danger-zone">
+    <h2>売上記録の全リセット（テスト用）</h2>
+    <div class="note" id="resetInfo"></div>
+    <input id="resetConfirm" type="text" autocomplete="off" placeholder="確認のため「リセット」と入力" style="width:100%;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
+    <input id="resetPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+    <button class="btn danger" id="resetBtn">すべての会計を削除する</button>
+    <div class="note">
+      ・取消済みも含めたすべての会計と明細を削除し、会計番号を #1 に戻します。<strong>元に戻せません。</strong><br>
+      ・商品・価格、目標金額、パスワード、ログイン中の端末はそのままです。<br>
+      ・レジ端末に残っているリセット前の未送信の会計は、送られてきても記録されずに破棄されます。<br>
+      ・本番の営業が始まったら使わないでください。必要なら先に CSV を保存してください。
+    </div>
+  </section>
+
   <section class="card">
     <h2>操作の記録</h2>
     <div class="scroll" id="audit"></div>
@@ -155,11 +214,24 @@
 
   <details open>
     <summary>管理画面でできること</summary>
-    <p>店の責任者向けの画面です。目標金額の変更、レジのパスワードの変更、ログイン中の端末の締め出し、ログイン制限の解除ができます。入るにはマスターパスワードが必要で、ログインは<b>12時間</b>有効です。</p>
+    <p>店の責任者向けの画面です。商品・価格と容器代のルールの変更、目標金額の変更、レジのパスワードの変更、ログイン中の端末の締め出し、ログイン制限の解除、テスト用の売上記録の全リセットができます。入るにはマスターパスワードが必要で、ログインは<b>12時間</b>有効です。</p>
     <p>会計の入力や取り消しは、ここではなくレジ画面で行います。</p>
   </details>
 
   <h3 class="help-group">よく使う操作</h3>
+
+  <details>
+    <summary>商品や価格を変える・追加する</summary>
+    <figure><img src="/help/master-products.webp" width="658" height="270" loading="lazy" alt="商品・価格の欄。団子の商品名、単位、1本150円、3本セット400円、5本セット500円、容器代の対象と販売中のチェック、保存ボタン"></figure>
+    <p>「商品・価格」で、商品名、単位、数量ごとの価格（セット）を直して「保存」を押します。変えた商品の枠は保存するまで黄色になります。新しい商品は「＋ 商品を追加」から。1個（1本）の価格は必ず入れてください。</p>
+    <p>「容器代の対象」にした商品の本数で容器代を計算します。「販売中」を外すとレジに出なくなります（販売の記録がある商品は削除できないので、こちらで止めてください）。↑↓ でレジでの並び順を変えられます。</p>
+    <p>価格を変えても、すでに記録した会計の金額は変わりません。レジは次に画面を更新したとき（30秒以内）に新しい価格になります。</p>
+  </details>
+
+  <details>
+    <summary>容器代のルールを変える</summary>
+    <p>「容器代の対象が○個までは無料、それより多いときは○個ごとに○円」の3つの数字を入れて「変更する」を押します。入力すると、下に「例：1〜2個 0円 / 3〜4個 10円 …」と結果が出るので確かめてください。</p>
+  </details>
 
   <details>
     <summary>目標金額を変える</summary>
@@ -196,6 +268,12 @@
   <h3 class="help-group">そのほか</h3>
 
   <details>
+    <summary>テストの会計をまとめて消す（全リセット）</summary>
+    <p>いちばん下の赤い枠「売上記録の全リセット（テスト用）」で、取消済みも含めたすべての会計を消し、会計番号を #1 に戻せます。「リセット」と入力し、マスターパスワードをもう一度入れて押します。<b>元に戻せないので、本番の営業が始まったら使わないでください。</b></p>
+    <p>リセット前にレジのスマホにたまっていた未送信の会計は、あとで届いても記録されずに捨てられます。商品・価格、目標金額、パスワードはそのままです。</p>
+  </details>
+
+  <details>
     <summary>売上明細と操作の記録</summary>
     <p>いちばん上の「売上明細CSV」で、会計ごとの明細（担当者名つき、取り消した会計を除く）を保存できます。Excel で開いても文字化けしません。「操作の記録」には、取消、目標の変更、ログインなどを誰がいつしたかが並びます。</p>
   </details>
@@ -203,7 +281,8 @@
 
 <div class="toast" id="toast"></div>
 
-<script>
+<script type="module">
+  import { containerFee } from '/pricing.js';
   const $ = id => document.getElementById(id);
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -219,7 +298,7 @@
       credentials: 'same-origin',
     });
     const d = await res.json().catch(() => ({}));
-    if (res.status === 401 && path !== 'login' && path !== 'master-password') showLogin(d.error);
+    if (res.status === 401 && path !== 'login' && path !== 'master-password' && path !== 'reset-sales') showLogin(d.error);
     if (!res.ok) throw new Error(d.error || ('通信エラー ' + res.status));
     return d;
   }
@@ -243,8 +322,9 @@
     $('app').classList.remove('hidden');
     $('mTotal').textContent = yen(d.total);
     $('mOrders').textContent = d.orders + '件';
-    $('mSticks').textContent = d.sticks + '本';
-    $('mRate').textContent = '目標 ' + yen(d.target) + '（達成率 ' + Math.floor(d.rate * 100) + '%）';
+    $('mSticks').textContent = d.byProduct.filter(g => g.qty).map(g => g.name + ' ' + g.qty + g.unit).join('・') || '0';
+    $('mRate').textContent = '目標 ' + yen(d.target) + '（達成率 ' + Math.floor(d.rate * 100) + '%）' +
+      (d.total >= d.target ? '　🎉 達成！' + yen(d.total - d.target) + 'の黒字（見込）' : '');
     if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
 
     $('sessions').innerHTML = d.sessions.length ? '<table><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th></th></tr>' +
@@ -262,14 +342,134 @@
     $('lockState').textContent = d.locked.length ? 'ロック中：' + d.locked.join('・') : 'ロックなし';
     $('lockState').className = 'badge ' + (d.locked.length ? 'warn' : 'ok');
 
+    $('resetInfo').textContent = '現在の会計：' + d.allSales.n + ' 件（うち取消 ' + d.allSales.cancelled + ' 件）・売上 ' + yen(d.total);
+    renderProducts(d.allProducts);
+    renderRule(d.rule);
+
     $('audit').innerHTML = d.audit.length ? '<table><tr><th>日時</th><th>誰が</th><th>操作</th><th>内容</th></tr>' +
       d.audit.map(a => '<tr><td class="t">' + fmt(a.at) + '</td><td>' + esc(a.actor) + '</td><td>' + esc(a.action) + '</td><td>' + esc(a.detail) + '</td></tr>').join('') +
       '</table>' : '<div class="empty">記録はありません</div>';
   }
 
+  // ---------- 商品・価格 ----------
+  let forceProducts = false;   // 保存などの直後は編集中でも描き直す
+  function productCard(p) {
+    const u = esc(p.unit || '本');
+    return '<div class="pcard' + (p.active === false ? ' off' : '') + '" data-id="' + (p.id || '') + '">' +
+      '<div class="head"><input type="text" class="pname" maxlength="20" placeholder="商品名" value="' + esc(p.name || '') + '">' +
+      '単位 <input type="text" class="punit" maxlength="4" value="' + u + '">' +
+      (p.id ? '' : '<span class="dirty-badge">新しい商品</span>') + '</div>' +
+      '<div class="sets">' + (p.sets || [{ qty: 1, price: '' }]).map(setRow).join('') + '</div>' +
+      '<button class="btn sub small" data-act="addset">＋ セットを追加</button>' +
+      '<div class="checks">' +
+        '<label><input type="checkbox" class="pcont"' + (p.container ? ' checked' : '') + '> 容器代の対象</label>' +
+        '<label><input type="checkbox" class="pact"' + (p.active !== false ? ' checked' : '') + '> 販売中</label>' +
+      '</div>' +
+      '<div class="pactions">' +
+        '<button class="btn small" data-act="save">保存</button>' +
+        (p.id ? '<button class="btn sub small" data-act="up">↑</button><button class="btn sub small" data-act="down">↓</button>' : '') +
+        '<span class="sp"></span>' +
+        '<button class="btn ' + (p.id ? 'danger' : 'sub') + ' small" data-act="del">' + (p.id ? '削除' : 'やめる') + '</button>' +
+      '</div></div>';
+  }
+  function setRow(s) {
+    return '<div class="set-row"><input type="number" class="sq" inputmode="numeric" min="1" value="' + (s.qty ?? '') + '"><span class="su"></span>' +
+      '<input type="number" class="sp" inputmode="numeric" min="0" value="' + (s.price ?? '') + '">円' +
+      '<button class="x" data-act="delset" aria-label="このセットを消す">×</button></div>';
+  }
+  function refreshUnits(card) {
+    const u = card.querySelector('.punit').value || '個';
+    card.querySelectorAll('.set-row').forEach(row => {
+      const q = Number(row.querySelector('.sq').value);
+      row.querySelector('.su').textContent = (q > 1 ? u + 'セット' : u) + '：';
+    });
+  }
+  function renderProducts(list) {
+    const anyDirty = document.querySelector('.pcard.dirty, .pcard:not([data-id])');
+    if (anyDirty && !forceProducts) return;   // 編集中は自動更新で消さない
+    forceProducts = false;
+    $('prodList').innerHTML = list.map(productCard).join('') || '<div class="empty">商品がありません</div>';
+    document.querySelectorAll('.pcard').forEach(refreshUnits);
+  }
+  function readCard(card) {
+    return {
+      id: card.dataset.id ? Number(card.dataset.id) : undefined,
+      name: card.querySelector('.pname').value,
+      unit: card.querySelector('.punit').value,
+      sets: [...card.querySelectorAll('.set-row')].map(r => ({ qty: Number(r.querySelector('.sq').value), price: Number(r.querySelector('.sp').value) }))
+        .filter(x => x.qty || x.price),
+      container: card.querySelector('.pcont').checked,
+      active: card.querySelector('.pact').checked,
+    };
+  }
+  $('prodList').addEventListener('input', e => {
+    const card = e.target.closest('.pcard');
+    if (!card) return;
+    card.classList.add('dirty');
+    refreshUnits(card);
+  });
+  $('prodList').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const card = b.closest('.pcard');
+    const id = card.dataset.id;
+    const act = b.dataset.act;
+    if (act === 'addset') {
+      card.querySelector('.sets').insertAdjacentHTML('beforeend', setRow({}));
+      card.classList.add('dirty'); refreshUnits(card);
+    } else if (act === 'delset') {
+      b.closest('.set-row').remove();
+      card.classList.add('dirty');
+    } else if (act === 'save') {
+      const body = readCard(card);
+      forceProducts = true;
+      run(() => api('products', body), (id ? '保存しました：' : '追加しました：') + body.name).then(() => { forceProducts = false; });
+    } else if (act === 'up' || act === 'down') {
+      if (document.querySelector('.pcard.dirty')) return toast('保存していない変更があります。先に保存してください', true);
+      forceProducts = true;
+      run(() => api('products/' + id + '/move', { dir: act === 'up' ? -1 : 1 }));
+    } else if (act === 'del') {
+      if (!id) { card.remove(); return; }
+      if (!confirm('「' + card.querySelector('.pname').value + '」を削除しますか？')) return;
+      forceProducts = true;
+      run(() => api('products/' + id + '/delete', {}), '削除しました');
+    }
+  });
+  $('addProdBtn').onclick = () => {
+    if ($('prodList').querySelector('.empty')) $('prodList').innerHTML = '';
+    $('prodList').insertAdjacentHTML('beforeend', productCard({ unit: '本', sets: [{ qty: 1, price: '' }], container: false, active: true }));
+    const card = $('prodList').lastElementChild;
+    refreshUnits(card);
+    card.querySelector('.pname').focus();
+  };
+
+  // ---------- 容器代のルール ----------
+  let ruleDirty = false;
+  function renderRule(rule) {
+    if (!ruleDirty) { $('ruleFree').value = rule.freeUpTo; $('rulePer').value = rule.per; $('ruleFee').value = rule.fee; }
+    previewRule();
+  }
+  function previewRule() {
+    const rule = { freeUpTo: Number($('ruleFree').value), per: Number($('rulePer').value) || 1, fee: Number($('ruleFee').value) };
+    const out = [];
+    let from = 1;
+    for (let n = 1; n <= 16; n++) {
+      const f = containerFee(rule, n), next = n < 16 ? containerFee(rule, n + 1) : null;
+      if (next !== f) { out.push((from === n ? n : from + '〜' + n) + '個 ' + f + '円'); from = n + 1; }
+    }
+    $('rulePreview').textContent = '例：' + out.join(' / ') + ' …';
+  }
+  ['ruleFree', 'rulePer', 'ruleFee'].forEach(id => $(id).addEventListener('input', () => { ruleDirty = true; previewRule(); }));
+  $('ruleBtn').onclick = async () => {
+    const body = { freeUpTo: Number($('ruleFree').value), per: Number($('rulePer').value), fee: Number($('ruleFee').value) };
+    if (!confirm('容器代のルールを変更しますか？\n' + $('rulePreview').textContent)) return;
+    ruleDirty = false;
+    await run(() => api('container-rule', body), '容器代のルールを変更しました');
+  };
+
   async function run(fn, okMsg) {
     try { render(await fn()); if (okMsg) toast(okMsg); }
-    catch (e) { toast(e.message, true); }
+    catch (e) { forceProducts = false; toast(e.message, true); }
   }
 
   async function login() {
@@ -297,6 +497,16 @@
     if (!(v > 0)) return toast('目標金額を入力してください', true);
     if (!confirm('目標金額を ' + yen(v) + ' に変更しますか？')) return;
     run(() => api('target', { target: v }), '目標金額を変更しました');
+  };
+  $('resetBtn').onclick = () => {
+    if ($('resetConfirm').value.trim() !== 'リセット') return toast('確認のため「リセット」と入力してください', true);
+    if (!$('resetPw').value) return toast('マスターパスワードを入力してください', true);
+    if (!confirm('すべての会計を削除します。元に戻せません。よろしいですか？')) return;
+    run(async () => {
+      const d = await api('reset-sales', { confirm: $('resetConfirm').value, password: $('resetPw').value });
+      $('resetConfirm').value = ''; $('resetPw').value = '';
+      return d;
+    }, '売上記録をリセットしました');
   };
   $('unlockBtn').onclick = () => run(() => api('unlock', {}), 'ログイン制限を解除しました');
   $('regBtn').onclick = () => {

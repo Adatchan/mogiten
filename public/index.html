@@ -62,6 +62,35 @@
   .stat { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stat small { font-size: 18px; margin-left: 2px; }
   .rows { margin-top: 10px; }
+
+  /* 目標に対する内訳の円グラフ（円全体 = 目標金額、届いていない分はグレー） */
+  .pie-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+  .pie-box { position: relative; width: 220px; height: 220px; flex-shrink: 0; }
+  #pie { width: 100%; height: 100%; display: block; }
+  #pie path { cursor: pointer; transition: opacity .15s; }
+  #pie.hovering path:not(.on) { opacity: .45; }
+  .pie-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .pc-v { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pc-k { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .pie-tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 13px; line-height: 1.5; padding: 6px 10px; border-radius: 8px;
+             white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .1s; z-index: 2; }
+  .pie-tip.show { opacity: 1; }
+  .pie-legend { flex: 1; min-width: 240px; border-collapse: collapse; font-size: 15px; }
+  .pie-legend td { padding: 7px 4px; border-top: 1px dashed var(--line); }
+  .pie-legend tr:first-child td { border-top: none; }
+  .pie-legend .sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; vertical-align: -2px; margin-right: 8px; }
+  .pie-legend .sw.gap { background: #e4e0d9; }
+  .pie-legend .num { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pie-legend .pct { text-align: right; color: var(--sub); font-variant-numeric: tabular-nums; white-space: nowrap; width: 3.5em; }
+  .pie-legend tr.rest td { color: var(--sub); }
+  .pie-legend tr.rest .num { font-weight: 400; }
+  .pie-legend tr.on td { background: #faf6ef; }
+  .prod + .prod { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); }
+  .prod .ph { display: flex; justify-content: space-between; align-items: baseline; }
+  .prod .ph .n { font-size: 17px; font-weight: 700; }
+  .prod .ph .stat { font-size: 34px; }
+  .prod .rows { margin-top: 4px; }
+  .prod .row { font-size: 14px; padding: 5px 0; }
   .row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 16px; }
   .row:first-child { border-top: none; }
   .row .v { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -99,11 +128,22 @@
     <div class="hint" id="hint"></div>
   </section>
 
+  <section class="card">
+    <div class="label">目標に対する売上の内訳</div>
+    <div class="pie-wrap">
+      <div class="pie-box">
+        <svg id="pie" viewBox="0 0 200 200" role="img" aria-labelledby="pieTitle"><title id="pieTitle">目標に対する商品別の売上</title></svg>
+        <div class="pie-center"><div class="pc-v" id="pieRate">—</div><div class="pc-k" id="pieRateK">達成率</div></div>
+        <div class="pie-tip" id="pieTip" role="tooltip"></div>
+      </div>
+      <table class="pie-legend" id="pieLegend"></table>
+    </div>
+  </section>
+
   <div class="grid">
     <section class="card">
-      <div class="label">売れた本数</div>
-      <div class="stat"><span id="sticks">—</span><small>本</small></div>
-      <div class="rows" id="sets"></div>
+      <div class="label">売れた数</div>
+      <div id="sold"></div>
     </section>
     <section class="card">
       <div class="label">お会計 <span id="orders">—</span> 件</div>
@@ -112,7 +152,7 @@
   </div>
 
   <footer>
-    最終更新 <span id="updated">—</span>（20秒ごとに自動更新）
+    最終更新 <span id="updated">—</span>（1分ごとに自動更新）
     <div id="err" class="error"></div>
   </footer>
 </div>
@@ -128,7 +168,7 @@
 
   <details open>
     <summary>このページは何ですか？</summary>
-    <p>団子の売上が、目標に対して今どこまで来ているかを見るためのページです。レジで会計を記録すると、ここの数字に反映されます。ページは<b>20秒ごとに自動で更新</b>されるので、開いたままにしておけば最新の状況が分かります。</p>
+    <p>模擬店の売上が、目標に対して今どこまで来ているかを見るためのページです。レジで会計を記録すると、ここの数字に反映されます。ページは<b>1分ごとに自動で更新</b>されるので、開いたままにしておけば最新の状況が分かります。</p>
     <p>ログインなしで、URL を知っている人なら誰でも見られます。表示しているのは合計の数字だけで、会計ごとの明細や担当者名は出ません。</p>
   </details>
 
@@ -136,14 +176,21 @@
 
   <details>
     <summary>「現在の売上」と目標の表示</summary>
-    <figure><img src="/help/dash-hero.webp" width="358" height="240" loading="lazy" alt="現在の売上6,570円、団子6,400円と容器代170円の内訳、目標70,000円、達成率9.4パーセントのバー、目標まであと63,430円、5本セットならあと122セット"></figure>
-    <p><b>現在の売上</b>は、お客さんから受け取った金額の合計です。団子代と容器代の両方を含み、カッコ内にその内訳が出ます。レジで取り消した会計は含みません。</p>
-    <p>バーは目標に対する達成率です。その下に<b>目標まであといくら</b>かと、それを5本セット（容器代込み）で売るとあと何セットか、の目安が出ます。目標を超えると「目標達成」の表示に変わり、超えた金額が出ます。</p>
+    <figure><img src="/help/dash-hero.webp" width="358" height="253" loading="lazy" alt="現在の売上、商品代と容器代の内訳、目標金額、達成率のバー、目標まであといくらかの表示"></figure>
+    <p><b>現在の売上</b>は、お客さんから受け取った金額の合計です。商品代と容器代の両方を含み、カッコ内にその内訳が出ます。レジで取り消した会計は含みません。</p>
+    <p>バーは目標に対する達成率です。その下に<b>目標まであといくら</b>かと、団子の5本セット（容器代込み）で売るとあと何セットか、の目安が出ます。目標を超えると「🎉 達成！ ○円の黒字（見込）」の表示に変わります。</p>
   </details>
 
   <details>
-    <summary>「売れた本数」とセットの個数</summary>
-    <p>売れた団子の本数の合計と、セットごとの個数です。レジは本数からセットを自動で組むので、たとえば4本の会計は「3本セット1個と1本セット1個」として数えます。</p>
+    <summary>「目標に対する売上の内訳」の円グラフ</summary>
+    <figure><img src="/help/dash-pie.webp" width="358" height="421" loading="lazy" alt="円グラフ。円全体が目標金額で、団子、焼きマシュマロ、容器代が色分けされ、届いていない分がグレーの未達。中央に達成率"></figure>
+    <p>円全体が<b>目標金額</b>です。商品ごとの売上と容器代を色分けして、まだ届いていない分は<b>グレーの「未達」</b>で表します。中央の数字が達成率です。</p>
+    <p>下の一覧に、それぞれの金額と、目標に対する割合が出ます。グラフや一覧の行に触れると、その部分が強調されます。目標を超えたら、円全体は売上の合計になります。</p>
+  </details>
+
+  <details>
+    <summary>「売れた数」とセットの個数</summary>
+    <p>商品ごとの売れた数（本数）と、セットのある商品はセットごとの個数です。レジは本数からセットを自動で組むので、たとえば団子4本の会計は「3本セット1個と1本1個」として数えます。</p>
   </details>
 
   <details>
@@ -155,7 +202,8 @@
 
   <details>
     <summary>数字が変わらない／「更新に失敗しました」と出る</summary>
-    <p>電波が弱いなどで、最新の数字を取りに行けなかったときです。ページは20秒ごとに自動で取り直すので、電波が戻れば元に戻ります。いちばん下の「最終更新」の時刻で、いつの数字かを確認できます。</p>
+    <p>電波が弱いなどで、最新の数字を取りに行けなかったときです。ページは1分ごとに自動で取り直すので、電波が戻れば元に戻ります。いちばん下の「最終更新」の時刻で、いつの数字かを確認できます。ダッシュボードは電波がないと表示できません。</p>
+    <p>レジが電波のない場所で記録した会計は、レジの電波が戻って送信されてから、ここに反映されます。</p>
   </details>
 
   <details>
@@ -164,13 +212,88 @@
   </details>
 </dialog>
 
-<script>
+<script type="module">
+  import { containerFee, packLabel } from '/pricing.js';
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
 
+  // 商品の色（固定の順番。色覚の違いでも見分けられる組み合わせを検証済み）
+  const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+  const REST = '#e4e0d9';   // 未達（グレー）
+  let pieSegs = [];
+
+  /** 円グラフ：円全体 = 目標金額（目標を超えたら売上合計）。商品ごと＋容器代、残りは「未達」 */
+  function renderPie(d) {
+    const segs = d.byProduct.filter(g => g.amount > 0).map(g => {
+      const i = d.products.findIndex(p => p.id === g.id);
+      return { name: g.name, amount: g.amount, color: SERIES[(i >= 0 ? i : d.products.length) % SERIES.length] };
+    });
+    if (d.container > 0) segs.push({ name: '容器代', amount: d.container, color: SERIES[Math.min(d.products.length, SERIES.length - 1)] });
+    const rest = Math.max(0, d.target - d.total);
+    const whole = Math.max(d.target, d.total) || 1;
+    const all = rest > 0 ? segs.concat([{ name: '未達', amount: rest, color: REST, rest: true }]) : segs;
+    pieSegs = all;
+
+    // ドーナツ（中心に達成率）。区切りに 2px の隙間
+    const cx = 100, cy = 100, R = 84, W = 26, gap = all.length > 1 ? 2 / R : 0;
+    const pt = a => [cx + R * Math.sin(a), cy - R * Math.cos(a)];
+    let a = 0, html = '<title>目標に対する商品別の売上</title>';
+    if (all.length === 1) {
+      html += '<circle cx="100" cy="100" r="' + R + '" fill="none" stroke="' + all[0].color + '" stroke-width="' + W + '"/>';
+      html += '<path data-i="0" d="M100 ' + (cy - R) + ' A' + R + ' ' + R + ' 0 1 1 99.99 ' + (cy - R) + '" fill="none" stroke="transparent" stroke-width="' + (W + 12) + '"/>';
+    } else {
+      all.forEach((s, i) => {
+        const span = s.amount / whole * Math.PI * 2;
+        const a0 = a + gap / 2, a1 = a + span - gap / 2;
+        a += span;
+        if (a1 <= a0) return;
+        const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
+        html += '<path data-i="' + i + '" d="M' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' A' + R + ' ' + R + ' 0 ' + (a1 - a0 > Math.PI ? 1 : 0) + ' 1 ' +
+          x1.toFixed(2) + ' ' + y1.toFixed(2) + '" fill="none" stroke="' + s.color + '" stroke-width="' + W + '"><title>' + esc(s.name) + '</title></path>';
+      });
+    }
+    const svg = document.getElementById('pie');
+    svg.innerHTML = html;
+
+    const done = d.total >= d.target;
+    document.getElementById('pieRate').textContent = Math.floor(d.rate * 100) + '%';
+    document.getElementById('pieRateK').textContent = done ? '達成！' : '達成率';
+
+    const pct = v => (v / (d.target || 1) * 100).toFixed(1) + '%';
+    document.getElementById('pieLegend').innerHTML = all.map((s, i) =>
+      '<tr data-i="' + i + '"' + (s.rest ? ' class="rest"' : '') + '>' +
+        '<td><span class="sw' + (s.rest ? ' gap' : '') + '" style="background:' + s.color + '"></span>' + esc(s.name) + '</td>' +
+        '<td class="num">' + yen(s.amount) + '</td><td class="pct">' + pct(s.amount) + '</td></tr>'
+    ).join('') + (done ? '<tr class="rest"><td colspan="3">円全体は売上合計（目標 ' + yen(d.target) + ' を超えたため）</td></tr>' : '') +
+      (segs.length ? '' : '<tr class="rest"><td colspan="3">まだ売上はありません</td></tr>');
+  }
+
+  // ホバー／タップで、その部分の金額と目標に対する割合を表示
+  function pieFocus(i, ev) {
+    const svg = document.getElementById('pie'), tip = document.getElementById('pieTip');
+    document.querySelectorAll('#pie path, #pieLegend tr').forEach(el => el.classList.toggle('on', el.dataset.i === String(i)));
+    if (i == null || !pieSegs[i]) { svg.classList.remove('hovering'); tip.classList.remove('show'); return; }
+    svg.classList.add('hovering');
+    const s = pieSegs[i], box = svg.parentElement.getBoundingClientRect();
+    const tgt = lastData ? lastData.target : 0;
+    tip.innerHTML = '<b>' + esc(s.name) + '</b><br>' + yen(s.amount) + (tgt ? '（目標の ' + (s.amount / tgt * 100).toFixed(1) + '%）' : '');
+    const x = ev && ev.clientX != null ? ev.clientX - box.left : box.width / 2;
+    const y = ev && ev.clientY != null ? ev.clientY - box.top : box.height / 2;
+    tip.style.left = Math.max(60, Math.min(box.width - 60, x)) + 'px';
+    tip.style.top = y + 'px';
+    tip.classList.add('show');
+  }
+  let lastData = null;
+  document.getElementById('pie').addEventListener('pointermove', e => { const p = e.target.closest('path'); pieFocus(p ? Number(p.dataset.i) : null, e); });
+  document.getElementById('pie').addEventListener('pointerleave', () => pieFocus(null));
+  document.getElementById('pieLegend').addEventListener('pointerover', e => { const tr = e.target.closest('tr[data-i]'); pieFocus(tr ? Number(tr.dataset.i) : null); });
+  document.getElementById('pieLegend').addEventListener('pointerleave', () => pieFocus(null));
+
   function render(d) {
+    lastData = d;
     document.getElementById('total').textContent = yen(d.total);
     document.getElementById('target').textContent = yen(d.target);
-    document.getElementById('breakdown').textContent = '（団子 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）';
+    document.getElementById('breakdown').textContent = '（商品 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）';
     const pct = Math.round(d.rate * 1000) / 10;
     document.getElementById('barFill').style.width = Math.min(100, pct) + '%';
     document.getElementById('rate').textContent = pct + '%';
@@ -179,20 +302,36 @@
     const hint = document.getElementById('hint');
     if (d.total >= d.target) {
       remain.className = 'remain done';
-      remain.innerHTML = '🎉 目標達成！ <b>+' + yen(d.total - d.target) + '</b>';
+      remain.innerHTML = '🎉 達成！ <b>' + yen(d.total - d.target) + '</b> <span style="white-space:nowrap">の黒字（見込）</span>';
       hint.textContent = 'ありがとうございます！';
     } else {
       remain.className = 'remain';
       remain.innerHTML = '目標まであと <b>' + yen(d.remaining) + '</b>';
-      const big = d.setDefs[d.setDefs.length - 1];
-      const per = big.price + big.fee;
-      hint.textContent = big.sticks + '本セット（容器代込み' + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
+      // 先頭の商品のいちばん大きいセットで、あと何セットか
+      const p = d.products[0];
+      if (p) {
+        const big = p.sets[p.sets.length - 1];
+        const per = big.price + (p.container ? containerFee(d.rule, big.qty) : 0);
+        hint.textContent = p.name + 'の' + packLabel(big, p.unit) + '（' + (p.container ? '容器代込み' : '') + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
+      } else hint.textContent = '';
     }
 
-    document.getElementById('sticks').textContent = d.sticks.toLocaleString('ja-JP');
-    document.getElementById('sets').innerHTML = d.setDefs.map(s =>
-      '<div class="row"><span>' + s.sticks + '本セット（' + s.price + '円）</span><span class="v">' + d.sets[s.key] + ' 個</span></div>'
-    ).join('');
+    renderPie(d);
+
+    document.getElementById('sold').innerHTML = d.byProduct.map(g => {
+      // 今の価格表のセットは売れていなくても 0 で表示
+      const cur = d.products.find(p => p.id === g.id);
+      const packs = g.packs.filter(k => k.count > 0);
+      // セットが複数ある商品は、売れていないセットも 0 個で表示
+      if (cur && cur.sets.length > 1) cur.sets.forEach(s => { if (!packs.some(k => k.qty === s.qty && k.price === s.price)) packs.push({ ...s, count: 0 }); });
+      packs.sort((a, b) => a.qty - b.qty || a.price - b.price);
+      const showPacks = packs.length > 1;
+      return '<div class="prod"><div class="ph"><span class="n">' + esc(g.name) + '</span>' +
+        '<span class="stat">' + g.qty.toLocaleString('ja-JP') + '<small>' + esc(g.unit) + '</small></span></div>' +
+        (showPacks ? '<div class="rows">' + packs.map(k =>
+          '<div class="row"><span>' + packLabel(k, esc(g.unit)) + '（' + k.price + '円）</span><span class="v">' + k.count + ' 個</span></div>').join('') + '</div>' : '') +
+        '</div>';
+    }).join('') || '<div class="hint">商品がありません</div>';
 
     document.getElementById('orders').textContent = d.orders;
     document.getElementById('pays').innerHTML = d.payments.map(p => {
@@ -218,7 +357,7 @@
   }
 
   load();
-  setInterval(load, 20000);
+  setInterval(load, 60000);
 </script>
 <script src="/help.js"></script>
 </body>

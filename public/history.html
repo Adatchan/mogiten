@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex">
+<title>会計の一覧 | 団子レジ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #fbf7f0; --card: #ffffff; --ink: #2b2420; --sub: #7a6f66; --line: #ebe3d8; --brown: #8a5a3b; --red: #c0392b; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; font-family: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', sans-serif; background: var(--bg); color: var(--ink); }
+  button { font-family: inherit; cursor: pointer; border: none; touch-action: manipulation; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 14px 14px 40px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .top h1 { font-size: 20px; margin: 0; }
+  .top a { font-size: 14px; color: var(--brown); font-weight: 700; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+  .mini { display: flex; gap: 8px; text-align: center; }
+  .mini > div { flex: 1; }
+  .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mini .k { font-size: 11px; color: var(--sub); }
+  .day { font-size: 13px; font-weight: 700; color: var(--sub); margin: 14px 4px 6px; }
+  .line { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px dashed var(--line); font-size: 14px; }
+  .line:first-child { border-top: none; }
+  .line .t { color: var(--sub); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .line .d { flex: 1; min-width: 0; }
+  .line .d .s { color: var(--sub); font-size: 12px; }
+  .nw { white-space: nowrap; }
+  .line .a { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .line.cancelled .d, .line.cancelled .a { text-decoration: line-through; color: var(--sub); }
+  .line .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #fde2df; color: var(--red); margin-left: 4px; text-decoration: none; display: inline-block; }
+  .line button { background: #f1ebe2; border-radius: 6px; padding: 6px 9px; font-size: 12px; color: var(--ink); flex-shrink: 0; }
+  .more { display: block; width: 100%; margin-top: 4px; padding: 12px; border-radius: 10px; background: #f1ebe2; color: var(--brown); font-size: 15px; font-weight: 700; }
+  .empty { color: var(--sub); text-align: center; padding: 16px 0; }
+  .msg { text-align: center; padding: 40px 10px; }
+  .msg a { display: inline-block; margin-top: 14px; padding: 12px 20px; border-radius: 10px; background: var(--brown); color: #fff; text-decoration: none; font-weight: 700; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 15px; transition: transform .25s; z-index: 30; max-width: 90%; text-align: center; }
+  .toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--red); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🧾 会計の一覧</h1>
+    <a href="/admin">← レジに戻る</a>
+  </div>
+
+  <div id="needLogin" class="card msg hidden">
+    <div>レジにログインしていないため、表示できません。</div>
+    <a href="/admin">レジでログインする</a>
+  </div>
+
+  <div id="main" class="hidden">
+    <section class="card">
+      <div class="mini">
+        <div><div class="v" id="sTotal">—</div><div class="k">会計（取消を含む）</div></div>
+        <div><div class="v" id="sCancelled">—</div><div class="k">うち取消</div></div>
+        <div><div class="v" id="sAmount">—</div><div class="k">売上（取消を除く）</div></div>
+      </div>
+    </section>
+    <div id="list"></div>
+    <button class="more hidden" id="moreBtn">もっと見る</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  const $ = id => document.getElementById(id);
+  const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const jst = iso => new Date(new Date(iso).getTime() + 9 * 3600000);
+  const dayLabel = iso => { const d = jst(iso); return (d.getUTCMonth() + 1) + '月' + d.getUTCDate() + '日（' + '日月火水木金土'[d.getUTCDay()] + '）'; };
+  const timeLabel = iso => { const d = jst(iso); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+
+  let rows = [];        // 読み込んだ会計（新しい順）
+  let hasMore = false;
+  let busy = false;
+
+  async function api(path, body) {
+    const res = await fetch('/api/admin/' + path, {
+      method: body ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 401) { $('main').classList.add('hidden'); $('needLogin').classList.remove('hidden'); }
+    if (!res.ok) throw new Error(d.error || ('通信エラー ' + res.status));
+    return d;
+  }
+
+  function toast(msg, isErr) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.className = 'toast' + (isErr ? ' err' : ''), 2200);
+  }
+
+  function renderStats(d) {
+    $('sTotal').textContent = d.total + '件';
+    $('sCancelled').textContent = d.cancelled + '件';
+    $('sAmount').textContent = yen(d.amount);
+  }
+
+  function render() {
+    if (!rows.length) { $('list').innerHTML = '<div class="card empty">まだ会計はありません</div>'; }
+    else {
+      // 日付ごとにまとめる
+      const groups = [];
+      rows.forEach(r => {
+        const day = dayLabel(r.created_at);
+        if (!groups.length || groups[groups.length - 1].day !== day) groups.push({ day, items: [] });
+        groups[groups.length - 1].items.push(r);
+      });
+      $('list').innerHTML = groups.map(g => '<div class="day">' + g.day + '</div><section class="card">' + g.items.map(r => {
+        const desc = esc(r.desc);
+        const fee = r.container ? '＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') : '';
+        return '<div class="line' + (r.cancelled ? ' cancelled' : '') + '">' +
+          '<span class="t">' + timeLabel(r.created_at) + '</span>' +
+          '<span class="d">' + desc + (r.cancelled ? '<span class="tag">取消</span>' : '') +
+            '<br><span class="s">' + ['#' + r.id, fee, r.payment, r.staff ? '担当 ' + esc(r.staff) : ''].filter(Boolean).map(x => '<span class="nw">' + x + '</span>').join('　') + '</span></span>' +
+          '<span class="a">' + yen(r.amount) + '</span>' +
+          '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
+      }).join('') + '</section>').join('');
+    }
+    $('moreBtn').classList.toggle('hidden', !hasMore);
+  }
+
+  async function load(more) {
+    if (busy) return;
+    busy = true;
+    try {
+      const before = more && rows.length ? '&before=' + rows[rows.length - 1].id : '';
+      const d = await api('sales?limit=50' + before);
+      rows = more ? rows.concat(d.sales) : d.sales;
+      hasMore = d.hasMore;
+      renderStats(d);
+      render();
+      $('main').classList.remove('hidden');
+    } catch (e) {
+      if ($('needLogin').classList.contains('hidden')) toast(e.message, true);
+    } finally { busy = false; }
+  }
+
+  $('moreBtn').onclick = () => load(true);
+
+  $('list').onclick = async e => {
+    const b = e.target.closest('[data-cancel]');
+    if (!b) return;
+    const id = Number(b.dataset.cancel);
+    const row = rows.find(r => r.id === id);
+    const label = row.cancelled ? '戻す' : '取消';
+    if (!confirm(row.cancelled
+      ? '#' + id + '（' + yen(row.amount) + '）の取消を元に戻しますか？'
+      : '#' + id + '（' + yen(row.amount) + '・' + row.payment + '）を取り消しますか？')) return;
+    try {
+      await api('sales/' + id + '/toggle-cancel', {});
+      row.cancelled = row.cancelled ? 0 : 1;
+      render();
+      // 件数や売上の集計を更新
+      const d = await api('sales?limit=1');
+      renderStats(d);
+      toast(label === '取消' ? '取り消しました' : '元に戻しました');
+    } catch (e) { toast(e.message, true); }
+  };
+
+  load(false);
+</script>
+</body>
+</html>
