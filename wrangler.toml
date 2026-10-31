@@ -11,7 +11,7 @@ directory = "./public"
 [[d1_databases]]
 binding = "DB"
 database_name = "mogiten"
-database_id = "ここに database_id を貼る"
+database_id = "2ab75228-a679-458d-8cf8-e378c3ba7d56"
 
 # レジのパスワードは secret で設定します（このファイルには書かない）
 #   npx wrangler secret put ADMIN_PASSWORD
