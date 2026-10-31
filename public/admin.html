@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>団子レジ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbf7f0;
+    --card: #ffffff;
+    --ink: #2b2420;
+    --sub: #7a6f66;
+    --line: #ebe3d8;
+    --pink: #e8879f;
+    --green: #7fae5c;
+    --brown: #8a5a3b;
+    --cash: #5b8c3a;
+    --paypay: #e60012;
+    --dpay: #cc0033;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  button, input { font-family: inherit; }
+  button { cursor: pointer; border: none; touch-action: manipulation; }
+  button:disabled { opacity: .45; cursor: default; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 14px 14px 40px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .label { font-size: 13px; color: var(--sub); font-weight: 700; margin-bottom: 8px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .top h1 { font-size: 20px; margin: 0; }
+  .top a { font-size: 13px; color: var(--brown); }
+
+  /* ミニサマリー */
+  .mini { display: flex; gap: 8px; text-align: center; }
+  .mini > div { flex: 1; }
+  .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mini .k { font-size: 11px; color: var(--sub); }
+  .minibar { height: 6px; background: #f1ebe2; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .minibar div { height: 100%; background: linear-gradient(90deg, var(--pink), var(--green)); width: 0; transition: width .5s; }
+
+  /* 商品ボタン */
+  .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .item { background: #fff4f6; border: 2px solid var(--pink); border-radius: 14px; padding: 16px 4px; color: var(--ink); }
+  .item:active { transform: scale(.97); background: #ffe3ea; }
+  .item .n { font-size: 30px; font-weight: 700; }
+  .item .p { font-size: 16px; margin-top: 2px; }
+
+  /* カート */
+  .cart-line { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 17px; }
+  .cart-line:first-child { border-top: none; }
+  .cart-line .ctrl { display: flex; align-items: center; gap: 8px; }
+  .cart-line .ctrl button { width: 36px; height: 36px; border-radius: 50%; background: #f1ebe2; font-size: 20px; color: var(--ink); }
+  .cart-line .qty { min-width: 2.2em; text-align: center; font-weight: 700; }
+  .cart-line .sub { min-width: 5em; text-align: right; font-variant-numeric: tabular-nums; }
+  .cart-line.fee { color: var(--brown); }
+  .cart-line.fee .tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #f1ebe2; color: var(--sub); margin-left: 4px; vertical-align: middle; }
+  .cart-line.fee .tag.manual { background: #fde7c8; color: #9a5b00; }
+  .reset-fee { background: none; color: var(--brown); font-size: 12px; text-decoration: underline; padding: 0 0 0 6px; }
+  .hist-line .fee { color: var(--sub); font-size: 12px; }
+  .empty { color: var(--sub); text-align: center; padding: 10px 0; }
+  .total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding-top: 10px; border-top: 2px solid var(--ink); }
+  .total .v { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .total .s { color: var(--sub); font-size: 14px; }
+  .clear { background: none; color: var(--sub); font-size: 13px; text-decoration: underline; padding: 4px; }
+
+  /* おつり */
+  .change { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .change button { background: #f1ebe2; border-radius: 8px; padding: 8px 10px; font-size: 14px; color: var(--ink); }
+  .change input { width: 90px; padding: 8px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; }
+  .change-result { margin-top: 8px; font-size: 18px; }
+  .change-result b { font-size: 26px; }
+
+  /* 支払ボタン */
+  .pays { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .pay { color: #fff; border-radius: 14px; padding: 18px 4px; font-size: 19px; font-weight: 700; }
+  .pay:active { transform: scale(.97); }
+  .pay.cash { background: var(--cash); }
+  .pay.paypay { background: var(--paypay); }
+  .pay.dpay { background: var(--dpay); }
+
+  /* 履歴 */
+  .hist { font-size: 14px; }
+  .hist-line { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px dashed var(--line); }
+  .hist-line:first-child { border-top: none; }
+  .hist-line .t { color: var(--sub); flex-shrink: 0; white-space: nowrap; }
+  .hist-line .d { flex: 1; }
+  .hist-line .a { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hist-line.cancelled .d, .hist-line.cancelled .a { text-decoration: line-through; color: var(--sub); }
+  .hist-line button { background: #f1ebe2; border-radius: 6px; padding: 5px 8px; font-size: 12px; color: var(--ink); }
+
+  .target-form { display: flex; gap: 8px; }
+  .target-form input { flex: 1; min-width: 0; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; }
+  .target-form button { background: var(--brown); color: #fff; border-radius: 8px; padding: 0 16px; font-size: 15px; white-space: nowrap; }
+
+  /* ログイン */
+  #login { max-width: 360px; margin: 80px auto; text-align: center; }
+  #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
+  #login button { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 16px; transition: transform .25s; z-index: 10; max-width: 90%; text-align: center; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.err { background: #c0392b; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="login" class="card hidden">
+  <h2>団子レジ</h2>
+  <div class="label">パスワードを入力してください</div>
+  <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード">
+  <button id="loginBtn">ログイン</button>
+  <div class="hint" style="color:var(--sub);font-size:12px;margin-top:10px">一度ログインするとこの端末に記憶されます</div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <div class="top">
+    <h1>🍡 団子レジ</h1>
+    <a id="dashLink" href="/" target="_blank">ダッシュボードを開く ↗</a>
+  </div>
+
+  <section class="card">
+    <div class="mini">
+      <div><div class="v" id="mTotal">—</div><div class="k">売上</div></div>
+      <div><div class="v" id="mRemain">—</div><div class="k">目標まで</div></div>
+      <div><div class="v" id="mSticks">—</div><div class="k">本数</div></div>
+    </div>
+    <div class="minibar"><div id="mBar"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="label">商品（タップで追加）</div>
+    <div class="items" id="items"></div>
+  </section>
+
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="label" style="margin:0">お会計</div>
+      <button class="clear" id="clearBtn">クリア</button>
+    </div>
+    <div id="cart"></div>
+    <div id="containerRow"></div>
+    <div class="total">
+      <span class="s" id="cartSticks">0本</span>
+      <span class="v" id="cartTotal">¥0</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="label">お預かり（現金のとき・任意）</div>
+    <div class="change">
+      <button data-recv="500">500</button>
+      <button data-recv="1000">1,000</button>
+      <button data-recv="2000">2,000</button>
+      <button data-recv="5000">5,000</button>
+      <button data-recv="10000">10,000</button>
+      <input id="recv" type="number" inputmode="numeric" placeholder="金額">
+    </div>
+    <div class="change-result" id="changeResult"></div>
+  </section>
+
+  <section class="card">
+    <div class="label">支払方法を選んで記録</div>
+    <div class="pays">
+      <button class="pay cash" data-pay="現金">現金</button>
+      <button class="pay paypay" data-pay="PayPay">PayPay</button>
+      <button class="pay dpay" data-pay="d払い">d払い</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="label">最近の会計（間違えたら「取消」）</div>
+    <div class="hist" id="hist"></div>
+  </section>
+
+  <section class="card">
+    <div class="label">目標金額</div>
+    <div class="target-form">
+      <input id="targetInput" type="number" inputmode="numeric">
+      <button id="targetBtn">変更</button>
+    </div>
+    <button class="clear" id="logoutBtn" style="margin-top:12px">この端末からログアウト</button>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // 価格を変えるときは src/index.js の SETS も合わせて変更
+  const SETS = [
+    { key: 's1', sticks: 1, price: 150 },
+    { key: 's3', sticks: 3, price: 400 },
+    { key: 's5', sticks: 5, price: 500 },
+  ];
+  /** 容器代: 1〜2本 0円 / 3〜4本 10円 / 5〜8本 20円 / 以降4本ごとに +10円 */
+  const containerFee = sticks => sticks < 3 ? 0 : Math.ceil(sticks / 4) * 10;
+
+  const PW_KEY = 'dango_admin_pw';
+  const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
+  const $ = id => document.getElementById(id);
+
+  let password = localStorage.getItem(PW_KEY) || '';
+  let cart = { s1: 0, s3: 0, s5: 0 };
+  let manualFee = null;   // null = 自動計算、数値 = 手動で修正した容器代
+  let busy = false;
+
+  // ---------- サーバー呼び出し ----------
+  async function api(path, body) {
+    const res = await fetch('/api/admin/' + path, {
+      method: body ? 'POST' : 'GET',
+      headers: { 'X-Password': password, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: 'no-store',
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(d.error || ('通信エラー ' + res.status)), { status: res.status });
+    return d;
+  }
+
+  function toast(msg, isErr) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.className = 'toast' + (isErr ? ' err' : ''), 2200);
+  }
+
+  // ---------- ログイン ----------
+  async function tryLogin(pw) {
+    password = pw;
+    try {
+      if (!pw) throw new Error('');
+      renderData(await api('data'));
+      localStorage.setItem(PW_KEY, pw);
+      $('login').classList.add('hidden');
+      $('app').classList.remove('hidden');
+    } catch (e) {
+      if (e.status === 401 || !pw) localStorage.removeItem(PW_KEY);
+      $('app').classList.add('hidden');
+      $('login').classList.remove('hidden');
+      if (pw) toast(e.message, true);
+    }
+  }
+  $('loginBtn').onclick = () => tryLogin($('pw').value);
+  $('pw').onkeydown = e => { if (e.key === 'Enter') tryLogin($('pw').value); };
+  $('logoutBtn').onclick = () => { localStorage.removeItem(PW_KEY); location.reload(); };
+
+  // ---------- 表示 ----------
+  function renderData(d) {
+    $('mTotal').textContent = yen(d.total);
+    $('mRemain').textContent = d.remaining > 0 ? yen(d.remaining) : '達成🎉';
+    $('mSticks').textContent = d.sticks + '本';
+    $('mBar').style.width = Math.min(100, d.rate * 100) + '%';
+    if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
+
+    $('hist').innerHTML = d.recent.length ? d.recent.map(r => {
+      const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
+      const desc = SETS.filter(s => r[s.key] > 0).map(s => s.sticks + '本×' + r[s.key]).join(' ');
+      const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
+      return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
+        '<span class="t">' + time + '</span>' +
+        '<span class="d">' + desc + ' ' + fee + '　' + r.payment + '</span>' +
+        '<span class="a">' + yen(r.amount) + '</span>' +
+        '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
+    }).join('') : '<div class="empty">まだ会計はありません</div>';
+  }
+
+  const cartSticks = () => SETS.reduce((a, s) => a + cart[s.key] * s.sticks, 0);
+  const cartGoods = () => SETS.reduce((a, s) => a + cart[s.key] * s.price, 0);
+  const autoFee = () => containerFee(cartSticks());
+  const currentFee = () => manualFee == null ? autoFee() : manualFee;
+  const cartTotal = () => cartGoods() ? cartGoods() + currentFee() : 0;
+
+  function renderCart() {
+    const lines = SETS.filter(s => cart[s.key] > 0);
+    $('cart').innerHTML = lines.length ? lines.map(s =>
+      '<div class="cart-line"><span>' + s.sticks + '本セット</span>' +
+      '<span class="ctrl"><button data-dec="' + s.key + '">−</button><span class="qty">' + cart[s.key] + '</span><button data-inc="' + s.key + '">＋</button></span>' +
+      '<span class="sub">' + yen(cart[s.key] * s.price) + '</span></div>'
+    ).join('') : '<div class="empty">商品ボタンをタップしてください</div>';
+
+    if (lines.length) {
+      const fee = currentFee();
+      const isManual = manualFee != null && manualFee !== autoFee();
+      $('containerRow').innerHTML =
+        '<div class="cart-line fee"><span>容器代<span class="tag' + (isManual ? ' manual' : '') + '">' + (isManual ? '手動' : '自動') + '</span>' +
+        (isManual ? '<button class="reset-fee" data-feereset="1">自動に戻す</button>' : '') + '</span>' +
+        '<span class="ctrl"><button data-fee="-10">−</button><span class="qty">' + (fee / 10) + '</span><button data-fee="10">＋</button></span>' +
+        '<span class="sub">' + yen(fee) + '</span></div>';
+    } else {
+      $('containerRow').innerHTML = '';
+    }
+
+    const total = cartTotal();
+    $('cartTotal').textContent = yen(total);
+    $('cartSticks').textContent = cartSticks() + '本';
+    document.querySelectorAll('.pay').forEach(b => b.disabled = busy || total === 0);
+    renderChange();
+  }
+
+  function renderChange() {
+    const recv = Number($('recv').value);
+    const total = cartTotal();
+    if (!recv || !total) { $('changeResult').innerHTML = ''; return; }
+    const diff = recv - total;
+    $('changeResult').innerHTML = diff >= 0
+      ? 'おつり <b>' + yen(diff) + '</b>'
+      : '<span style="color:#c0392b">' + yen(-diff) + ' 足りません</span>';
+  }
+
+  // 商品ボタン
+  $('items').innerHTML = SETS.map(s =>
+    '<button class="item" data-add="' + s.key + '"><div class="n">' + s.sticks + '本</div><div class="p">' + s.price + '円</div></button>'
+  ).join('');
+
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const d = b.dataset;
+    if (d.add) { cart[d.add]++; renderCart(); }
+    if (d.inc) { cart[d.inc]++; renderCart(); }
+    if (d.dec) { cart[d.dec] = Math.max(0, cart[d.dec] - 1); renderCart(); }
+    if (d.fee) { manualFee = Math.max(0, currentFee() + Number(d.fee)); renderCart(); }
+    if (d.feereset) { manualFee = null; renderCart(); }
+    if (d.recv) { $('recv').value = d.recv; renderChange(); }
+    if (d.pay) await pay(d.pay);
+    if (d.cancel) await cancel(d.cancel, b.textContent);
+  });
+  $('recv').oninput = renderChange;
+  $('clearBtn').onclick = resetCart;
+
+  function resetCart() {
+    cart = { s1: 0, s3: 0, s5: 0 };
+    manualFee = null;
+    $('recv').value = '';
+    renderCart();
+  }
+
+  // ---------- 操作 ----------
+  async function pay(method) {
+    const total = cartTotal();
+    if (busy || !total) return;
+    busy = true; renderCart();
+    try {
+      const d = await api('sales', { ...cart, container: currentFee(), payment: method });
+      toast('記録しました：' + yen(total) + '（' + method + '）');
+      busy = false;
+      resetCart();
+      renderData(d);
+    } catch (e) {
+      busy = false; renderCart();
+      toast('記録に失敗しました：' + e.message, true);
+    }
+  }
+
+  async function cancel(id, label) {
+    if (!confirm(label === '取消' ? 'この会計を取り消しますか？' : '取消を元に戻しますか？')) return;
+    try {
+      renderData(await api('sales/' + id + '/toggle-cancel', {}));
+      toast(label === '取消' ? '取り消しました' : '元に戻しました');
+    } catch (e) { toast(e.message, true); }
+  }
+
+  $('targetBtn').onclick = async () => {
+    try {
+      renderData(await api('target', { target: $('targetInput').value }));
+      $('targetInput').blur();
+      toast('目標金額を変更しました');
+    } catch (e) { toast(e.message, true); }
+  };
+
+  async function refresh() {
+    try { renderData(await api('data')); }
+    catch (e) { toast('更新に失敗しました：' + e.message, true); }
+  }
+
+  renderCart();
+  tryLogin(password);
+  setInterval(() => { if (!busy && password && !$('app').classList.contains('hidden')) refresh(); }, 30000);
+</script>
+</body>
+</html>
