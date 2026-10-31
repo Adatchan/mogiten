@@ -535,13 +535,14 @@ async function saveRule(db, body) {
     freeUpTo: intIn(body.freeUpTo, 0, 999, '無料になる数'),
     per: intIn(body.per, 1, 999, '何個ごとか'),
     fee: intIn(body.fee, 0, 10000, '容器代の金額'),
+    maxCount: intIn(body.maxCount ?? 0, 0, 999, '容器の数の上限'),
   };
   await db.prepare("INSERT INTO settings (key, value) VALUES ('container_rule', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .bind(JSON.stringify(rule)).run();
   return rule;
 }
 
-const ruleText = (r) => `${r.freeUpTo}個まで無料・${r.per}個ごとに${r.fee}円`;
+const ruleText = (r) => `${r.freeUpTo}個まで無料・${r.per}個ごとに${r.fee}円` + (r.maxCount > 0 ? `・最大${r.maxCount}個（${r.maxCount * r.fee}円）まで` : '・上限なし');
 const productText = (p) => `${p.name}：` + p.sets.map((s) => `${s.qty}${p.unit}${s.price}円`).join('・') +
   (p.container ? '（容器代対象）' : '') + (p.active ? '' : '（販売停止）');
 function productDiff(a, b) {

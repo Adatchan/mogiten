@@ -6,12 +6,13 @@
  *     container: true/false（容器代の対象か）, active: true/false }
  *
  * 容器代のルール（rule）:
- *   { freeUpTo: 2, per: 4, fee: 10 }
- *   → 容器代の対象の合計が freeUpTo 以下なら 0円、それより多ければ per 個ごとに fee 円
- *     （初期値: 1〜2本 0円 / 3〜4本 10円 / 5〜8本 20円 / 以降4本ごとに +10円）
+ *   { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 }
+ *   → 容器代の対象の合計が freeUpTo 以下なら 0円、それより多ければ per 個ごとに 1 個（fee 円）。
+ *     容器の数は maxCount 個まで（0 = 上限なし）
+ *     （初期値: 1〜2本 0円 / 3本以上は何本でも 1 個 10円）
  */
 
-export const DEFAULT_RULE = { freeUpTo: 2, per: 4, fee: 10 };
+export const DEFAULT_RULE = { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 };
 
 export const DEFAULT_PRODUCTS = [
   { name: '団子', unit: '本', sets: [{ qty: 1, price: 150 }, { qty: 3, price: 400 }, { qty: 5, price: 500 }], container: true },
@@ -22,7 +23,9 @@ export const MAX_QTY = 200;   // 1会計・1商品あたりの上限
 
 export function containerFee(rule, n) {
   if (!(n > 0) || n <= rule.freeUpTo) return 0;
-  return Math.ceil(n / rule.per) * rule.fee;
+  let count = Math.ceil(n / rule.per);
+  if (rule.maxCount > 0) count = Math.min(count, rule.maxCount);   // 容器の数の上限
+  return count * rule.fee;
 }
 
 /**
