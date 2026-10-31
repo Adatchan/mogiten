@@ -40,6 +40,29 @@ const LOCK_MINUTES = 10;      // この時間ログインできない
 const MIN_PASSWORD = 8;       // 新しいパスワードの最低文字数
 const PBKDF2_ITER = 100000;   // Workers の上限
 
+/**
+ * 本数ちょうどで一番安くなるセットの組み合わせ（お客さんに有利な組み方）。
+ * 同じ金額なら、セットの数が少ない（大きいセットを使う）ほうを選ぶ。
+ */
+function bestBundle(sticks) {
+  const best = [{ cost: 0, packs: 0, counts: Object.fromEntries(SETS.map((s) => [s.key, 0])) }];
+  for (let i = 1; i <= sticks; i++) {
+    let b = null;
+    for (const s of SETS) {
+      const prev = best[i - s.sticks];
+      if (!prev) continue;
+      const cand = { cost: prev.cost + s.price, packs: prev.packs + 1, key: s.key, prev };
+      if (!b || cand.cost < b.cost || (cand.cost === b.cost && cand.packs < b.packs)) b = cand;
+    }
+    b.counts = { ...b.prev.counts, [b.key]: b.prev.counts[b.key] + 1 };
+    delete b.prev;
+    best[i] = b;
+  }
+  return best[sticks].counts;
+}
+
+const MAX_STICKS = 200;
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -484,15 +507,16 @@ async function masterData(db, sess) {
 
 async function recordSale(db, body, staff) {
   if (!PAYMENTS.includes(body.payment)) throw httpError('支払方法が不正です', 400);
-  const counts = {};
+  // 本数からお客さんに有利なセットをサーバー側で組み直す（画面側の計算は信用しない）
+  const want = Math.floor(Number(body.sticks));
+  if (!(want > 0)) throw httpError('本数が選択されていません', 400);
+  if (want > MAX_STICKS) throw httpError(`一度に記録できるのは${MAX_STICKS}本までです`, 400);
+  const counts = bestBundle(want);
   let sticks = 0, goods = 0;
   for (const s of SETS) {
-    const n = Math.max(0, Math.floor(Number(body[s.key]) || 0));
-    counts[s.key] = n;
-    sticks += n * s.sticks;
-    goods += n * s.price;
+    sticks += counts[s.key] * s.sticks;
+    goods += counts[s.key] * s.price;
   }
-  if (goods <= 0) throw httpError('商品が選択されていません', 400);
 
   const auto = containerFee(sticks);
   // 容器代は手動修正も可（未指定なら自動計算）
