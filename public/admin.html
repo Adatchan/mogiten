@@ -163,6 +163,28 @@
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.err { background: #c0392b; }
   .hidden { display: none !important; }
+
+  /* 通信状態と未送信（オフライン対応） */
+  .net { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px;
+         background: #eef6e8; border: 1px solid #cfe3bf; color: #2f5a17; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+  .net.off { background: #fdecea; border-color: #f2c2bc; color: #8c2a1f; }
+  .net.wait { background: #fff6e0; border-color: #f0d79b; color: #7a5300; }
+  .net .dot { width: 10px; height: 10px; border-radius: 50%; background: #5b9a2f; flex-shrink: 0; }
+  .net.off .dot { background: #c0392b; }
+  .net.wait .dot { background: #e0a400; }
+  .net b { font-variant-numeric: tabular-nums; }
+  .net .sp { flex: 1; }
+  .net button { background: #fff; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+  .failed { background: #fdecea; border: 1px solid #f2c2bc; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; color: #8c2a1f; }
+  .failed summary { cursor: pointer; font-weight: 700; }
+  .failed .fl { padding: 6px 0; border-top: 1px dashed #f2c2bc; display: flex; gap: 8px; align-items: center; }
+  .failed .fl:first-child { border-top: none; }
+  .failed .fl span { flex: 1; }
+  .failed .fl button { background: #fff; border: 1px solid #c0392b; color: #c0392b; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+  .update { background: #e8f0fb; border: 1px solid #b9cdea; color: #1f4c86; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .update button { margin-left: auto; background: #2a78d6; color: #fff; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 700; }
+  .hist-line .q { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #fff6e0; color: #7a5300; margin-left: 4px; white-space: nowrap; }
+  .login-off { margin-top: 10px; font-size: 13px; color: #8c2a1f; }
 </style>
 </head>
 <body>
@@ -173,6 +195,8 @@
   <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="担当者名（例: 安達）">
   <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード">
   <button id="loginBtn">ログイン</button>
+  <div class="login-off hidden" id="loginOff">オフラインのためログインできません。電波のある場所でログインしてください。</div>
+  <div class="login-off hidden" id="loginQueue"></div>
   <div class="hint" style="color:var(--sub);font-size:12px;margin-top:10px">ログインは3日間有効です（パスワードは端末に保存しません）</div>
 </div>
 
@@ -182,6 +206,10 @@
     <span id="staffLabel" style="font-size:13px;color:var(--sub)"></span>
     <a id="dashLink" href="/" target="_blank">ダッシュボードを開く ↗</a>
   </div>
+
+  <div id="net" class="net"><span class="dot"></span><span id="netText">確認中…</span><span class="sp"></span><span id="qInfo"></span><button id="syncBtn" class="hidden">今すぐ送信</button></div>
+  <div id="failedBox" class="failed hidden"><details><summary id="failedSum"></summary><div id="failedList"></div></details></div>
+  <div id="updateBox" class="update hidden">新しい版のレジがあります。会計の合間に切り替えてください。<button id="reloadBtn">再読み込み</button></div>
 
   <section class="card">
     <div class="mini">
@@ -280,7 +308,7 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel } from '/pricing.js';
+  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel, describeItems } from '/pricing.js';
 
   const STAFF_KEY = 'dango_admin_staff';   // 次回ログイン時の入力補助（名前だけ）
   localStorage.removeItem('dango_admin_pw'); // 以前の版で保存していたパスワードを消す
@@ -297,14 +325,25 @@
   let busy = false;
 
   // ---------- サーバー呼び出し ----------
-  async function api(path, body) {
-    const res = await fetch('/api/admin/' + path, {
-      method: body ? 'POST' : 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      body: body ? JSON.stringify(body) : undefined,
-      cache: 'no-store',
-      credentials: 'same-origin',
-    });
+  async function api(path, body, timeoutMs = 15000) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    let res;
+    try {
+      res = await fetch('/api/admin/' + path, {
+        method: body ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal: ctl.signal,
+      });
+    } catch (e) {
+      // 電波がない・タイムアウト
+      setNet(false);
+      throw Object.assign(new Error('通信できません（オフライン）'), { network: true });
+    } finally { clearTimeout(timer); }
+    setNet(true);
     const d = await res.json().catch(() => ({}));
     if (res.status === 401 && path !== 'login') showLogin(d.error);
     if (!res.ok) throw Object.assign(new Error(d.error || ('通信エラー ' + res.status)), { status: res.status });
@@ -322,7 +361,6 @@
   // ---------- ログイン ----------
   function showApp(d) {
     renderData(d);
-    $('staffLabel').textContent = '担当: ' + d.me.staff;
     $('login').classList.add('hidden');
     $('app').classList.remove('hidden');
   }
@@ -330,6 +368,9 @@
     if (!$('app').classList.contains('hidden') && msg) toast(msg, true);
     $('app').classList.add('hidden');
     $('login').classList.remove('hidden');
+    const n = loadQ().length;
+    $('loginQueue').textContent = n ? 'この端末に未送信の操作が ' + n + ' 件あります。ログインすると自動で送信します。' : '';
+    $('loginQueue').classList.toggle('hidden', !n);
   }
   async function submitLogin() {
     const name = $('staffName').value.trim();
@@ -339,24 +380,42 @@
       const d = await api('login', { staff: name, password: $('pw').value });
       localStorage.setItem(STAFF_KEY, name);
       $('pw').value = '';
+      $('loginOff').classList.add('hidden');
       showApp(d);
-    } catch (e) { toast(e.message, true); }
+      flush();
+    } catch (e) {
+      if (e.network) $('loginOff').classList.remove('hidden');
+      toast(e.message, true);
+    }
   }
   async function start() {
-    try { showApp(await api('data')); }
-    catch (e) { showLogin(); }
+    const t0 = Date.now();
+    try { const d = await api('data'); pruneSent(t0); showApp(d); flush(); }
+    catch (e) {
+      // 電波がないときは、最後に受け取った画面データでレジを開く（会計は端末に保存）
+      const cached = e.network && loadCachedData();
+      if (cached) showApp(cached);
+      else { showLogin(); if (e.network) $('loginOff').classList.remove('hidden'); }
+    }
   }
   $('loginBtn').onclick = submitLogin;
   $('pw').onkeydown = e => { if (e.key === 'Enter') submitLogin(); };
   $('staffName').onkeydown = e => { if (e.key === 'Enter') $('pw').focus(); };
   $('logoutBtn').onclick = async () => {
+    const n = loadQ().length;
+    if (n) { alert('未送信の操作が ' + n + ' 件あります。送信が終わってからログアウトしてください。'); return; }
+    if (!netOk) { alert('オフライン中はログアウトできません。電波のある場所で操作してください。'); return; }
     if (!confirm('ログアウトしますか？')) return;
-    await api('logout', {}).catch(() => {});
+    try { await api('logout', {}); } catch (e) { if (e.network) { toast(e.message, true); return; } }
+    localStorage.removeItem(DATA_KEY);
     location.reload();
   };
 
   // ---------- 表示 ----------
   function renderData(d) {
+    if (!d.cachedAt) saveCachedData(d);
+    lastData = d;
+    $('staffLabel').textContent = '担当: ' + d.me.staff + (d.cachedAt ? '（オフライン表示）' : '');
     $('mTotal').textContent = yen(d.total);
     const done = d.total >= d.target;
     $('mRemain').textContent = done ? yen(d.total - d.target) : yen(d.remaining);
@@ -366,16 +425,7 @@
     syncProducts(d.products, d.rule);
     $('mBar').style.width = Math.min(100, d.rate * 100) + '%';
 
-    $('hist').innerHTML = d.recent.length ? d.recent.map(r => {
-      const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
-      const desc = esc(r.desc);
-      const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
-      return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
-        '<span class="t">' + time + '</span>' +
-        '<span class="d">' + desc + ' ' + fee + '　' + r.payment + (r.staff ? '（' + esc(r.staff) + '）' : '') + '</span>' +
-        '<span class="a">' + yen(r.amount) + '</span>' +
-        '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
-    }).join('') : '<div class="empty">まだ会計はありません</div>';
+    renderHist();
     $('moreLink').classList.toggle('hidden', d.salesCount <= d.recent.length);
     $('moreLink').textContent = 'すべての会計を見る（全' + d.salesCount + '件）→';
 
@@ -385,6 +435,40 @@
       '<span class="what">' + esc(a.action) + (a.detail ? '　<span style="color:var(--sub)">' + esc(a.detail) + '</span>' : '') + '</span></div>'
     ).join('') : '<div class="empty">記録はありません</div>';
   }
+  /** 最近の会計：サーバーの記録＋この端末の未送信／送信直後の会計をまとめて新しい順に 5 件 */
+  function renderHist() {
+    const d = lastData;
+    if (!d) return;
+    const q = loadQ();
+    const local = q.filter(o => o.kind === 'sale').map(o => ({ ...o, _state: 'pending' }))
+      .concat(loadSent().map(o => ({ ...o, _state: 'sent' })));
+    const localIds = new Set(local.map(o => o.clientId));
+    const rows = local.map(o => ({
+      key: 'c:' + o.clientId, clientId: o.clientId, id: null, created_at: o.createdAt, desc: o.desc, container: o.container,
+      container_auto: o.containerAuto, payment: o.payment, staff: o.staff, amount: o.amount, cancelled: 0, state: o._state,
+    })).concat(d.recent.filter(r => !r.client_id || !localIds.has(r.client_id)).map(r => ({
+      key: r.client_id ? 'c:' + r.client_id : 'i:' + r.id, clientId: r.client_id, id: r.id, created_at: r.created_at, desc: r.desc,
+      container: r.container, container_auto: r.container_auto, payment: r.payment, staff: r.staff, amount: r.amount, cancelled: r.cancelled, state: 'server',
+    })));
+    // まだ送っていない取消／戻すを表示に反映
+    for (const o of q) {
+      if (o.kind !== 'cancel') continue;
+      const row = rows.find(r => (o.clientId && r.clientId === o.clientId) || (o.id && r.id === o.id));
+      if (row) { row.cancelled = o.cancelled ? 1 : 0; row.cancelPending = true; }
+    }
+    rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    $('hist').innerHTML = rows.length ? rows.slice(0, 5).map(r => {
+      const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
+      const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
+      const tag = r.state === 'pending' ? '<span class="q">未送信</span>' : r.cancelPending ? '<span class="q">取消は未送信</span>' : '';
+      return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
+        '<span class="t">' + time + '</span>' +
+        '<span class="d">' + esc(r.desc) + ' ' + fee + '　' + r.payment + (r.staff ? '（' + esc(r.staff) + '）' : '') + tag + '</span>' +
+        '<span class="a">' + yen(r.amount) + '</span>' +
+        '<button data-cancel="' + esc(r.key) + '" data-to="' + (r.cancelled ? 0 : 1) + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
+    }).join('') : '<div class="empty">まだ会計はありません</div>';
+  }
+
   const fmtTime = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   // ---------- 商品とカート ----------
@@ -487,7 +571,7 @@
     if (d.fee) { manualFee = Math.max(0, currentFee() + Number(d.fee)); renderCart(); }
     if (d.feereset) { manualFee = null; renderCart(); }
     if (d.pay) openPay(d.pay);
-    if (d.cancel) await cancel(d.cancel, b.textContent);
+    if (d.cancel) cancel(d.cancel, d.to === '1');
   });
   $('clearBtn').onclick = resetCart;
 
@@ -578,36 +662,192 @@
   $('cfYes').onclick = async () => {
     if (!pending || busy) return;
     const p = pending;
-    busy = true; $('cfYes').disabled = true; renderCart();
-    try {
-      const d = await api('sales', { items: cart, container: currentFee(), payment: p.method, expectedGoods: priced().goods });
-      closePay();
-      toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : ''));
-      busy = false;
-      resetCart();
-      renderData(d);
-    } catch (e) {
-      busy = false; $('cfYes').disabled = false; renderCart();
-      if (e.status === 409) { closePay(); await refresh(); }   // 価格や商品が変わっていた
-      toast('記録に失敗しました：' + e.message, true);
-    }
+    $('cfYes').disabled = true;
+    // まず端末に保存（電波がなくても会計は止めない）→ そのあとサーバーへ送る
+    const pr = priced();
+    enqueue({
+      kind: 'sale',
+      clientId: newId(),
+      createdAt: new Date().toISOString(),
+      items: { ...cart },
+      lines: pr.lines.map(l => ({ productId: l.product.id, name: l.product.name, unit: l.product.unit, packs: l.packs })),
+      goods: pr.goods,
+      container: currentFee(),
+      containerAuto: pr.fee,
+      amount: pr.goods + currentFee(),
+      payment: p.method,
+      staff: lastData && lastData.me ? lastData.me.staff : '',
+      desc: describeItems(pr.lines.flatMap(l => l.packs.map(k => ({ name: l.product.name, unit: l.product.unit, set_qty: k.qty, set_price: k.price, count: k.count })))),
+    });
+    closePay();
+    toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : '') + (netOk ? '' : '・未送信'));
+    resetCart();
+    renderHist();
+    flush();
   };
 
-  async function cancel(id, label) {
-    if (!confirm(label === '取消' ? 'この会計を取り消しますか？' : '取消を元に戻しますか？')) return;
-    try {
-      renderData(await api('sales/' + id + '/toggle-cancel', {}));
-      toast(label === '取消' ? '取り消しました' : '元に戻しました');
-    } catch (e) { toast(e.message, true); }
+  // 取消／戻す：これも端末に保存してから、会計と同じ順番で送る
+  function cancel(key, toCancelled) {
+    if (!confirm(toCancelled ? 'この会計を取り消しますか？' : '取消を元に戻しますか？')) return;
+    const [kind, v] = [key.slice(0, 1), key.slice(2)];
+    enqueue({ kind: 'cancel', clientId: kind === 'c' ? v : null, id: kind === 'i' ? Number(v) : null, cancelled: toCancelled, createdAt: new Date().toISOString() });
+    toast((toCancelled ? '取り消しました' : '元に戻しました') + (netOk ? '' : '・未送信'));
+    renderHist();
+    flush();
   }
 
   async function refresh() {
-    try { renderData(await api('data')); }
-    catch (e) { toast('更新に失敗しました：' + e.message, true); }
+    const t0 = Date.now();
+    try { renderData(await api('data')); pruneSent(t0); renderHist(); }
+    catch (e) { if (!e.network) toast('更新に失敗しました：' + e.message, true); }
   }
 
+  // ========== オフライン対応：未送信キュー ==========
+  // 会計・取消はまず localStorage のキューに入れ、古い順にサーバーへ送る。送れたものからキューを消す。
+  // サーバーは会計ID（clientId）が同じなら 1 件として扱うので、何度送り直しても二重にならない。
+  const QUEUE_KEY = 'mogiten_queue_v1';      // 未送信の操作（古い順）
+  const FAILED_KEY = 'mogiten_failed_v1';    // サーバーに受け付けられなかった操作（消さずに残す）
+  const SENT_KEY = 'mogiten_sent_v1';        // 送信できた直後の会計（サーバーの一覧に出るまで表示用に残す）
+  const DATA_KEY = 'mogiten_data_v1';        // 最後に受け取った画面データ（オフラインで開くとき用）
+  let lastData = null;
+  let netOk = navigator.onLine;
+  let flushing = false;
+
+  const readJSON = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } };
+  const loadQ = () => readJSON(QUEUE_KEY, []);
+  const saveQ = q => localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+  const loadFailed = () => readJSON(FAILED_KEY, []);
+  const loadSent = () => readJSON(SENT_KEY, []);
+  function loadCachedData() { const d = readJSON(DATA_KEY, null); return d ? { ...d, cachedAt: d.savedAt || true } : null; }
+  function saveCachedData(d) { try { localStorage.setItem(DATA_KEY, JSON.stringify({ ...d, audit: d.audit.slice(0, 10), savedAt: new Date().toISOString() })); } catch {} }
+
+  function newId() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const a = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function enqueue(op) {
+    const q = loadQ();
+    q.push({ ...op, opId: newId(), wasOffline: !netOk });
+    saveQ(q);
+    renderNet();
+  }
+  function removeOp(opId) { saveQ(loadQ().filter(o => o.opId !== opId)); }
+
+  /** 未送信の操作を古い順に送る。電波がなければ途中でやめて、あとで再試行 */
+  async function flush() {
+    if (flushing) return;
+    if ($('app').classList.contains('hidden')) return;   // ログインしていない
+    flushing = true;
+    let sentAny = false;
+    try {
+      for (;;) {
+        const op = loadQ()[0];
+        if (!op) break;
+        try {
+          if (op.kind === 'sale') {
+            await api('sales', {
+              lite: true, clientId: op.clientId, createdAt: op.createdAt, items: op.items, lines: op.lines,
+              container: op.container, containerAuto: op.containerAuto, payment: op.payment,
+            });
+            const sent = loadSent().filter(s => s.clientId !== op.clientId);
+            sent.unshift({ ...op, sentAt: new Date().toISOString() });
+            localStorage.setItem(SENT_KEY, JSON.stringify(sent.slice(0, 20)));
+          } else if (op.kind === 'cancel') {
+            await api('sales/set-cancel', { clientId: op.clientId, id: op.id, cancelled: op.cancelled, offline: !!op.wasOffline });
+          }
+          removeOp(op.opId);
+          sentAny = true;
+        } catch (e) {
+          if (e.network || e.status === 401 || e.status === 429 || e.status >= 500) break;   // あとで再試行
+          // 受け付けられない操作（内容の不備など）は「送信できなかった操作」に移して先へ進む
+          const failed = loadFailed();
+          failed.push({ ...op, error: e.message, failedAt: new Date().toISOString() });
+          localStorage.setItem(FAILED_KEY, JSON.stringify(failed));
+          removeOp(op.opId);
+        }
+        renderNet();
+        renderHist();
+      }
+    } finally {
+      flushing = false;
+      renderNet();
+      renderHist();
+    }
+    if (sentAny && !loadQ().length) refresh();   // 全部送れたら売上の数字を更新
+  }
+
+  /** サーバーの一覧を取り直したら、送信済みの会計の表示用コピーは不要 */
+  function pruneSent(fetchStartedAt) {
+    localStorage.setItem(SENT_KEY, JSON.stringify(loadSent().filter(s => Date.parse(s.sentAt) >= fetchStartedAt)));
+  }
+
+  function setNet(ok) {
+    if (netOk === ok) return;
+    netOk = ok;
+    renderNet();
+    if (ok) flush();
+  }
+
+  function renderNet() {
+    const q = loadQ(), failed = loadFailed();
+    const sales = q.filter(o => o.kind === 'sale');
+    const box = $('net');
+    const online = netOk && navigator.onLine;
+    box.className = 'net' + (online ? (q.length ? ' wait' : '') : ' off');
+    $('netText').textContent = online
+      ? (q.length ? 'オンライン・送信中…' : 'オンライン')
+      : 'オフライン（会計は端末に保存し、つながったら自動で送ります）';
+    $('qInfo').innerHTML = q.length
+      ? '未送信 <b>' + q.length + '</b> 件' + (sales.length ? '（会計 ' + sales.length + ' 件 ' + yen(sales.reduce((a, o) => a + o.amount, 0)) + '）' : '')
+      : '未送信 <b>0</b> 件';
+    $('syncBtn').classList.toggle('hidden', !q.length);
+    $('failedBox').classList.toggle('hidden', !failed.length);
+    if (failed.length) {
+      $('failedSum').textContent = '⚠ 送信できなかった操作が ' + failed.length + ' 件あります（タップで内容）';
+      $('failedList').innerHTML = failed.map((o, i) => '<div class="fl"><span>' + fmtTime(o.createdAt) + '　' +
+        (o.kind === 'sale' ? esc(o.desc) + ' ' + yen(o.amount) + ' ' + o.payment : (o.cancelled ? '取消' : '戻す')) + '<br>理由：' + esc(o.error) + '</span>' +
+        '<button data-drop="' + i + '">この端末から消す</button></div>').join('');
+    }
+  }
+  $('failedList').onclick = e => {
+    const b = e.target.closest('[data-drop]');
+    if (!b || !confirm('この操作をこの端末から消しますか？（売上には記録されていません）')) return;
+    const failed = loadFailed(); failed.splice(Number(b.dataset.drop), 1);
+    localStorage.setItem(FAILED_KEY, JSON.stringify(failed));
+    renderNet();
+  };
+  $('syncBtn').onclick = () => flush();
+
+  window.addEventListener('online', () => { renderNet(); flush(); });
+  window.addEventListener('offline', () => { netOk = false; renderNet(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) flush(); });
+  // 別のタブで操作されたとき
+  window.addEventListener('storage', e => { if (e.key === QUEUE_KEY) { renderNet(); renderHist(); } });
+
+  // ---------- Service Worker（画面をキャッシュして電波がなくても開けるように） ----------
+  if ('serviceWorker' in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);   // 30 分ごとに新しい版を確認
+    }).catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) return;   // 初回のインストール
+      // 新しい版に切り替わった：会計の途中でなければ自動で再読み込み、途中なら案内を出す
+      const idle = !Object.keys(cart).length && $('modal').classList.contains('hidden');
+      if (idle) location.reload(); else $('updateBox').classList.remove('hidden');
+    });
+  }
+  $('reloadBtn').onclick = () => {
+    if (Object.keys(cart).length && !confirm('お会計の途中です。再読み込みするとカートが消えます。よろしいですか？')) return;
+    location.reload();
+  };
+
+  renderNet();
   start();
   setInterval(() => { if (!busy && !$('app').classList.contains('hidden')) refresh(); }, 30000);
+  setInterval(() => { if (loadQ().length) flush(); }, 15000);   // 一定間隔で再試行
 </script>
 </body>
 </html>
