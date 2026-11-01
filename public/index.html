@@ -63,6 +63,21 @@
   .stat small { font-size: 18px; margin-left: 2px; }
   .rows { margin-top: 10px; }
 
+  /* 客単価 */
+  .avg { display: flex; align-items: baseline; justify-content: space-between; margin-top: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .avg-k { font-size: 14px; color: var(--sub); }
+  .avg .stat { font-size: 32px; }
+
+  /* 1時間ごとの売上（棒グラフ） */
+  .hour-box { position: relative; margin-top: 8px; }
+  #hourChart { width: 100%; height: 220px; display: block; overflow: visible; }
+  #hourChart .bar-hit { fill: transparent; cursor: pointer; }
+  #hourChart .bar-hit:hover + .bar-mark, #hourChart .bar-mark.on { opacity: .8; }
+  #hourChart text { font-family: inherit; font-variant-numeric: tabular-nums; }
+  .hour-tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 13px; line-height: 1.5; padding: 6px 10px; border-radius: 8px;
+              white-space: nowrap; transform: translate(-50%, calc(-100% - 8px)); opacity: 0; transition: opacity .1s; z-index: 2; }
+  .hour-tip.show { opacity: 1; }
+
   /* 目標に対する内訳の円グラフ（円全体 = 目標金額、届いていない分はグレー） */
   .pie-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
   .pie-box { position: relative; width: 220px; height: 220px; flex-shrink: 0; }
@@ -140,6 +155,15 @@
     </div>
   </section>
 
+  <section class="card">
+    <div class="label" id="hourTitle">今日の1時間ごとの売上</div>
+    <div class="hour-box">
+      <svg id="hourChart" role="img" aria-labelledby="hourChartTitle"><title id="hourChartTitle">今日の1時間ごとの売上</title></svg>
+      <div class="hour-tip" id="hourTip" role="tooltip"></div>
+    </div>
+    <div class="hint" id="hourNote"></div>
+  </section>
+
   <div class="grid">
     <section class="card">
       <div class="label">売れた数</div>
@@ -147,6 +171,7 @@
     </section>
     <section class="card">
       <div class="label">お会計 <span id="orders">—</span> 件</div>
+      <div class="avg"><span class="avg-k">客単価</span><span class="stat" id="avg">—</span></div>
       <div class="rows" id="pays"></div>
     </section>
   </div>
@@ -194,8 +219,14 @@
   </details>
 
   <details>
-    <summary>「お会計○件」と支払方法</summary>
-    <p>記録された会計の件数と、支払方法（現金、PayPay、d払い）ごとの件数と金額です。バーの長さは、売上全体に占める割合を表します。</p>
+    <summary>「今日の1時間ごとの売上」の棒グラフ</summary>
+    <p>今日の営業時間（9:00〜19:00）の売上を、1時間ごとの棒で表します。いちばん売れた時間帯には金額が出ます。棒に触れると、その時間帯の売上、会計件数、客単価が出ます。今の時間帯は「集計中」です。</p>
+    <p>営業時間の外に記録された会計は、グラフの下に件数と金額だけ出ます。取り消した会計は含みません。日付が変わると、その日の分に切り替わります。</p>
+  </details>
+
+  <details>
+    <summary>「お会計○件」と客単価、支払方法</summary>
+    <p>記録された会計の件数と、<b>客単価</b>（売上の合計を会計の件数で割った、1回の会計あたりの平均金額）、支払方法（現金、PayPay、d払い）ごとの件数と金額です。バーの長さは、売上全体に占める割合を表します。取り消した会計は含みません。</p>
   </details>
 
   <h3 class="help-group">うまくいかないとき</h3>
@@ -289,6 +320,70 @@
   document.getElementById('pieLegend').addEventListener('pointerover', e => { const tr = e.target.closest('tr[data-i]'); pieFocus(tr ? Number(tr.dataset.i) : null); });
   document.getElementById('pieLegend').addEventListener('pointerleave', () => pieFocus(null));
 
+  // ---------- 1時間ごとの売上（棒グラフ・1系列なので凡例なし） ----------
+  const BAR = '#8a5a3b';   // 店のテーマ色（茶）
+  let hourData = null;
+  function renderHourly(d) {
+    const h = d.hourly;
+    hourData = h;
+    const [, mo, da] = h.date.split('-');
+    document.getElementById('hourTitle').textContent = '今日（' + Number(mo) + '/' + Number(da) + '）の1時間ごとの売上（' + h.open + ':00〜' + h.close + ':00）';
+    const svg = document.getElementById('hourChart');
+    const W = Math.max(300, svg.clientWidth || 600), H = 220;
+    const L = 46, R = 6, T = 22, B = 26;   // 余白（左は金額の目盛り）
+    const n = h.buckets.length, cw = (W - L - R) / n, bw = Math.min(36, cw * 0.62);
+    const max = Math.max(...h.buckets.map(b => b.amount));
+    // 目盛り：きりのいい刻み
+    const step = (() => { if (!max) return 1000; const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(k => k * p).find(k => k >= raw); })();
+    const top = Math.max(step, Math.ceil(max / step) * step);
+    const y = v => T + (H - T - B) * (1 - v / top);
+    let s = '<title>今日の1時間ごとの売上</title>';
+    for (let v = 0; v <= top + 0.001; v += step) {
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + (v === 0 ? '#cfc6ba' : '#eee8df') + '" stroke-width="1"/>' +
+        '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="#7a6f66">' + (v >= 10000 ? (v / 10000) + '万' : v.toLocaleString('ja-JP')) + '</text>';
+    }
+    const peak = max > 0 ? h.buckets.findIndex(b => b.amount === max) : -1;
+    h.buckets.forEach((b, i) => {
+      const cx = L + cw * i + cw / 2, x = cx - bw / 2;
+      const yy = y(b.amount), hh = (H - B) - yy;
+      const now = b.hour === h.nowHour;
+      // 上端だけ角丸（4px）、下は基線に揃える
+      if (b.amount > 0) {
+        const r = Math.min(4, hh, bw / 2);
+        s += '<rect class="bar-hit" data-i="' + i + '" x="' + (L + cw * i) + '" y="' + T + '" width="' + cw + '" height="' + (H - T - B) + '"/>' +
+          '<path class="bar-mark" data-i="' + i + '" fill="' + BAR + '" d="M' + x + ' ' + (H - B) + ' V' + (yy + r) + ' Q' + x + ' ' + yy + ' ' + (x + r) + ' ' + yy +
+          ' H' + (x + bw - r) + ' Q' + (x + bw) + ' ' + yy + ' ' + (x + bw) + ' ' + (yy + r) + ' V' + (H - B) + ' Z"/>';
+      } else {
+        s += '<rect class="bar-hit" data-i="' + i + '" x="' + (L + cw * i) + '" y="' + T + '" width="' + cw + '" height="' + (H - T - B) + '"/>';
+      }
+      // いちばん売れた時間帯だけ金額を表示（数字は全部には付けない）
+      if (i === peak) s += '<text x="' + cx + '" y="' + (yy - 6) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#2b2420">' + yen(b.amount) + '</text>';
+      s += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="' + (now ? '#2b2420' : '#7a6f66') + '" font-weight="' + (now ? 700 : 400) + '">' + b.hour + (cw >= 36 || i === 0 ? '時' : '') + '</text>';
+    });
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.innerHTML = s;
+    const total = h.buckets.reduce((a, b) => a + b.amount, 0), orders = h.buckets.reduce((a, b) => a + b.orders, 0);
+    let note = '今日の営業時間内：' + yen(total) + '（' + orders + '件）';
+    if (h.outside.orders) note += '　営業時間外の会計：' + h.outside.orders + '件 ' + yen(h.outside.amount);
+    document.getElementById('hourNote').textContent = note;
+  }
+  // ホバー／タップで、その時間帯の売上・件数・客単価
+  function hourFocus(i, ev) {
+    const tip = document.getElementById('hourTip'), svg = document.getElementById('hourChart');
+    svg.querySelectorAll('.bar-mark').forEach(el => el.classList.toggle('on', el.dataset.i === String(i)));
+    if (i == null || !hourData) { tip.classList.remove('show'); return; }
+    const b = hourData.buckets[i];
+    tip.innerHTML = '<b>' + b.hour + ':00〜' + (b.hour + 1) + ':00</b>' + (b.hour === hourData.nowHour ? '（集計中）' : '') +
+      '<br>' + yen(b.amount) + '・' + b.orders + '件' + (b.orders ? '・客単価 ' + yen(Math.round(b.amount / b.orders)) : '');
+    const box = svg.parentElement.getBoundingClientRect(), r = ev.target.getBoundingClientRect();
+    tip.style.left = Math.max(70, Math.min(box.width - 70, r.left - box.left + r.width / 2)) + 'px';
+    tip.style.top = '30px';
+    tip.classList.add('show');
+  }
+  document.getElementById('hourChart').addEventListener('pointerover', e => { const t = e.target.closest('[data-i]'); hourFocus(t ? Number(t.dataset.i) : null, e); });
+  document.getElementById('hourChart').addEventListener('pointerleave', () => hourFocus(null));
+  window.addEventListener('resize', () => { if (hourData && lastData) renderHourly(lastData); });
+
   function render(d) {
     lastData = d;
     document.getElementById('total').textContent = yen(d.total);
@@ -334,6 +429,8 @@
     }).join('') || '<div class="hint">商品がありません</div>';
 
     document.getElementById('orders').textContent = d.orders;
+    document.getElementById('avg').textContent = d.orders ? yen(d.avgPerOrder) : '—';
+    renderHourly(d);
     document.getElementById('pays').innerHTML = d.payments.map(p => {
       const v = d.byPayment[p];
       const w = d.total > 0 ? (v.amount / d.total * 100) : 0;
