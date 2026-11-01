@@ -616,8 +616,14 @@ async function saveProduct(db, body) {
 async function attachItems(db, sales) {
   if (!sales.length) return sales;
   const ids = sales.map((x) => x.id);
-  const items = (await db.prepare(`SELECT * FROM sale_items WHERE sale_id IN (${ids.map(() => '?').join(',')}) ORDER BY id`)
-    .bind(...ids).all()).results;
+  // D1 は 1 回の問い合わせに渡せる値が 100 個までなので、50 件ずつに分けて読む
+  const items = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const rows = (await db.prepare(`SELECT * FROM sale_items WHERE sale_id IN (${chunk.map(() => '?').join(',')}) ORDER BY id`)
+      .bind(...chunk).all()).results;
+    items.push(...rows);
+  }
   return sales.map((x) => {
     let its = items.filter((i) => i.sale_id === x.id);
     // 商品管理を入れる前の古い記録（団子のみ）
