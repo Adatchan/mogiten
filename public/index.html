@@ -420,11 +420,12 @@
       // セットが複数ある商品は、売れていないセットも 0 個で表示
       if (cur && cur.sets.length > 1) cur.sets.forEach(s => { if (!packs.some(k => k.qty === s.qty && k.price === s.price)) packs.push({ ...s, count: 0 }); });
       packs.sort((a, b) => a.qty - b.qty || a.price - b.price);
-      const showPacks = packs.length > 1;
+      const showPacks = packs.length > 1 || g.mixedQty > 0;
       return '<div class="prod"><div class="ph"><span class="n">' + esc(g.name) + '</span>' +
         '<span class="stat">' + g.qty.toLocaleString('ja-JP') + '<small>' + esc(g.unit) + '</small></span></div>' +
         (showPacks ? '<div class="rows">' + packs.map(k =>
-          '<div class="row"><span>' + packLabel(k, esc(g.unit)) + '（' + k.price + '円）</span><span class="v">' + k.count + ' 個</span></div>').join('') + '</div>' : '') +
+          '<div class="row"><span>' + packLabel(k, esc(g.unit)) + '（' + k.price + '円）</span><span class="v">' + k.count + ' 個</span></div>').join('') +
+          (g.mixedQty ? '<div class="row"><span>ほかの商品と合わせたセット</span><span class="v">' + g.mixedQty + ' ' + esc(g.unit) + '</span></div>' : '') + '</div>' : '') +
         '</div>';
     }).join('') || '<div class="hint">商品がありません</div>';
 
