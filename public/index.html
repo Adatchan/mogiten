@@ -56,6 +56,13 @@
   .remain b { color: var(--pink); font-size: 30px; font-variant-numeric: tabular-nums; }
   .remain.done b { color: var(--green); }
   .hint { color: var(--sub); font-size: 13px; margin-top: 4px; }
+  .hidden { display: none !important; }
+  /* 目標達成のための1時間あたりの目安 */
+  .pace { margin: 12px auto 2px; max-width: 460px; background: #fdf3f5; border: 1px solid #f3cdd6; border-radius: 12px; padding: 8px 12px; font-size: 14px; line-height: 1.6; }
+  .pace b { font-size: 22px; color: #c2566f; font-variant-numeric: tabular-nums; }
+  .pace .sub { color: var(--sub); font-size: 12px; }
+  .pace .ok { color: #3d6b1f; font-weight: 700; white-space: nowrap; }
+  .pace .ng { color: #b0413e; font-weight: 700; white-space: nowrap; }
 
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .grid .card { margin-bottom: 0; }
@@ -140,6 +147,7 @@
     <div class="target">目標 <span id="target">—</span></div>
     <div class="bar"><div id="barFill"></div><span id="rate">0%</span></div>
     <div class="remain" id="remain">読み込み中…</div>
+    <div class="pace hidden" id="pace"></div>
     <div class="hint" id="hint"></div>
   </section>
 
@@ -203,7 +211,7 @@
     <summary>「現在の売上」と目標の表示</summary>
     <figure><img src="/help/dash-hero.webp" width="358" height="253" loading="lazy" alt="現在の売上、商品代と容器代の内訳、目標金額、達成率のバー、目標まであといくらかの表示"></figure>
     <p><b>現在の売上</b>は、お客さんから受け取った金額の合計です。商品代と容器代の両方を含み、カッコ内にその内訳が出ます。レジで取り消した会計は含みません。</p>
-    <p>バーは目標に対する達成率です。その下に<b>目標まであといくら</b>かと、団子の5本セット（容器代込み）で売るとあと何セットか、の目安が出ます。目標を超えると「🎉 達成！ ○円の黒字（見込）」の表示に変わります。</p>
+    <p>バーは目標に対する達成率です。その下に<b>目標まであといくら</b>かと、<b>1時間あたりの目安</b>（目標までの残り ÷ 閉店の19:00までの残り時間）、直前の1時間の実績と比べてペースが足りているか、団子の5本セット（容器代込み）で売るとあと何セットか、の目安が出ます。目標を超えると「🎉 達成！ ○円の黒字（見込）」の表示に変わります。</p>
   </details>
 
   <details>
@@ -221,6 +229,7 @@
   <details>
     <summary>「今日の1時間ごとの売上」の棒グラフ</summary>
     <p>今日の営業時間（9:00〜19:00）の売上を、1時間ごとの棒で表します。いちばん売れた時間帯には金額が出ます。棒に触れると、その時間帯の売上、会計件数、客単価が出ます。今の時間帯は「集計中」です。</p>
+    <p>赤い点線は、目標を達成するのに必要な<b>1時間あたりの目安</b>です。棒が線を超えていれば、その時間帯はペースどおりです。</p>
     <p>営業時間の外に記録された会計は、グラフの下に件数と金額だけ出ます。取り消した会計は含みません。日付が変わると、その日の分に切り替わります。</p>
   </details>
 
@@ -320,6 +329,42 @@
   document.getElementById('pieLegend').addEventListener('pointerover', e => { const tr = e.target.closest('tr[data-i]'); pieFocus(tr ? Number(tr.dataset.i) : null); });
   document.getElementById('pieLegend').addEventListener('pointerleave', () => pieFocus(null));
 
+  // ---------- 目標達成のための1時間あたりの目安 ----------
+  // 目安 = 目標までの残り ÷ 今日の閉店までの残り時間（開店前なら営業時間すべて）
+  let currentPace = 0;
+  function paceInfo(d) {
+    const h = d.hourly;
+    if (!h || d.total >= d.target) return null;
+    const jst = new Date(Date.parse(d.updatedAt) + 9 * 3600000);
+    const nowMin = jst.getUTCHours() * 60 + jst.getUTCMinutes();
+    const openMin = h.open * 60, closeMin = h.close * 60;
+    if (nowMin >= closeMin) return { closed: true };
+    const leftMin = closeMin - Math.max(nowMin, openMin);
+    const pace = Math.ceil(d.remaining / (leftMin / 60) / 10) * 10;
+    // 比べる実績：直前の1時間（営業時間内の、ひとつ前の時間帯）
+    const prevHour = jst.getUTCHours() - 1;
+    const prev = nowMin >= openMin + 60 ? h.buckets.find(b => b.hour === prevHour) : null;
+    return { pace, leftMin, prev, beforeOpen: nowMin < openMin };
+  }
+  function renderPace(d) {
+    const el = document.getElementById('pace');
+    const p = paceInfo(d);
+    currentPace = p && !p.closed ? p.pace : 0;
+    if (!p) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    if (p.closed) { el.innerHTML = '本日の営業時間（' + d.hourly.close + ':00まで）は終了しました'; return; }
+    const hh = Math.floor(p.leftMin / 60), mm = p.leftMin % 60;
+    const left = (hh ? hh + '時間' : '') + (mm ? mm + '分' : '');
+    let html = '⏱ 目標達成の目安 <b>' + yen(p.pace) + '</b><span class="sub"> / 1時間</span>' +
+      '<div class="sub">' + (p.beforeOpen ? '営業時間（' + d.hourly.open + ':00〜' + d.hourly.close + ':00）の' + left : '閉店（' + d.hourly.close + ':00）まであと' + left) + 'で ' + yen(d.remaining) + '</div>';
+    if (p.prev) {
+      const good = p.prev.amount >= p.pace;
+      html += '<div class="sub">直前の1時間（' + p.prev.hour + '時台）は ' + yen(p.prev.amount) + '　<span class="' + (good ? 'ok' : 'ng') + '">' +
+        (good ? 'ペース以上です' : yen(p.pace - p.prev.amount) + '足りません') + '</span></div>';
+    }
+    el.innerHTML = html;
+  }
+
   // ---------- 1時間ごとの売上（棒グラフ・1系列なので凡例なし） ----------
   const BAR = '#8a5a3b';   // 店のテーマ色（茶）
   let hourData = null;
@@ -333,9 +378,10 @@
     const L = 46, R = 6, T = 22, B = 26;   // 余白（左は金額の目盛り）
     const n = h.buckets.length, cw = (W - L - R) / n, bw = Math.min(36, cw * 0.62);
     const max = Math.max(...h.buckets.map(b => b.amount));
+    const scaleMax = Math.max(max, currentPace);   // 目安の線も入るように
     // 目盛り：きりのいい刻み
-    const step = (() => { if (!max) return 1000; const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(k => k * p).find(k => k >= raw); })();
-    const top = Math.max(step, Math.ceil(max / step) * step);
+    const step = (() => { if (!scaleMax) return 1000; const raw = scaleMax / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(k => k * p).find(k => k >= raw); })();
+    const top = Math.max(step, Math.ceil(scaleMax / step) * step);
     const y = v => T + (H - T - B) * (1 - v / top);
     let s = '<title>今日の1時間ごとの売上</title>';
     for (let v = 0; v <= top + 0.001; v += step) {
@@ -360,6 +406,12 @@
       if (i === peak) s += '<text x="' + cx + '" y="' + (yy - 6) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#2b2420">' + yen(b.amount) + '</text>';
       s += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="' + (now ? '#2b2420' : '#7a6f66') + '" font-weight="' + (now ? 700 : 400) + '">' + b.hour + (cw >= 36 || i === 0 ? '時' : '') + '</text>';
     });
+    // 目標達成に必要な1時間あたりの目安（点線）
+    if (currentPace > 0) {
+      const py = y(currentPace);
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + py + '" y2="' + py + '" stroke="#c2566f" stroke-width="1.5" stroke-dasharray="5 4"/>' +
+        '<text x="' + (W - R) + '" y="' + (py - 5) + '" text-anchor="end" font-size="11" font-weight="700" fill="#c2566f">目安 ' + yen(currentPace) + '/時</text>';
+    }
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     svg.innerHTML = s;
     const total = h.buckets.reduce((a, b) => a + b.amount, 0), orders = h.buckets.reduce((a, b) => a + b.orders, 0);
@@ -395,6 +447,7 @@
 
     const remain = document.getElementById('remain');
     const hint = document.getElementById('hint');
+    renderPace(d);
     if (d.total >= d.target) {
       remain.className = 'remain done';
       remain.innerHTML = '🎉 達成！ <b>' + yen(d.total - d.target) + '</b> <span style="white-space:nowrap">の黒字（見込）</span>';
