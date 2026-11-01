@@ -622,6 +622,36 @@ async function getTarget(db) {
   return row ? Number(row.value) : DEFAULT_TARGET;
 }
 
+// 営業時間（日本時間）。1時間ごとの売上はこの範囲で集計する
+const OPEN_HOUR = 9;
+const CLOSE_HOUR = 19;
+
+/** 今日（日本時間）の 1 時間ごとの売上（取消を除く）。営業時間外の会計はまとめて outside に入れる */
+async function hourlySales(db) {
+  const JST = 9 * 3600000;
+  const nowJst = new Date(Date.now() + JST);
+  const y = nowJst.getUTCFullYear(), m = nowJst.getUTCMonth(), d = nowJst.getUTCDate();
+  const start = new Date(Date.UTC(y, m, d) - JST);
+  const end = new Date(start.getTime() + 86400000);
+  const rows = (await db.prepare('SELECT created_at, amount FROM sales WHERE cancelled = 0 AND created_at >= ? AND created_at < ?')
+    .bind(start.toISOString(), end.toISOString()).all()).results;
+  const buckets = [];
+  for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) buckets.push({ hour: h, amount: 0, orders: 0 });
+  const outside = { amount: 0, orders: 0 };
+  for (const r of rows) {
+    const h = new Date(Date.parse(r.created_at) + JST).getUTCHours();
+    const b = buckets.find((x) => x.hour === h) || outside;
+    b.amount += r.amount;
+    b.orders += 1;
+  }
+  return {
+    date: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+    open: OPEN_HOUR, close: CLOSE_HOUR,
+    nowHour: nowJst.getUTCHours(),
+    buckets, outside,
+  };
+}
+
 async function summary(db) {
   const t = await db.prepare(`SELECT
       COUNT(*) AS orders,
@@ -668,6 +698,8 @@ async function summary(db) {
     rule,
     byPayment,
     payments: PAYMENTS,
+    avgPerOrder: t.orders > 0 ? Math.round(t.total / t.orders) : 0,   // 客単価（取消を除く）
+    hourly: await hourlySales(db),
     updatedAt: new Date().toISOString(),
   };
 }
