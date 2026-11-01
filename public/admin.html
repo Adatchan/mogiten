@@ -687,7 +687,7 @@
 
   // 「○○のセットに含める」商品の注記（例: 団子と合わせてセット）
   function bundleNote(p) {
-    const l = p.bundleWith && products.find(x => String(x.id) === String(p.bundleWith) && !x.bundleWith);
+    const l = p.bundleWith && products.find(x => String(x.id) === String(p.bundleWith) && !x.bundleWith && x.sets.some(s => s.qty > 1));
     return l ? '<small>' + esc(l.name) + 'と合わせてセット</small>' : '';
   }
 

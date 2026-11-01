@@ -59,10 +59,16 @@ export function bestBundle(sets, qty) {
   };
 }
 
-/** 「○○のセットに含める」の相手（リストにあるときだけ。なければ単独で売る） */
+/** セット価格（2個以上の価格）がある商品か */
+export const hasSetPrice = (p) => (p.sets || []).some((s) => s.qty > 1);
+
+/**
+ * 「○○のセットに含める」の相手（リストにあるときだけ）。
+ * 相手にセット価格がない（1個の価格しかない）場合は、まとめても意味がないので単独で売る。
+ */
 function leaderOf(products, p) {
   if (!p.bundleWith) return null;
-  const l = products.find((x) => String(x.id) === String(p.bundleWith) && x !== p && !x.bundleWith);
+  const l = products.find((x) => String(x.id) === String(p.bundleWith) && x !== p && !x.bundleWith && hasSetPrice(x));
   return l || null;
 }
 

@@ -226,7 +226,7 @@
     <summary>商品や価格を変える・追加する</summary>
     <figure><img src="/help/master-products.webp" width="658" height="270" loading="lazy" alt="商品・価格の欄。団子の商品名、単位、1本150円、3本セット400円、5本セット500円、容器代の対象と販売中のチェック、保存ボタン"></figure>
     <p>「商品・価格」で、商品名、単位、数量ごとの価格（セット）を直して「保存」を押します。変えた商品の枠は保存するまで黄色になります。新しい商品は「＋ 商品を追加」から。1個（1本）の価格は必ず入れてください。</p>
-    <p>「セット」で「○○と合わせて組む」を選ぶと、その商品と本数を合わせて、相手の商品のセット価格で計算します（例：焼きマシュマロを「団子と合わせて組む」にすると、団子3本＋焼きマシュマロ2本で5本セット500円）。混ぜたセットの金額は、本数の割合で商品ごとに分けて記録します。</p>
+    <p>「セット」で「○○のセット価格に含める」を選ぶと、その商品と本数を合わせて、相手の商品のセット価格で計算します（例：<b>焼きマシュマロの欄</b>で「団子のセット価格に含める」にすると、団子3本＋焼きマシュマロ2本で5本セット500円）。相手に選べるのは、セット価格（2本以上の価格）がある商品だけです。混ぜたセットの金額は、本数の割合で商品ごとに分けて記録します。</p>
     <p>「容器代の対象」にした商品の本数で容器代を計算します。「販売中」を外すとレジに出なくなります（販売の記録がある商品は削除できないので、こちらで止めてください）。↑↓ でレジでの並び順を変えられます。</p>
     <p>価格を変えても、すでに記録した会計の金額は変わりません。レジは次に画面を更新したとき（30秒以内）に新しい価格になります。</p>
   </details>
@@ -360,9 +360,17 @@
   let allProductsCache = [];
   // 「○○のセットに含める」の選択肢（自分以外で、ほかのセットに含めていない商品）
   function bundleSelect(p) {
-    const opts = allProductsCache.filter(x => x.id !== p.id && !x.bundleWith);
+    // 相手にできるのは、自分以外で、ほかのセットに含めておらず、セット価格（2個以上の価格）がある商品だけ
+    const hasSet = x => (x.sets || []).some(s => s.qty > 1);
+    // 相手に「無効な」設定（セット価格のない商品に含める）が残っていても、ないものとして扱う
+    const bundled = x => x.bundleWith && allProductsCache.some(y => String(y.id) === String(x.bundleWith) && hasSet(y));
+    const ok = x => x.id !== p.id && !bundled(x) && hasSet(x);
+    const opts = allProductsCache.filter(ok);
+    const current = p.bundleWith && allProductsCache.find(x => String(x.id) === String(p.bundleWith));
+    const invalid = current && !ok(current);
     return '<label class="bundle">セット：<select class="pbundle"><option value="">この商品だけで組む</option>' +
-      opts.map(x => '<option value="' + x.id + '"' + (String(p.bundleWith) === String(x.id) ? ' selected' : '') + '>' + esc(x.name) + 'と合わせて組む（' + esc(x.name) + 'のセット価格）</option>').join('') +
+      opts.map(x => '<option value="' + x.id + '"' + (String(p.bundleWith) === String(x.id) ? ' selected' : '') + '>' + esc(x.name) + 'のセット価格に含める（' + esc(x.name) + 'と本数を合わせて組む）</option>').join('') +
+      (invalid ? '<option value="' + current.id + '" selected>⚠ ' + esc(current.name) + 'にはセット価格がないため無効（「この商品だけで組む」に直して保存）</option>' : '') +
       '</select></label>';
   }
 
