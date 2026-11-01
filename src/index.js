@@ -579,7 +579,16 @@ async function saveProduct(db, body) {
     if (bundleWith === self) throw httpError('自分自身のセットには含められません', 400);
     const leader = await db.prepare('SELECT id, name, bundle_with FROM products WHERE id = ?').bind(bundleWith).first();
     if (!leader) throw httpError('セットに含める相手の商品が見つかりません', 400);
-    if (leader.bundle_with) throw httpError(`「${leader.name}」はほかの商品のセットに含めているので、相手にできません`, 400);
+    const leaderSets = JSON.parse((await db.prepare('SELECT sets FROM products WHERE id = ?').bind(bundleWith).first()).sets);
+    // 相手が「ほかの商品のセットに含める」になっていたら不可（ただしセット価格のない相手への無効な設定は無視）
+    if (leader.bundle_with) {
+      const lt = await db.prepare('SELECT sets FROM products WHERE id = ?').bind(leader.bundle_with).first();
+      if (lt && JSON.parse(lt.sets).some((x) => x.qty > 1)) throw httpError(`「${leader.name}」はほかの商品のセットに含めているので、相手にできません`, 400);
+      await db.prepare('UPDATE products SET bundle_with = NULL WHERE id = ?').bind(bundleWith).run();   // 無効な設定を片付ける
+    }
+    if (!leaderSets.some((x) => x.qty > 1)) {
+      throw httpError(`「${leader.name}」にはセット価格（2${unit}以上の価格）がないので、合わせて組む相手にできません。セット価格のある商品の側を相手に選んでください`, 400);
+    }
     if (self) {
       const followers = await db.prepare('SELECT name FROM products WHERE bundle_with = ?').bind(self).first();
       if (followers) throw httpError(`「${followers.name}」がこの商品のセットに含まれているので、この商品をほかのセットには含められません`, 400);
