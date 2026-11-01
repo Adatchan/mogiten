@@ -390,7 +390,8 @@
     <summary>本数の入れ方は？</summary>
     <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="184" loading="lazy" alt="商品ごとの本数の入力欄。団子はマイナス、本数、プラスのボタンと、1本、3本、5本のボタン。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
     <p>商品ごとに本数を入れます。団子は「1本」「3本」「5本」のボタンを押すと、その本数になります（足し算ではありません）。それ以外の本数は「＋」「−」で増減するか、数字をタップして直接入力します。焼きマシュマロのようにセットのない商品は「＋」「−」で入れます。</p>
-    <p>セットの組み方は自動です。たとえば団子4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。団子と焼きマシュマロを1回の会計で一緒に記録できます。</p>
+    <p>セットの組み方は自動です。たとえば団子4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。</p>
+    <p>焼きマシュマロは<b>団子と合わせてセット</b>になります。たとえば団子3本＋焼きマシュマロ2本なら、合わせて5本で「5本セット500円」です。容器代は団子の本数だけで計算します。</p>
   </details>
 
   <details>
@@ -494,7 +495,10 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel, describeItems } from '/pricing.js';
+  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel, describeItems, itemsFromLines } from '/pricing.js';
+  // 1 行の名前（混ぜたセットは「団子3本・焼きマシュマロ2本」）
+  const lineName = l => l.members.map(m => esc(m.product.name) + (l.members.length > 1 || m.product !== l.product ? m.qty + esc(m.product.unit) : '')).join('・');
+  const lineQtyText = l => l.members.map(m => esc(m.product.name) + m.qty + esc(m.product.unit)).join('・');
 
   const STAFF_KEY = 'dango_admin_staff';   // 次回ログイン時の入力補助（名前だけ）
   localStorage.removeItem('dango_admin_pw'); // 以前の版で保存していたパスワードを消す
@@ -681,12 +685,18 @@
     if (!first) toast(JSON.stringify(cart) !== before ? '商品が変更されたため、お会計を一部消しました' : '商品・価格が更新されました', JSON.stringify(cart) !== before);
   }
 
+  // 「○○のセットに含める」商品の注記（例: 団子と合わせてセット）
+  function bundleNote(p) {
+    const l = p.bundleWith && products.find(x => String(x.id) === String(p.bundleWith) && !x.bundleWith);
+    return l ? '<small>' + esc(l.name) + 'と合わせてセット</small>' : '';
+  }
+
   function renderProducts() {
     $('products').innerHTML = products.map(p =>
       // 1 行目：商品名と −［数］＋　2 行目：セットのボタン（セットが 1 種類だけの商品は省略）
       '<section class="card prod" data-prod="' + p.id + '">' +
         '<div class="prod-head">' +
-          '<div class="pn">' + esc(p.name) + (p.sets.length > 1 ? '' : '<small>' + p.sets[0].price + '円／' + esc(p.unit) + '</small>') + '</div>' +
+          '<div class="pn">' + esc(p.name) + (bundleNote(p) || (p.sets.length > 1 ? '' : '<small>' + p.sets[0].price + '円／' + esc(p.unit) + '</small>')) + '</div>' +
           '<div class="stepper">' +
             '<button data-pid="' + p.id + '" data-step="-1" aria-label="1' + esc(p.unit) + '減らす">−</button>' +
             '<span class="qty-box"><input class="qty-input" data-pid="' + p.id + '" type="number" inputmode="numeric" min="0" max="' + MAX_QTY + '" value="0" aria-label="' + esc(p.name) + 'の数"><span class="unit">' + esc(p.unit) + '</span></span>' +
@@ -720,15 +730,20 @@
       const u = esc(l.product.unit);
       const detail = l.packs.length > 1 || l.packs[0].qty > 1
         ? '<small class="packs">（' + l.packs.map(k => packLabel(k, u) + (k.count > 1 ? '×' + k.count : '')).join('＋') + '）</small>' : '';
-      return '<div class="cart-line"><span>' + esc(l.product.name) + ' ' + l.qty + u + detail + '</span><span class="sub">' + yen(l.subtotal) + '</span></div>';
+      const name = l.members.length > 1 ? lineName(l) : esc(l.members[0].product.name) + ' ' + l.qty + u;
+      return '<div class="cart-line"><span>' + name + detail + '</span><span class="sub">' + yen(l.subtotal) + '</span></div>';
     }).join('') : '<div class="empty">商品の数を選んでください</div>';
 
     $('upsell').innerHTML = pr.lines.map(l => {
-      const up = upsell(products, rule, cart, l.product.id);
+      // 足すのはセットを決める商品（混ぜたセットなら、どちらを足しても同じ金額）
+      const target = l.members.length === 1 ? l.members[0].product : l.product;
+      const up = upsell(products, rule, cart, target.id);
+      const leaderQty = cart[target.id] || 0;
       if (!up) return '';
       const u = esc(l.product.unit);
-      return '<div class="upsell"><span>💡 ' + (pr.lines.length > 1 ? esc(l.product.name) : '') + 'あと' + (up.qty - l.qty) + u + 'で' + (up.save > 0 ? yen(up.save) + 'お得' : '同じ金額') + '</span>' +
-        '<button data-pid="' + l.product.id + '" data-setqty="' + up.qty + '">' + up.qty + u + 'にする</button></div>';
+      const who = l.members.length > 1 ? '合わせて' : (pr.lines.length > 1 ? esc(target.name) : '');
+      return '<div class="upsell"><span>💡 ' + who + 'あと' + (up.qty - leaderQty) + u + 'で' + (up.save > 0 ? yen(up.save) + 'お得' : '同じ金額') + '</span>' +
+        '<button data-pid="' + target.id + '" data-setqty="' + up.qty + '">' + (l.members.length > 1 ? esc(target.name) + 'を' : '') + up.qty + u + 'にする</button></div>';
     }).join('');
 
     if (pr.lines.length) {
@@ -745,7 +760,7 @@
 
     const total = cartTotal();
     $('cartTotal').textContent = yen(total);
-    $('cartSticks').textContent = pr.lines.map(l => esc(l.product.name) + l.qty + esc(l.product.unit)).join('・');
+    $('cartSticks').textContent = pr.lines.map(l => l.members.map(m => m.product.name + m.qty + m.product.unit).join('・')).join('・');
     document.querySelectorAll('.pay').forEach(b => b.disabled = busy || total === 0);
   }
 
@@ -825,10 +840,10 @@
     const fee = currentFee();
     const pr = priced();
     $('cfLines').innerHTML = pr.lines.map(l => l.packs.map(k =>
-      '<div class="sum-line"><span>' + esc(l.product.name) + ' ' + packLabel(k, esc(l.product.unit)) + '（' + k.price + '円）× ' + k.count + '</span><span class="sub">' + yen(k.price * k.count) + '</span></div>'
+      '<div class="sum-line"><span>' + (l.members.length > 1 ? '' : esc(l.members[0].product.name) + ' ') + packLabel(k, esc(l.product.unit)) + '（' + k.price + '円）× ' + k.count + '</span><span class="sub">' + yen(k.price * k.count) + '</span></div>'
     ).join('')).join('') +
       (fee ? '<div class="sum-line fee"><span>容器代' + (manualFee != null && manualFee !== autoFee() ? '（手動）' : '') + '</span><span class="sub">' + yen(fee) + '</span></div>' : '') +
-      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(l => esc(l.product.name) + l.qty + esc(l.product.unit)).join('・') + '</span></div>';
+      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(lineQtyText).join('・') + '</span></div>';
     $('cfTotal').textContent = yen(p.total);
     const isCash = p.method === '現金';
     $('cfCash').classList.toggle('hidden', !isCash);
@@ -863,14 +878,15 @@
       clientId: newId(),
       createdAt: new Date().toISOString(),
       items: { ...cart },
-      lines: pr.lines.map(l => ({ productId: l.product.id, name: l.product.name, unit: l.product.unit, packs: l.packs })),
+      lines: pr.lines.map(l => ({ productId: l.product.id, name: l.product.name, unit: l.product.unit, packs: l.packs,
+        members: l.members.map(m => ({ productId: m.product.id, name: m.product.name, unit: m.product.unit, qty: m.qty })) })),
       goods: pr.goods,
       container: currentFee(),
       containerAuto: pr.fee,
       amount: pr.goods + currentFee(),
       payment: p.method,
       staff: lastData && lastData.me ? lastData.me.staff : '',
-      desc: describeItems(pr.lines.flatMap(l => l.packs.map(k => ({ name: l.product.name, unit: l.product.unit, set_qty: k.qty, set_price: k.price, count: k.count })))),
+      desc: describeItems(itemsFromLines(pr.lines)),
     });
     closePay();
     toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : '') + (netOk ? '' : '・未送信'));

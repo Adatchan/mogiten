@@ -69,6 +69,7 @@
   .set-row .x { background: none; color: var(--sub); font-size: 18px; padding: 0 6px; }
   .checks { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; margin: 8px 0; }
   .checks label { display: flex; gap: 6px; align-items: center; }
+  .checks select { padding: 6px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; max-width: 100%; }
   .pactions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pactions .sp { flex: 1; }
   .dirty-badge { font-size: 11px; color: #9a5b00; background: #fde7c8; padding: 2px 7px; border-radius: 10px; }
@@ -225,6 +226,7 @@
     <summary>商品や価格を変える・追加する</summary>
     <figure><img src="/help/master-products.webp" width="658" height="270" loading="lazy" alt="商品・価格の欄。団子の商品名、単位、1本150円、3本セット400円、5本セット500円、容器代の対象と販売中のチェック、保存ボタン"></figure>
     <p>「商品・価格」で、商品名、単位、数量ごとの価格（セット）を直して「保存」を押します。変えた商品の枠は保存するまで黄色になります。新しい商品は「＋ 商品を追加」から。1個（1本）の価格は必ず入れてください。</p>
+    <p>「セット」で「○○と合わせて組む」を選ぶと、その商品と本数を合わせて、相手の商品のセット価格で計算します（例：焼きマシュマロを「団子と合わせて組む」にすると、団子3本＋焼きマシュマロ2本で5本セット500円）。混ぜたセットの金額は、本数の割合で商品ごとに分けて記録します。</p>
     <p>「容器代の対象」にした商品の本数で容器代を計算します。「販売中」を外すとレジに出なくなります（販売の記録がある商品は削除できないので、こちらで止めてください）。↑↓ でレジでの並び順を変えられます。</p>
     <p>価格を変えても、すでに記録した会計の金額は変わりません。レジは次に画面を更新したとき（30秒以内）に新しい価格になります。</p>
   </details>
@@ -355,6 +357,15 @@
 
   // ---------- 商品・価格 ----------
   let forceProducts = false;   // 保存などの直後は編集中でも描き直す
+  let allProductsCache = [];
+  // 「○○のセットに含める」の選択肢（自分以外で、ほかのセットに含めていない商品）
+  function bundleSelect(p) {
+    const opts = allProductsCache.filter(x => x.id !== p.id && !x.bundleWith);
+    return '<label class="bundle">セット：<select class="pbundle"><option value="">この商品だけで組む</option>' +
+      opts.map(x => '<option value="' + x.id + '"' + (String(p.bundleWith) === String(x.id) ? ' selected' : '') + '>' + esc(x.name) + 'と合わせて組む（' + esc(x.name) + 'のセット価格）</option>').join('') +
+      '</select></label>';
+  }
+
   function productCard(p) {
     const u = esc(p.unit || '本');
     return '<div class="pcard' + (p.active === false ? ' off' : '') + '" data-id="' + (p.id || '') + '">' +
@@ -363,6 +374,7 @@
       (p.id ? '' : '<span class="dirty-badge">新しい商品</span>') + '</div>' +
       '<div class="sets">' + (p.sets || [{ qty: 1, price: '' }]).map(setRow).join('') + '</div>' +
       '<button class="btn sub small" data-act="addset">＋ セットを追加</button>' +
+      '<div class="checks">' + bundleSelect(p) + '</div>' +
       '<div class="checks">' +
         '<label><input type="checkbox" class="pcont"' + (p.container ? ' checked' : '') + '> 容器代の対象</label>' +
         '<label><input type="checkbox" class="pact"' + (p.active !== false ? ' checked' : '') + '> 販売中</label>' +
@@ -390,6 +402,7 @@
     const anyDirty = document.querySelector('.pcard.dirty, .pcard:not([data-id])');
     if (anyDirty && !forceProducts) return;   // 編集中は自動更新で消さない
     forceProducts = false;
+    allProductsCache = list;
     $('prodList').innerHTML = list.map(productCard).join('') || '<div class="empty">商品がありません</div>';
     document.querySelectorAll('.pcard').forEach(refreshUnits);
   }
@@ -402,8 +415,13 @@
         .filter(x => x.qty || x.price),
       container: card.querySelector('.pcont').checked,
       active: card.querySelector('.pact').checked,
+      bundleWith: card.querySelector('.pbundle') && card.querySelector('.pbundle').value ? Number(card.querySelector('.pbundle').value) : null,
     };
   }
+  $('prodList').addEventListener('change', e => {
+    const card = e.target.closest('.pcard');
+    if (card && e.target.matches('select, input[type=checkbox]')) card.classList.add('dirty');
+  });
   $('prodList').addEventListener('input', e => {
     const card = e.target.closest('.pcard');
     if (!card) return;

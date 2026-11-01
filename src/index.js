@@ -19,7 +19,7 @@
  * あとで価格を変えても過去の記録は変わらない。
  */
 
-import { DEFAULT_RULE, DEFAULT_PRODUCTS, MAX_QTY, priceCart, describeItems } from '../public/pricing.js';
+import { DEFAULT_RULE, DEFAULT_PRODUCTS, MAX_QTY, priceCart, describeItems, itemsFromLines } from '../public/pricing.js';
 
 const DEFAULT_TARGET = 30000;
 
@@ -494,6 +494,12 @@ async function ensureSchema(db) {
     await addColumn(db, 'ALTER TABLE sales ADD COLUMN client_id TEXT');
   }
   await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS sales_client_id ON sales (client_id)').run();
+  // 「○○のセットに含める」相手の商品（本数を合わせてセットを組む）
+  const pcols = await db.prepare('PRAGMA table_info(products)').all();
+  if (!pcols.results.some((c) => c.name === 'bundle_with')) await addColumn(db, 'ALTER TABLE products ADD COLUMN bundle_with INTEGER');
+  // 混ぜたセットの組み方（例: 5本セット×1）。混ぜたセットの明細だけに入る
+  const icols = await db.prepare('PRAGMA table_info(sale_items)').all();
+  if (!icols.results.some((c) => c.name === 'pack_label')) await addColumn(db, 'ALTER TABLE sale_items ADD COLUMN pack_label TEXT');
   // 初期商品の登録は最初の 1 回だけ。
   // 同時に何件もリクエストが来ても、印（products_seeded）を書き込めた 1 件だけが登録する。
   // 商品名には一意制約も付けているので、万一重なっても同じ名前の商品はできない。
@@ -511,7 +517,7 @@ async function ensureSchema(db) {
 
 // ===== 商品・容器代 =====
 function rowToProduct(r) {
-  return { id: r.id, name: r.name, unit: r.unit, sets: JSON.parse(r.sets), container: !!r.container, active: !!r.active, sort: r.sort };
+  return { id: r.id, name: r.name, unit: r.unit, sets: JSON.parse(r.sets), container: !!r.container, active: !!r.active, sort: r.sort, bundleWith: r.bundle_with || null };
 }
 
 async function getProducts(db, { all = false } = {}) {
@@ -544,7 +550,7 @@ async function saveRule(db, body) {
 
 const ruleText = (r) => `${r.freeUpTo}個まで無料・${r.per}個ごとに${r.fee}円` + (r.maxCount > 0 ? `・最大${r.maxCount}個（${r.maxCount * r.fee}円）まで` : '・上限なし');
 const productText = (p) => `${p.name}：` + p.sets.map((s) => `${s.qty}${p.unit}${s.price}円`).join('・') +
-  (p.container ? '（容器代対象）' : '') + (p.active ? '' : '（販売停止）');
+  (p.container ? '（容器代対象）' : '') + (p.bundleWith ? `（${p.bundleName || '別の商品'}のセットに含める）` : '') + (p.active ? '' : '（販売停止）');
 function productDiff(a, b) {
   const t = productText(a), u = productText(b);
   return t === u ? u : `${t} → ${u}`;
@@ -566,20 +572,35 @@ async function saveProduct(db, body) {
   const active = body.active === false ? 0 : 1;
   const dup = await db.prepare('SELECT id FROM products WHERE name = ? AND id != ?').bind(name, Number(body.id) || 0).first();
   if (dup) throw httpError(`「${name}」という商品はすでにあります`, 400);
+  // 「○○のセットに含める」：相手は自分以外で、相手自身はほかの商品のセットに含めていないこと（1 段だけ）
+  let bundleWith = Number(body.bundleWith) || null;
+  if (bundleWith) {
+    const self = Number(body.id) || 0;
+    if (bundleWith === self) throw httpError('自分自身のセットには含められません', 400);
+    const leader = await db.prepare('SELECT id, name, bundle_with FROM products WHERE id = ?').bind(bundleWith).first();
+    if (!leader) throw httpError('セットに含める相手の商品が見つかりません', 400);
+    if (leader.bundle_with) throw httpError(`「${leader.name}」はほかの商品のセットに含めているので、相手にできません`, 400);
+    if (self) {
+      const followers = await db.prepare('SELECT name FROM products WHERE bundle_with = ?').bind(self).first();
+      if (followers) throw httpError(`「${followers.name}」がこの商品のセットに含まれているので、この商品をほかのセットには含められません`, 400);
+    }
+  }
 
   let before = null;
   if (body.id) {
     const row = await db.prepare('SELECT * FROM products WHERE id = ?').bind(Number(body.id)).first();
     if (!row) throw httpError('商品が見つかりません', 404);
     before = rowToProduct(row);
-    await db.prepare('UPDATE products SET name = ?, unit = ?, sets = ?, container = ?, active = ? WHERE id = ?')
-      .bind(name, unit, JSON.stringify(sets), container, active, before.id).run();
+    await db.prepare('UPDATE products SET name = ?, unit = ?, sets = ?, container = ?, active = ?, bundle_with = ? WHERE id = ?')
+      .bind(name, unit, JSON.stringify(sets), container, active, bundleWith, before.id).run();
   } else {
     const { m } = await db.prepare('SELECT COALESCE(MAX(sort), 0) AS m FROM products').first();
-    await db.prepare('INSERT INTO products (name, unit, sets, container, active, sort) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(name, unit, JSON.stringify(sets), container, active, m + 1).run();
+    await db.prepare('INSERT INTO products (name, unit, sets, container, active, sort, bundle_with) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(name, unit, JSON.stringify(sets), container, active, m + 1, bundleWith).run();
   }
-  return { before, after: { name, unit, sets, container: !!container, active: !!active } };
+  const leaderName = bundleWith ? (await db.prepare('SELECT name FROM products WHERE id = ?').bind(bundleWith).first()).name : null;
+  if (before && before.bundleWith) before.bundleName = (await db.prepare('SELECT name FROM products WHERE id = ?').bind(before.bundleWith).first() || {}).name;
+  return { before, after: { name, unit, sets, container: !!container, active: !!active, bundleWith, bundleName: leaderName } };
 }
 
 /** 会計の行に明細（items と説明文）を付ける */
@@ -661,19 +682,21 @@ async function summary(db) {
       COALESCE(SUM(sticks), 0) AS units
     FROM sales WHERE cancelled = 0`).first();
   // 商品ごと・セットごとの集計（その時点の商品名で）
-  const packs = (await db.prepare(`SELECT si.product_id, MAX(si.name) AS name, MAX(si.unit) AS unit, si.set_qty, si.set_price, SUM(si.count) AS count
+  const packs = (await db.prepare(`SELECT si.product_id, MAX(si.name) AS name, MAX(si.unit) AS unit, si.set_qty, si.set_price, SUM(si.count) AS count,
+        (si.pack_label IS NOT NULL) AS mixed
       FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE s.cancelled = 0
-      GROUP BY si.product_id, si.set_qty, si.set_price`).all()).results;
+      GROUP BY si.product_id, si.set_qty, si.set_price, (si.pack_label IS NOT NULL)`).all()).results;
   const products = await getProducts(db);
   const rule = await getRule(db);
   // 現在の商品の並び順で、売れていない商品も 0 で表示する
-  const byProduct = products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, qty: 0, amount: 0, packs: [] }));
+  const byProduct = products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, qty: 0, amount: 0, packs: [], mixedQty: 0 }));
   for (const k of packs) {
     let g = byProduct.find((b) => b.id === k.product_id);   // 名前を変えても同じ商品として数える
-    if (!g) { g = { id: k.product_id, name: k.name, unit: k.unit, qty: 0, amount: 0, packs: [] }; byProduct.push(g); }
+    if (!g) { g = { id: k.product_id, name: k.name, unit: k.unit, qty: 0, amount: 0, packs: [], mixedQty: 0 }; byProduct.push(g); }
     g.qty += k.set_qty * k.count;
     g.amount += k.set_price * k.count;
-    g.packs.push({ qty: k.set_qty, price: k.set_price, count: k.count });
+    if (k.mixed) g.mixedQty += k.set_qty * k.count;   // ほかの商品と混ぜたセットの分（セットごとの個数には数えない）
+    else g.packs.push({ qty: k.set_qty, price: k.set_price, count: k.count });
   }
   byProduct.forEach((g) => g.packs.sort((a, b) => a.qty - b.qty || a.price - b.price));
   const pays = await db.prepare(`SELECT payment, COUNT(*) AS count, SUM(amount) AS amount
@@ -783,7 +806,8 @@ async function recordSale(db, body, staff) {
   }
   let priced = null;
   if (!unknown) {
-    try { priced = priceCart(all, rule, cart); } catch (e) { if (!snapshot) throw httpError(e.message, 400); }
+    // レジの画面と同じく「販売中の商品＋この会計に入っている商品」で組む（販売停止の相手とはまとめない）
+    try { priced = priceCart(all.filter((p) => p.active || cart[p.id]), rule, cart); } catch (e) { if (!snapshot) throw httpError(e.message, 400); }
   }
   if (priced && !priced.lines.length) throw httpError('商品が選択されていません', 400);
 
@@ -796,7 +820,7 @@ async function recordSale(db, body, staff) {
     if (!snapshot && body.expectedGoods != null && Number(body.expectedGoods) !== priced.goods) {
       throw httpError('価格が変更されています。画面を更新したので、金額を確認してもう一度記録してください', 409);
     }
-    lines = priced.lines.map((l) => ({ productId: l.product.id, name: l.product.name, unit: l.product.unit, packs: l.packs }));
+    lines = priced.lines;
     goods = priced.goods; units = priced.units; auto = priced.fee;
   } else {
     lines = validateSnapshot(snapshot);
@@ -822,11 +846,11 @@ async function recordSale(db, body, staff) {
       (created_at, sticks, goods, container, container_auto, amount, payment, staff, client_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(createdAt, units, goods, container, auto, goods + container, body.payment, staff, cid)];
-  for (const l of lines) {
-    for (const k of l.packs) {
-      stmts.push(db.prepare(`INSERT INTO sale_items (sale_id, product_id, name, unit, set_qty, set_price, count)
-          VALUES ((SELECT id FROM sales WHERE client_id = ?), ?, ?, ?, ?, ?, ?)`).bind(cid, l.productId, l.name, l.unit, k.qty, k.price, k.count));
-    }
+  const items = itemsFromLines(lines);
+  for (const it of items) {
+    stmts.push(db.prepare(`INSERT INTO sale_items (sale_id, product_id, name, unit, set_qty, set_price, count, pack_label)
+        VALUES ((SELECT id FROM sales WHERE client_id = ?), ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(cid, it.product_id, it.name, it.unit, it.set_qty, it.set_price, it.count, it.pack_label));
   }
   try {
     await db.batch(stmts);
@@ -837,17 +861,20 @@ async function recordSale(db, body, staff) {
   }
   if (mismatch) {
     await audit(db, staff, 'register', '今の価格と違う会計を記録',
-      `${describeItems(lines.flatMap((l) => l.packs.map((k) => ({ name: l.name, unit: l.unit, set_qty: k.qty, set_price: k.price, count: k.count }))))} ${yen(goods + container)}（端末で会計した金額のまま）`);
+      `${describeItems(items)} ${yen(goods + container)}（端末で会計した金額のまま）`);
   }
   return { duplicate: false };
 }
 
 function sameLines(priced, snapshot) {
-  const norm = (ls) => JSON.stringify(ls.map((l) => [String(l.productId), l.packs.map((k) => [k.qty, k.price, k.count])])
-    .sort((a, b) => (a[0] < b[0] ? -1 : 1)));
-  return norm(priced.lines.map((l) => ({ productId: l.product.id, packs: l.packs }))) === norm(snapshot.map((l) => ({
-    productId: l.productId, packs: (l.packs || []).map((k) => ({ qty: Number(k.qty), price: Number(k.price), count: Number(k.count) })),
-  })));
+  // セットの組み方と、商品ごとの数（混ぜたセットの内訳）が同じか
+  const norm = (ls) => JSON.stringify(ls.map((l) => [
+    String(l.productId),
+    l.packs.map((k) => [Number(k.qty), Number(k.price), Number(k.count)]),
+    (l.members || []).map((m) => [String(m.productId), Number(m.qty)]).sort(),
+  ]).sort((a, b) => (a[0] < b[0] ? -1 : 1)));
+  return norm(priced.lines.map((l) => ({ productId: l.product.id, packs: l.packs, members: l.members.map((m) => ({ productId: m.product.id, qty: m.qty })) })))
+    === norm(snapshot.map((l) => ({ productId: l.productId, packs: l.packs || [], members: l.members || [{ productId: l.productId, qty: (l.packs || []).reduce((a, k) => a + k.qty * k.count, 0) }] })));
 }
 
 /** 端末から送られた明細の形と値をチェック */
@@ -861,7 +888,19 @@ function validateSnapshot(snapshot) {
       price: intIn(k.price, 0, 100000, '価格'),
       count: intIn(k.count, 1, MAX_QTY, '個数'),
     }));
-    return { productId: Math.max(0, Math.floor(Number(l.productId) || 0)), name, unit: cleanName(l.unit).slice(0, 4) || '個', packs };
+    const product = { id: Math.max(0, Math.floor(Number(l.productId) || 0)), name, unit: cleanName(l.unit).slice(0, 4) || '個' };
+    const total = packs.reduce((a, k) => a + k.qty * k.count, 0);
+    // 混ぜたセットの内訳（商品ごとの数）。合計がセットの数と合わなければ不正
+    let members = [{ product, qty: total }];
+    if (Array.isArray(l.members) && l.members.length) {
+      if (l.members.length > 8) throw httpError('会計の明細が不正です', 400);
+      members = l.members.map((m) => ({
+        product: { id: Math.max(0, Math.floor(Number(m.productId) || 0)), name: cleanName(m.name).slice(0, 20) || name, unit: cleanName(m.unit).slice(0, 4) || product.unit },
+        qty: intIn(m.qty, 1, MAX_QTY, '個数'),
+      }));
+      if (members.reduce((a, m) => a + m.qty, 0) !== total) throw httpError('会計の明細が不正です', 400);
+    }
+    return { product, packs, members };
   });
 }
 
