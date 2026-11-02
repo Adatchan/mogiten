@@ -23,11 +23,10 @@
  * あとで価格を変えても過去の記録は変わらない。
  */
 
-import { DEFAULT_RULE, MAX_QTY, priceCart, describeItems, itemsFromLines, withFlavors } from '../public/pricing.js';
+import { DEFAULT_RULE, DEFAULT_PAYMENTS, MAX_PAYMENTS, MAX_QTY, priceCart, describeItems, itemsFromLines, withFlavors } from '../public/pricing.js';
 
 const DEFAULT_TARGET = 30000;
 
-const PAYMENTS = ['現金', 'PayPay', 'd払い'];
 
 // ログインの種類ごとの設定
 const ROLES = {
@@ -160,7 +159,7 @@ async function masterApi(request, env, url, route) {
   if (route === 'POST /api/master/projects') {
     const body = await readJson(request);
     const made = await createProject(db, body);
-    const what = made.src ? `（「${made.src.name}」から複製：${[made.copy.products && `商品 ${made.copied} 件`, made.copy.rule && '容器代のルール', made.copy.target && '目標金額'].filter(Boolean).join('・') || 'なし'}）` : '';
+    const what = made.src ? `（「${made.src.name}」から複製：${[made.copy.products && `商品 ${made.copied} 件`, made.copy.rule && '容器代のルール', made.copy.target && '目標金額', made.copy.payments && '支払方法'].filter(Boolean).join('・') || 'なし'}）` : '';
     await audit(db, 'マスター', role, '催しを作成', made.name + (made.containerEnabled ? '' : '（容器代なし）') + what);
     if (body.activate) await setActiveProject(db, made.id);
     return json({ ...(await projectsData(db)), created: made.id });
@@ -173,11 +172,25 @@ async function masterApi(request, env, url, route) {
       await setActiveProject(db, P.id);
       await audit(db, 'マスター', role, 'レジで使う催しを変更', P.name);
     } else if (pj[2] === 'delete') {
-      const { n } = await db.prepare('SELECT COUNT(*) AS n FROM sales WHERE project_id = ?').bind(P.id).first();
-      if (n > 0) throw httpError('会計の記録がある催しは削除できません', 400);
+      // 催しの削除：その催しの会計（明細・味）と商品もすべて消す。レジで使っている催しは消せない。
+      // 会計の記録があるときは、確認のため催し名とマスターパスワードの入力が必要
       if (P.id === await activeProjectId(db)) throw httpError('レジで使っている催しは削除できません。先にほかの催しをレジで使うようにしてください', 400);
-      await db.batch([db.prepare('DELETE FROM products WHERE project_id = ?').bind(P.id), db.prepare('DELETE FROM projects WHERE id = ?').bind(P.id)]);
-      await audit(db, 'マスター', role, '催しを削除', P.name);
+      const body = await readJson(request).catch(() => ({}));
+      const st = await db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN cancelled = 0 THEN amount ELSE 0 END), 0) AS total
+          FROM sales WHERE project_id = ?`).bind(P.id).first();
+      if (st.n > 0) {
+        if (String(body.confirm || '').trim() !== P.name) throw httpError('確認のため、催し名を正しく入力してください', 400);
+        await login(request, env, role, body.password, 'マスターパスワードが違います');
+      }
+      const pc = await db.prepare('SELECT COUNT(*) AS n FROM products WHERE project_id = ?').bind(P.id).first();
+      await db.batch([
+        db.prepare('DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE project_id = ?)').bind(P.id),
+        db.prepare('DELETE FROM sale_flavors WHERE sale_id IN (SELECT id FROM sales WHERE project_id = ?)').bind(P.id),
+        db.prepare('DELETE FROM sales WHERE project_id = ?').bind(P.id),
+        db.prepare('DELETE FROM products WHERE project_id = ?').bind(P.id),
+        db.prepare('DELETE FROM projects WHERE id = ?').bind(P.id),
+      ]);
+      await audit(db, 'マスター', role, '催しを削除', `${P.name}（会計 ${st.n} 件・売上 ${yen(st.total)}・商品 ${pc.n} 件を削除）`);
       return json(await projectsData(db));
     } else {
       // 催しの設定（催し名・模擬店名・期間・営業時間）の変更
@@ -207,6 +220,13 @@ async function masterApi(request, env, url, route) {
     const body = await readJson(request);
     const { before, after } = await saveProduct(db, P, body);
     await audit(db, 'マスター', role, before ? '商品を変更' : '商品を追加', tag + (before ? productDiff(before, after) : productText(after)));
+    return reload();
+  }
+  // 支払方法（この催しのレジに出す支払方法）
+  if (route === 'POST /api/master/payments') {
+    const next = parsePayments((await readJson(request)).payments);
+    await db.prepare('UPDATE projects SET payments = ? WHERE id = ?').bind(JSON.stringify(next), P.id).run();
+    await audit(db, 'マスター', role, '支払方法を変更', `${tag}${P.payments.join('・')} → ${next.join('・')}`);
     return reload();
   }
   if (route === 'POST /api/master/container-rule') {
@@ -614,6 +634,9 @@ async function ensureSchema(db) {
   if (!cols.results.some((c) => c.name === 'project_id')) await addColumn(db, 'ALTER TABLE sales ADD COLUMN project_id INTEGER');
   if (!cols.results.some((c) => c.name === 'order_no')) await addColumn(db, 'ALTER TABLE sales ADD COLUMN order_no INTEGER');
   if (!pcols.results.some((c) => c.name === 'project_id')) await addColumn(db, 'ALTER TABLE products ADD COLUMN project_id INTEGER');
+  // 催しごとの支払方法（JSON の配列。null ならこれまでの 現金・PayPay・d払い）
+  const prcols = await db.prepare('PRAGMA table_info(projects)').all();
+  if (!prcols.results.some((c) => c.name === 'payments')) await addColumn(db, 'ALTER TABLE projects ADD COLUMN payments TEXT');
   await migrateToProjects(db);
   await db.batch([
     db.prepare('CREATE INDEX IF NOT EXISTS sales_project ON sales (project_id, id)'),
@@ -663,10 +686,13 @@ const LEGACY_SHOP_NAME = '混声合唱と学祭のための 団子';   // 同じ
 function rowToProject(r) {
   let rule = {};
   try { rule = JSON.parse(r.container_rule || '{}') || {}; } catch {}
+  let payments = null;
+  try { payments = JSON.parse(r.payments || 'null'); } catch {}
+  if (!Array.isArray(payments) || !payments.length) payments = [...DEFAULT_PAYMENTS];
   return {
     id: r.id, name: r.name, shopName: r.shop_name || '', startDate: r.start_date, endDate: r.end_date,
     openHour: r.open_hour, closeHour: r.close_hour, target: r.target, rule: { ...DEFAULT_RULE, ...rule },
-    closedAt: r.closed_at || null, epoch: r.epoch, rev: r.kitchen_rev, createdAt: r.created_at,
+    closedAt: r.closed_at || null, epoch: r.epoch, rev: r.kitchen_rev, createdAt: r.created_at, payments,
   };
 }
 
@@ -705,7 +731,20 @@ async function projectLabel(db, id) {
 }
 
 /** 画面に渡す催しの情報 */
-const projectInfo = (P) => ({ id: P.id, name: P.name, shopName: P.shopName, startDate: P.startDate, endDate: P.endDate, openHour: P.openHour, closeHour: P.closeHour });
+const projectInfo = (P) => ({ id: P.id, name: P.name, shopName: P.shopName, startDate: P.startDate, endDate: P.endDate, openHour: P.openHour, closeHour: P.closeHour, payments: P.payments });
+
+/** 支払方法の一覧を整える（1〜MAX_PAYMENTS 種類・重複なし・1 つ 20 文字まで） */
+function parsePayments(v) {
+  if (!Array.isArray(v)) throw httpError('支払方法が不正です', 400);
+  const out = [];
+  for (const x of v) {
+    const n = cleanName(x).slice(0, 20);
+    if (n && !out.includes(n)) out.push(n);
+  }
+  if (!out.length) throw httpError('支払方法を1つ以上選んでください', 400);
+  if (out.length > MAX_PAYMENTS) throw httpError(`支払方法は${MAX_PAYMENTS}種類までです`, 400);
+  return out;
+}
 
 /** 催しの入力（名前・模擬店名・期間・営業時間・目標）をチェックして整える */
 function readProjectFields(body, base = {}) {
@@ -752,9 +791,11 @@ async function createProject(db, body) {
   const baseRule = src && copy.rule ? src.rule : { ...DEFAULT_RULE };
   const containerEnabled = body.containerEnabled != null ? !!body.containerEnabled : baseRule.enabled !== false;
   const rule = JSON.stringify({ ...baseRule, enabled: containerEnabled });
-  const res = await db.prepare(`INSERT INTO projects (name, shop_name, start_date, end_date, open_hour, close_hour, target, container_rule, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(f.name, f.shopName, f.startDate, f.endDate, f.openHour, f.closeHour, f.target, rule, new Date().toISOString()).run();
+  // 支払方法：複製するなら複製元と同じ、入力があればそれ、なければ 現金・PayPay・d払い
+  const payments = src && copy.payments ? src.payments : body.payments ? parsePayments(body.payments) : [...DEFAULT_PAYMENTS];
+  const res = await db.prepare(`INSERT INTO projects (name, shop_name, start_date, end_date, open_hour, close_hour, target, container_rule, payments, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(f.name, f.shopName, f.startDate, f.endDate, f.openHour, f.closeHour, f.target, rule, JSON.stringify(payments), new Date().toISOString()).run();
   const id = res.meta.last_row_id;
   let copied = 0;
   if (src && copy.products) {
@@ -1083,9 +1124,14 @@ async function summary(db, P) {
   const pays = await db.prepare(`SELECT payment, COUNT(*) AS count, SUM(amount) AS amount
     FROM sales WHERE project_id = ? AND cancelled = 0 GROUP BY payment`).bind(P.id).all();
 
+  // 支払方法ごと：今の催しで使う支払方法（0 件でも）＋ 記録にだけある支払方法（途中で外したものなど）
   const byPayment = {};
-  PAYMENTS.forEach((p) => (byPayment[p] = { amount: 0, count: 0 }));
-  pays.results.forEach((r) => (byPayment[r.payment] = { amount: r.amount, count: r.count }));
+  const payments = [...P.payments];
+  P.payments.forEach((p) => (byPayment[p] = { amount: 0, count: 0 }));
+  pays.results.forEach((r) => {
+    if (!payments.includes(r.payment)) payments.push(r.payment);
+    byPayment[r.payment] = { amount: r.amount, count: r.count };
+  });
 
   const target = P.target;
   return {
@@ -1102,7 +1148,8 @@ async function summary(db, P) {
     products,
     rule,
     byPayment,
-    payments: PAYMENTS,
+    payments,                    // 集計の並び（記録にだけある支払方法も含む）
+    payMethods: P.payments,      // レジのボタンに出す支払方法
     avgPerOrder: t.orders > 0 ? Math.round(t.total / t.orders) : 0,   // 客単価（取消を除く）
     closed: closedOf(P),   // 営業終了中なら { at }
     hourly: await hourlySales(db, P),
@@ -1165,10 +1212,15 @@ async function masterData(db, sess, P) {
 }
 
 async function recordSale(db, body, staff) {
-  if (!PAYMENTS.includes(body.payment)) throw httpError('支払方法が不正です', 400);
   // 会計した時点の催し（オフラインで打った会計は、そのあと催しが切り替わっても元の催しに記録する）
   const P = body.projectId != null ? await getProject(db, body.projectId) : await getActiveProject(db);
   if (!P) throw httpError('この会計の催しが見つかりません（管理画面で削除された可能性があります）', 409);
+  // 支払方法：その催しの支払方法のどれか。オフラインで打ったあとに管理画面で外された支払方法は、
+  // お客さんからはもう受け取っているので記録し、操作の記録に残す（明細つきの今のレジの画面から届いたときだけ）
+  const payment = cleanName(body.payment).slice(0, 20);
+  if (!payment) throw httpError('支払方法が不正です', 400);
+  const paymentOff = !P.payments.includes(payment);
+  if (paymentOff && !Array.isArray(body.lines)) throw httpError('この催しでは使わない支払方法です。画面を更新してください', 409);
   // 営業終了後に打った会計は受け付けない（終了前に端末で打って、あとから届いた未送信の会計は受け付ける）
   const closed = closedOf(P);
   if (closed) {
@@ -1272,7 +1324,7 @@ async function recordSale(db, body, staff) {
   const stmts = [db.prepare(`INSERT INTO sales
       (project_id, order_no, created_at, sticks, goods, container, container_auto, amount, payment, staff, client_id)
       VALUES (?, (SELECT COALESCE(MAX(order_no), 0) + 1 FROM sales WHERE project_id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(P.id, P.id, createdAt, units, goods, container, auto, goods + container, body.payment, staff, cid)];
+    .bind(P.id, P.id, createdAt, units, goods, container, auto, goods + container, payment, staff, cid)];
   const items = itemsFromLines(lines);
   for (const it of items) {
     stmts.push(db.prepare(`INSERT INTO sale_items (sale_id, product_id, name, unit, set_qty, set_price, count, pack_label)
@@ -1291,6 +1343,9 @@ async function recordSale(db, body, staff) {
     // 同じ会計ID が同時に届いた（もう一方が先に記録済み）
     if (clientId && /UNIQUE/i.test(String(e.message))) return { duplicate: true };
     throw e;
+  }
+  if (paymentOff) {
+    await audit(db, staff, 'register', '今は使っていない支払方法で記録', `［${P.name}］${payment} ${yen(goods + container)}（端末で会計した支払方法のまま）`);
   }
   if (mismatch) {
     await audit(db, staff, 'register', '今の価格と違う会計を記録',

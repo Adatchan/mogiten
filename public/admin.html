@@ -69,9 +69,6 @@
   @media (min-height: 700px) and (min-width: 600px) { .modal { align-items: center; } .sheet { border-radius: 20px; } }
   .sheet h3 { margin: 0 0 12px; font-size: 18px; text-align: center; }
   .pay-badge { display: block; text-align: center; color: #fff; font-size: 30px; font-weight: 700; border-radius: 14px; padding: 14px 8px; margin-bottom: 14px; letter-spacing: .05em; }
-  .pay-badge.cash { background: var(--cash); }
-  .pay-badge.paypay { background: var(--paypay); }
-  .pay-badge.dpay { background: var(--dpay); }
   .sum-lines { font-size: 16px; }
   .sum-line { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px dashed var(--line); }
   .sum-line:first-child { border-top: none; }
@@ -99,11 +96,8 @@
 
   /* 支払ボタン */
   .pays { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .pay { color: #fff; border-radius: 14px; padding: 18px 4px; font-size: 19px; font-weight: 700; }
+  .pay { color: #fff; border-radius: 14px; padding: 18px 4px; font-size: 19px; font-weight: 700; background: var(--pay-color, var(--brown)); line-height: 1.2; word-break: break-all; }
   .pay:active { transform: scale(.97); }
-  .pay.cash { background: var(--cash); }
-  .pay.paypay { background: var(--paypay); }
-  .pay.dpay { background: var(--dpay); }
 
   /* 履歴 */
   .hist { font-size: 14px; }
@@ -262,11 +256,8 @@
   </section>
 
   <section class="card">
-    <div class="pays">
-      <button class="pay cash" data-pay="現金">現金</button>
-      <button class="pay paypay" data-pay="PayPay">PayPay</button>
-      <button class="pay dpay" data-pay="d払い">d払い</button>
-    </div>
+    <!-- 支払方法のボタン（管理画面で催しごとに選んだもの） -->
+    <div class="pays" id="pays"></div>
   </section>
 
   <section class="card">
@@ -353,7 +344,7 @@
     <ol>
       <li>お客さんの注文を聞いて、<b>味ごと</b>に本数を入れる（団子は味のボタンをタップ、焼きマシュマロは「＋」「−」。セットは自動で一番安く組まれます）</li>
       <li>「お会計」で合計金額を確認して、お客さんに伝える</li>
-      <li>支払方法（現金、PayPay、d払い）のボタンを押す</li>
+      <li>支払方法のボタンを押す（管理画面で催しごとに選んだもの。例：現金、PayPay、d払い）</li>
       <li>現金ならお預かり金額を入れる</li>
       <li>確認画面で内容（味も）を見て「はい（記録する）」を押す</li>
     </ol>
@@ -408,7 +399,8 @@
     <summary>支払方法のボタンを押したあとは？</summary>
     <figure class="narrow"><img src="/help/reg-pay.webp" width="370" height="63" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
     <p>お客さんの支払方法のボタンを押すと、記録の前に確認の画面が出ます。ボタンを押しただけでは、まだ記録されません。</p>
-    <p>PayPay、d払いのときは、お客さんの支払いが済んだのを確かめてから、確認画面の「はい（記録する）」を押してください。</p>
+    <p>キャッシュレス（PayPay、d払いなど現金以外）のときは、お客さんの支払いが済んだのを確かめてから、確認画面の「はい（記録する）」を押してください。</p>
+      <p>出てくる支払方法は、管理画面で催しごとに選んだものです（現金を扱わない催しでは「現金」が出ません）。お預かり金額とおつりを入れるのは「現金」のときだけです。</p>
   </details>
 
   <details>
@@ -420,7 +412,7 @@
   <details>
     <summary>確認画面では何を見ればいい？</summary>
     <figure class="narrow"><img src="/help/reg-confirm.webp" width="390" height="520" loading="lazy" alt="確認画面。現金の表示、団子5本セット500円、容器代10円、数量 団子5本、味 みたらし2・あんこ2・きなこ1、合計510円、お預かり1,000円、おつり490円、いいえとはいのボタン"></figure>
-    <p>いちばん上の色つきの帯が支払方法です（現金は緑、PayPay と d払いは赤）。本数、<b>味</b>（ピンクの行）、合計金額、現金ならおつりを確かめて、よければ「はい（記録する）」を押します。味は、お客さんに読み上げて確かめると間違いが減ります。</p>
+    <p>いちばん上の色つきの帯が支払方法です（ボタンと同じ色。現金は緑）。本数、<b>味</b>（ピンクの行）、合計金額、現金ならおつりを確かめて、よければ「はい（記録する）」を押します。味は、お客さんに読み上げて確かめると間違いが減ります。</p>
     <p>間違いに気づいたら「いいえ」を押すと、入力したお会計はそのままで前の画面に戻ります。現金で、お預かり金額だけを直したいときは「← お預かり金額を入力し直す」を押してください。</p>
   </details>
 
@@ -512,7 +504,7 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel, describeItems, itemsFromLines, withFlavors, describeFlavors } from '/pricing.js';
+  import { DEFAULT_RULE, DEFAULT_PAYMENTS, isCashPayment, paymentColor, MAX_QTY, priceCart, upsell, packLabel, describeItems, itemsFromLines, withFlavors, describeFlavors } from '/pricing.js';
   // 1 行の名前（混ぜたセットは「団子3本・焼きマシュマロ2本」）
   const lineName = l => l.members.map(m => esc(m.product.name) + (l.members.length > 1 || m.product !== l.product ? m.qty + esc(m.product.unit) : '')).join('・');
   const lineQtyText = l => l.members.map(m => esc(m.product.name) + m.qty + esc(m.product.unit)).join('・');
@@ -637,6 +629,7 @@
     const units = [...new Set(d.byProduct.filter(g => g.qty).map(g => g.unit).concat(d.units ? [] : d.products.map(p => p.unit)))];
     $('mSticks').textContent = d.units + (units.length === 1 ? units[0] : '点');
     syncProducts(d.products, d.rule);
+    renderPays(d.payMethods || DEFAULT_PAYMENTS);
     $('mBar').style.width = Math.min(100, d.rate * 100) + '%';
 
     renderHist();
@@ -892,7 +885,16 @@
 
   // ---------- 操作 ----------
   // 支払方法ボタン → （現金ならお預かり入力）→ 最終確認 → 記録
-  const PAY_CLASS = { '現金': 'cash', 'PayPay': 'paypay', 'd払い': 'dpay' };
+  // 支払方法のボタンを作る（変わったときだけ作り直す）。3 つまでは 1 行、4 つは 2×2、それより多いと 3 列で折り返す
+  let paysSig = '';
+  function renderPays(list) {
+    const sig = JSON.stringify(list);
+    if (sig === paysSig) return;
+    paysSig = sig;
+    $('pays').style.gridTemplateColumns = 'repeat(' + (list.length === 4 ? 2 : Math.min(3, list.length)) + ', 1fr)';   // 4 つなら 2×2
+    $('pays').innerHTML = list.map(m => '<button class="pay" data-pay="' + esc(m) + '" style="--pay-color:' + paymentColor(m) + '">' + esc(m) + '</button>').join('');
+    renderCart();   // 押せる／押せないを今のお会計に合わせる
+  }
   let pending = null;   // { method, total, received }
 
   function openPay(method) {
@@ -901,7 +903,7 @@
     if (lastData && lastData.closed) { toast('営業は終了しました。会計は記録できません', true); return; }
     pending = { method, total, received: null };
     $('modal').classList.remove('hidden');
-    if (method === '現金') showRecv(); else showConfirm();
+    if (isCashPayment(method)) showRecv(); else showConfirm();
   }
 
   function closePay() {
@@ -938,7 +940,8 @@
     $('stepRecv').classList.add('hidden');
     $('stepConfirm').classList.remove('hidden');
     $('cfPay').textContent = p.method;
-    $('cfPay').className = 'pay-badge ' + PAY_CLASS[p.method];
+    $('cfPay').className = 'pay-badge';
+    $('cfPay').style.background = paymentColor(p.method);
     const fee = currentFee();
     const pr = priced();
     $('cfLines').innerHTML = pr.lines.map(l => l.packs.map(k =>
@@ -948,7 +951,7 @@
       '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(lineQtyText).join('・') + '</span></div>' +
       (flavorRows().length ? '<div class="sum-line sum-flv"><span>味</span><span>' + esc(describeFlavors(flavorRows())) + '</span></div>' : '');
     $('cfTotal').textContent = yen(p.total);
-    const isCash = p.method === '現金';
+    const isCash = isCashPayment(p.method);
     $('cfCash').classList.toggle('hidden', !isCash);
     $('cfBack').classList.toggle('hidden', !isCash);
     if (isCash) {
@@ -993,7 +996,7 @@
       desc: withFlavors(describeItems(itemsFromLines(pr.lines)), flavorRows()),
     });
     closePay();
-    toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : '') + (netOk ? '' : '・未送信'));
+    toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (isCashPayment(p.method) ? ' おつり ' + yen(p.received - p.total) : '') + (netOk ? '' : '・未送信'));
     resetCart();
     renderHist();
     flush();

@@ -73,6 +73,13 @@
   .pj-wide { grid-column: 1 / -1; }
   .pj-grid input, .pj-grid select, .pj-line input, .pj-line select { padding: 9px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; font-weight: 400; width: 100%; min-width: 0; }
   .req { font-size: 10px; color: var(--red); font-weight: 700; }
+  /* 支払方法 */
+  .pay-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pay-opts label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; background: #fff; }
+  .pay-opts label:has(input:checked) { border-color: var(--brown); background: var(--soft); font-weight: 700; }
+  .pay-opts .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .pay-opts input { accent-color: var(--brown); }
+
   /* 容器代を取る／取らない */
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
   .seg label { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--sub); }
@@ -148,6 +155,7 @@
         <div id="npCopyWhat" class="checks hidden">
           <label><input type="checkbox" id="npCopyProducts" checked> 商品・価格・セット・味</label>
           <label><input type="checkbox" id="npCopyRule" checked> 容器代のルール</label>
+          <label><input type="checkbox" id="npCopyPayments" checked> 支払方法</label>
           <label><input type="checkbox" id="npCopyTarget"> 目標金額（上の欄が空のとき）</label>
         </div>
       </div>
@@ -240,6 +248,18 @@
     </div>
   </section>
 
+  <section class="card" id="payCard">
+    <h2>支払方法</h2>
+    <div class="note" style="margin:0 0 8px">この催しのレジに出す支払方法を選んで「保存」を押します（1〜8種類）。「現金」を選ぶと、レジでお預かり金額とおつりを入れます。現金を扱わない催しでは「現金」を外します。</div>
+    <div class="pay-opts" id="payOpts"></div>
+    <div class="row" style="margin:8px 0">
+      <input id="payNew" type="text" maxlength="20" placeholder="ほかの支払方法を追加（例: Airペイ）" style="flex:1;min-width:0;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px">
+      <button class="btn sub" id="payAdd" type="button">追加</button>
+    </div>
+    <button class="btn" id="paySave">保存</button>
+    <span class="dirty-badge hidden" id="payDirty">保存していません</span>
+  </section>
+
   <section class="card" id="closedCard">
     <h2>営業の状態 <span class="badge" id="closedState"></span></h2>
     <button class="btn danger" id="closeBtn">営業終了（レジの会計を止める）</button>
@@ -303,6 +323,21 @@
     </div>
   </section>
 
+  <section class="card form danger-zone" id="pjDeleteCard">
+    <h2>この催しを削除</h2>
+    <div class="note" id="pjDeleteInfo"></div>
+    <div id="pjDeleteInputs">
+      <input id="pjDelName" type="text" autocomplete="off" placeholder="確認のため催し名を入力" style="width:100%;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
+      <input id="pjDelPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+    </div>
+    <button class="btn danger" id="pjDelBtn">この催しを削除する</button>
+    <div class="note">
+      ・この催しの会計（売上の記録）・商品・設定を<b>すべて削除</b>し、催しの一覧から消えます。<strong>元に戻せません。</strong>売上を残したいときは、先に上の CSV を保存してください。<br>
+      ・<b>レジで使用中の催しは削除できません。</b>先にほかの催しを「レジで使う」にしてください。<br>
+      ・ほかの催しの会計・商品はそのままです。
+    </div>
+  </section>
+
   <section class="card">
     <h2>操作の記録</h2>
     <div class="scroll" id="audit"></div>
@@ -356,7 +391,16 @@
 
   <details>
     <summary>催しを削除したい</summary>
-    <p>会計の記録がなく、レジで使っていない催しだけ、一覧の「削除」で消せます（作り間違えたとき用）。会計の記録がある催しは、記録を残すため削除できません。</p>
+    <p>レジで使っていない催しは削除できます。催しを開いて、いちばん下の「この催しを削除」を使います（一覧の「削除」からも行けます）。その催しの<b>会計（売上の記録）・商品・設定がすべて消え、元に戻せません</b>。売上を残したいときは、先に CSV を保存してください。</p>
+    <p>会計の記録がある催しは、間違えて消さないよう、催し名とマスターパスワードの入力が必要です。会計のない催し（作り間違えたものなど）は、一覧の「削除」ですぐ消せます。</p>
+    <p>レジで使用中の催しは削除できません。先にほかの催しを「レジで使う」にしてください。</p>
+  </details>
+
+  <details>
+    <summary>支払方法を選ぶ（現金なしの催し・ほかのキャッシュレス）</summary>
+    <p>催しを開いて「支払方法」の欄で、レジに出す支払方法にチェックを入れて「保存」を押します（1〜8種類）。現金・PayPay・d払いのほかに、楽天ペイ・au PAY・メルペイ・交通系IC・クレジットカードを選べます。一覧にないものは、名前を入れて「追加」できます（例：Airペイ）。</p>
+    <p>現金を扱わない催しでは「現金」のチェックを外します。お預かり金額とおつりを入れるのは「現金」のときだけです。レジは30秒以内に新しい支払方法のボタンに切り替わります。</p>
+    <p>新しい催しは、初めは 現金・PayPay・d払い です。前の催しから複製するときに「支払方法」を選ぶと、前の催しと同じになります。</p>
   </details>
 
   <h3 class="help-group">よく使う操作</h3>
@@ -429,7 +473,7 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { containerFee } from '/pricing.js';
+  import { containerFee, PAYMENT_PRESETS, MAX_PAYMENTS, paymentColor } from '/pricing.js';
   const $ = id => document.getElementById(id);
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -476,6 +520,8 @@
     $('projectsView').classList.add('hidden');
     $('app').classList.remove('hidden');
     renderProjectSettings(d.projectSettings, d.projects);
+    renderPayOpts(d.payMethods);
+    renderDeleteCard(d);
     $('mTotal').textContent = yen(d.total);
     $('mOrders').textContent = d.orders + '件';
     $('mSticks').textContent = d.byProduct.filter(g => g.qty).map(g => g.name + ' ' + g.qty + g.unit).join('\n') || '0';   // 商品ごとに 1 行
@@ -676,6 +722,63 @@
       on ? '容器代を取るようにしました' : '容器代を取らないようにしました');
   });
 
+  // ---------- 支払方法 ----------
+  // 候補（よく使うもの）＋この催しで使っているもの＋この画面で追加したもの。チェックした順ではなく、この並びで保存する
+  let payDirty = false, payExtra = [], payChecked = [];
+  function renderPayOpts(current) {
+    if (!payDirty) { payChecked = [...current]; payExtra = []; }
+    const names = [];
+    for (const n of PAYMENT_PRESETS.map(p => p.name).concat(current, payExtra)) if (!names.includes(n)) names.push(n);
+    $('payOpts').innerHTML = names.map(n => '<label><input type="checkbox" value="' + esc(n) + '"' + (payChecked.includes(n) ? ' checked' : '') + '>' +
+      '<span class="dot" style="background:' + paymentColor(n) + '"></span>' + esc(n) + '</label>').join('');
+    $('payDirty').classList.toggle('hidden', !payDirty);
+  }
+  const readPays = () => [...$('payOpts').querySelectorAll('input:checked')].map(i => i.value);
+  $('payOpts').onchange = () => { payDirty = true; payChecked = readPays(); $('payDirty').classList.remove('hidden'); };
+  $('payAdd').onclick = () => {
+    const n = $('payNew').value.trim().slice(0, 20);
+    if (!n) return;
+    payDirty = true;
+    if (!payExtra.includes(n)) payExtra.push(n);
+    if (!payChecked.includes(n)) payChecked.push(n);
+    $('payNew').value = '';
+    renderPayOpts(payChecked);
+  };
+  $('payNew').onkeydown = e => { if (e.key === 'Enter') $('payAdd').click(); };
+  $('paySave').onclick = () => {
+    const list = readPays();
+    if (!list.length) return toast('支払方法を1つ以上選んでください', true);
+    if (list.length > MAX_PAYMENTS) return toast('支払方法は' + MAX_PAYMENTS + '種類までです', true);
+    if (!confirm('レジの支払方法を「' + list.join('・') + '」にしますか？\n（レジは30秒以内に切り替わります）')) return;
+    run(async () => { const d = await api('payments', { payments: list }); payDirty = false; return d; }, '支払方法を保存しました');
+  };
+
+  // ---------- 催しの削除 ----------
+  let deleteInfo = null;
+  function renderDeleteCard(d) {
+    const ps = d.projectSettings;
+    deleteInfo = { id: ps.id, name: ps.name, active: ps.active, orders: d.allSales.n };
+    $('pjDeleteInfo').textContent = ps.active
+      ? 'この催しはレジで使用中のため削除できません。'
+      : 'この催しの会計 ' + d.allSales.n + ' 件・売上 ' + yen(d.total) + '・商品 ' + d.allProducts.length + ' 件を削除します。';
+    $('pjDelBtn').disabled = ps.active;
+    // 会計がない催しは、催し名とパスワードの入力なしで削除できる
+    $('pjDeleteInputs').classList.toggle('hidden', ps.active || !d.allSales.n);
+  }
+  $('pjDelBtn').onclick = async () => {
+    const x = deleteInfo;
+    if (!x || x.active) return;
+    if (x.orders && $('pjDelName').value.trim() !== x.name) return toast('確認のため、催し名「' + x.name + '」を入力してください', true);
+    if (x.orders && !$('pjDelPw').value) return toast('マスターパスワードを入力してください', true);
+    if (!confirm('催し「' + x.name + '」を削除します。' + (x.orders ? '\n会計 ' + x.orders + ' 件も削除され、' : '\n') + '元に戻せません。よろしいですか？')) return;
+    try {
+      const d = await api('projects/' + x.id + '/delete', { confirm: $('pjDelName').value, password: $('pjDelPw').value });
+      $('pjDelName').value = ''; $('pjDelPw').value = '';
+      toast('催し「' + x.name + '」を削除しました');
+      showProjects(d);
+    } catch (e) { toast(e.message, true); }
+  };
+
   async function run(fn, okMsg) {
     try { render(await fn()); if (okMsg) toast(okMsg); }
     catch (e) { forceProducts = false; toast(e.message, true); }
@@ -771,7 +874,7 @@
         '<div class="meta">売上 ' + yen(p.total) + '（' + p.orders + '件）・目標 ' + yen(p.target) + '・商品 ' + p.products + '件・容器代' + (p.containerEnabled ? 'あり' : 'なし') + '</div></div>' +
         '<div class="acts"><button class="btn small" data-open="' + p.id + '">開く</button>' +
         (p.active ? '' : '<button class="btn sub small" data-activate="' + p.id + '">レジで使う</button>') +
-        (!p.active && !p.orders ? '<button class="btn danger small" data-delete="' + p.id + '">削除</button>' : '') + '</div>' +
+        (!p.active ? '<button class="btn danger small" data-delete="' + p.id + '">削除</button>' : '') + '</div>' +
       '</div>').join('') : '<div class="empty">催しがありません。下から作ってください</div>';
     // 複製元の選択肢（新しい順）
     const sel = $('npFrom'), keep = sel.value;
@@ -822,7 +925,7 @@
     if ($('npTarget').value) body.target = Number($('npTarget').value);
     if ($('npFrom').value) {
       body.copyFrom = Number($('npFrom').value);
-      body.copy = { products: $('npCopyProducts').checked, rule: $('npCopyRule').checked, target: $('npCopyTarget').checked };
+      body.copy = { products: $('npCopyProducts').checked, rule: $('npCopyRule').checked, target: $('npCopyTarget').checked, payments: $('npCopyPayments').checked };
     }
     body.containerEnabled = $('npContainer').checked;
     body.activate = $('npActivate').checked;
@@ -852,7 +955,14 @@
         showProjects(await api('projects'));
       }
       if (b.dataset.delete) {
-        if (!confirm('催し「' + p.name + '」を削除しますか？（商品の設定も消えます）')) return;
+        // 会計のある催しは、中の画面の「この催しを削除」で催し名とパスワードを入れて削除する
+        if (p.orders) {
+          toast('会計の記録がある催しです。開いて、いちばん下の「この催しを削除」から削除してください');
+          await openProject(p.id);
+          setTimeout(() => $('pjDeleteCard').scrollIntoView({ behavior: 'smooth', block: 'center' }), 400);
+          return;
+        }
+        if (!confirm('催し「' + p.name + '」を削除しますか？（商品と設定も消えます）')) return;
         showProjects(await api('projects/' + p.id + '/delete', {}));
         toast('削除しました');
       }
@@ -865,7 +975,8 @@
     forceProducts = true;
     ruleDirty = false;
     psDirty = false;
-    run(() => api('data')).then(() => { window.scrollTo(0, 0); });
+    payDirty = false;
+    return run(() => api('data')).then(() => { window.scrollTo(0, 0); });
   }
   $('backToList').onclick = () => { api('projects').then(showProjects).catch(e => toast(e.message, true)); };
 
