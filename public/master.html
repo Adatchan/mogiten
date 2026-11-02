@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>管理画面｜団子</title>
+<title>管理画面｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -58,6 +58,31 @@
   .rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
   .rule input { width: 5em; }
   .danger-zone { border-color: #f2c2bc; background: #fffaf9; }
+
+  /* 催し */
+  .pj-item { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pj-item.active { border-color: var(--ok); background: #f6faf2; }
+  .pj-item .info { flex: 1; min-width: 12em; }
+  .pj-item .nm { font-weight: 700; font-size: 16px; }
+  .pj-item .meta { font-size: 12px; color: var(--sub); }
+  .pj-item .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pj-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 10px; margin: 6px 0 8px; }
+  .pj-grid > label { min-width: 0; }
+  .pj-grid label, .pj-line { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--sub); font-weight: 700; }
+  .pj-line { margin-bottom: 8px; }
+  .pj-wide { grid-column: 1 / -1; }
+  .pj-grid input, .pj-grid select, .pj-line input, .pj-line select { padding: 9px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; font-weight: 400; width: 100%; min-width: 0; }
+  .req { font-size: 10px; color: var(--red); font-weight: 700; }
+  .pj-copy { background: var(--bg); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+  .pj-copy .pj-line { margin-bottom: 0; }
+  .pj-check { display: flex; gap: 6px; align-items: center; font-size: 14px; margin: 4px 0 10px; }
+  .pj-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pj-bar .pj-title { font-weight: 700; font-size: 16px; }
+  #pjSettings summary { list-style: none; }
+  #pjSettings summary::-webkit-details-marker { display: none; }
+  #pjSettings summary::before { content: '▸ '; color: var(--sub); }
+  #pjSettings[open] summary::before { content: '▾ '; }
+  #pjSettings summary .note { display: inline; }
   .danger-zone h2 { color: var(--red); }
 
 </style>
@@ -65,7 +90,8 @@
 <body>
 
 <div id="login" class="card login-card hidden">
-  <span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+  <span class="app-mark" aria-hidden="true"></span>
+  <div class="login-system">岡大グリー模擬店システム</div>
   <h2>管理画面</h2>
   <p class="login-lead">店の責任者用の画面です。<br>マスターパスワードを入力してください</p>
   <input id="pw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
@@ -74,12 +100,79 @@
   <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
-<div id="app" class="wrap hidden">
+<!-- 催しの一覧（ログインしたら最初にこの画面。催しを選ぶと、いつもの管理画面に入る） -->
+<div id="projectsView" class="wrap hidden">
   <header class="app-header">
-    <div class="app-title"><span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span><div class="app-name"><h1>管理画面</h1><span class="app-sub">店の責任者用</span></div></div>
+    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>管理画面</h1><span class="app-sub">催しを選んでください</span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav>
     <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
   </header>
+
+  <section class="card">
+    <h2>催しの一覧</h2>
+    <div id="projectList"></div>
+    <div class="note">「開く」で、その催しの商品・価格・目標などを設定する画面に入ります。レジ・キッチン・ダッシュボードで使われるのは「レジで使用中」の催しだけです。</div>
+  </section>
+
+  <section class="card" id="newProjectCard">
+    <h2>＋ 新しい催しを作る</h2>
+      <div class="pj-grid">
+        <label class="pj-wide"><span class="lb">催し名 <span class="req">必須</span></span><input id="npName" type="text" maxlength="40" placeholder="例: 27岡山大学祭"></label>
+        <label class="pj-wide"><span class="lb">模擬店の名前（ダッシュボードに表示・なくてもよい）</span><input id="npShop" type="text" maxlength="40" placeholder="例: 混声合唱と学祭のための 団子"></label>
+        <label><span class="lb">開始日 <span class="req">必須</span></span><input id="npStart" type="date"></label>
+        <label><span class="lb">終了日 <span class="req">必須</span></span><input id="npEnd" type="date"></label>
+        <label><span class="lb">営業開始</span><select id="npOpen"><option value="0">0:00</option><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option></select></label>
+        <label><span class="lb">営業終了</span><select id="npClose"><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option><option value="24">24:00</option></select></label>
+      </div>
+      <label class="pj-line"><span class="lb">目標金額（円）</span><input id="npTarget" type="number" inputmode="numeric" min="1" placeholder="例: 30000"></label>
+      <div class="pj-copy">
+        <label class="pj-line">前の催しから設定を複製
+          <select id="npFrom"><option value="">複製しない（商品は空から作る）</option></select>
+        </label>
+        <div id="npCopyWhat" class="checks hidden">
+          <label><input type="checkbox" id="npCopyProducts" checked> 商品・価格・セット・味</label>
+          <label><input type="checkbox" id="npCopyRule" checked> 容器代のルール</label>
+          <label><input type="checkbox" id="npCopyTarget"> 目標金額（上の欄が空のとき）</label>
+        </div>
+      </div>
+      <label class="pj-check"><input type="checkbox" id="npActivate" checked> 作ったら、この催しをレジで使う</label>
+      <button class="btn" id="npBtn">作成して開く</button>
+      <div class="note">会計（売上）は複製されません。新しい催しの会計番号は #1 から始まります。</div>
+  </section>
+
+  <button class="btn sub" id="logoutBtn2">ログアウト</button>
+</div>
+
+<div id="app" class="wrap hidden">
+  <header class="app-header">
+    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>管理画面</h1><span class="app-sub" id="projSub"></span></div></div>
+    <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav>
+    <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
+  </header>
+
+  <div class="pj-bar">
+    <button class="btn sub small" id="backToList">← 催しの一覧</button>
+    <span class="pj-title" id="pjTitle"></span>
+    <span class="badge" id="pjActive"></span>
+    <button class="btn small hidden" id="pjActivateBtn">この催しをレジで使う</button>
+  </div>
+
+  <section class="card">
+    <details id="pjSettings">
+      <summary><h2 style="display:inline">催しの設定</h2> <span class="note" id="pjSummary"></span></summary>
+      <div class="pj-grid">
+        <label class="pj-wide"><span class="lb">催し名 <span class="req">必須</span></span><input id="psName" type="text" maxlength="40" placeholder="例: 27岡山大学祭"></label>
+        <label class="pj-wide"><span class="lb">模擬店の名前（ダッシュボードに表示・なくてもよい）</span><input id="psShop" type="text" maxlength="40" placeholder="例: 混声合唱と学祭のための 団子"></label>
+        <label><span class="lb">開始日 <span class="req">必須</span></span><input id="psStart" type="date"></label>
+        <label><span class="lb">終了日 <span class="req">必須</span></span><input id="psEnd" type="date"></label>
+        <label><span class="lb">営業開始</span><select id="psOpen"><option value="0">0:00</option><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option></select></label>
+        <label><span class="lb">営業終了</span><select id="psClose"><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option><option value="24">24:00</option></select></label>
+      </div>
+      <button class="btn" id="psBtn">保存</button>
+      <span class="sp"></span>
+      <div class="note">目標金額は下の「目標金額」で変えます。営業時間は、ダッシュボードの「1時間ごとの売上」と「目標達成の目安」に使います。</div>
+    </details>
+  </section>
 
   <section class="card">
     <div class="mini">
@@ -89,12 +182,12 @@
     </div>
     <div class="note" id="mRate" style="text-align:center"></div>
     <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
-      <a class="btn" href="/api/master/sales_ja.csv" download>⬇ 手集計用CSV（Excel）</a>
-      <a class="btn sub" href="/api/master/sales.csv" download>⬇ 会計CSV</a>
-      <a class="btn sub" href="/api/master/sale_items.csv" download>⬇ 明細CSV（商品・味ごと）</a>
-      <a class="btn sub" href="/api/master/sale_packs.csv" download>⬇ セットの内訳CSV</a>
+      <a class="btn" href="/api/master/sales_ja.csv" data-csv download>⬇ 手集計用CSV（Excel）</a>
+      <a class="btn sub" href="/api/master/sales.csv" data-csv download>⬇ 会計CSV</a>
+      <a class="btn sub" href="/api/master/sale_items.csv" data-csv download>⬇ 明細CSV（商品・味ごと）</a>
+      <a class="btn sub" href="/api/master/sale_packs.csv" data-csv download>⬇ セットの内訳CSV</a>
     </div>
-    <div class="note">取り消した会計は含みません。手集計用は Excel で人が集計する向け（日本語の見出し、味ごとの本数が1列ずつ）。ほかの3つはデータ分析用で、sale_id（会計番号）でつながります。</div>
+    <div class="note">取り消した会計は含みません。手集計用は Excel で人が集計する向け（日本語の見出し、味ごとの本数が1列ずつ）。ほかの3つはデータ分析用で、sale_id（会計ID）でつながります。</div>
   </section>
 
   <section class="card">
@@ -170,13 +263,13 @@
   </section>
 
   <section class="card form danger-zone">
-    <h2>売上記録の全リセット（テスト用）</h2>
+    <h2>この催しの売上記録を全リセット（テスト用）</h2>
     <div class="note" id="resetInfo"></div>
     <input id="resetConfirm" type="text" autocomplete="off" placeholder="確認のため「リセット」と入力" style="width:100%;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
     <input id="resetPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
     <button class="btn danger" id="resetBtn">すべての会計を削除する</button>
     <div class="note">
-      ・取消済みも含めたすべての会計と明細を削除し、会計番号を #1 に戻します。<strong>元に戻せません。</strong><br>
+      ・<b>この催しの</b>、取消済みも含めたすべての会計と明細を削除し、会計番号を #1 に戻します（ほかの催しの会計はそのまま）。<strong>元に戻せません。</strong><br>
       ・商品・価格、目標金額、パスワード、ログイン中の端末はそのままです。<br>
       ・レジ端末に残っているリセット前の未送信の会計は、送られてきても記録されずに破棄されます。<br>
       ・本番の営業が始まったら使わないでください。必要なら先に CSV を保存してください。
@@ -202,8 +295,41 @@
 
   <details open>
     <summary>管理画面でできること</summary>
-    <p>店の責任者向けの画面です。商品・価格・味と容器代のルールの変更、目標金額の変更、レジのパスワードの変更、ログイン中の端末の締め出し、ログイン制限の解除、テスト用の売上記録の全リセットができます。入るにはマスターパスワードが必要で、ログインは<b>12時間</b>有効です。</p>
+    <p>岡大グリー模擬店システムの、店の責任者向けの画面です。模擬店は<b>催し</b>（例：26岡山大学祭）ごとに管理します。ログインすると、まず催しの一覧が出ます。催しを「開く」と、その催しの商品・価格・味と容器代のルールの変更、目標金額の変更、レジのパスワードの変更、ログイン中の端末の締め出し、ログイン制限の解除、テスト用の売上記録の全リセットができます。入るにはマスターパスワードが必要で、ログインは<b>12時間</b>有効です。</p>
     <p>会計の入力や取り消しは、ここではなくレジ画面で行います。注文の調理の管理は、キッチン画面（<code>/kitchen</code>・レジのパスワードでログイン）で行います。</p>
+  </details>
+
+  <h3 class="help-group">催し（学祭ごとの管理）</h3>
+
+  <details>
+    <summary>催しとは？</summary>
+    <figure class="narrow"><img src="/help/master-projects.webp" width="390" height="483" loading="lazy" alt="催しの一覧。27岡山大学祭と、レジで使用中の26岡山大学祭。それぞれ期間・営業時間・売上・目標・商品の数と、開く・レジで使うのボタン"></figure>
+    <p>「26岡山大学祭」「27岡山大学祭」のような、模擬店を出す1回ごとのまとまりです。催しごとに、商品・価格・味・セット、目標金額、容器代のルール、営業時間、会計（売上）が別々に記録されます。会計番号（#）も催しごとに #1 から始まります。</p>
+    <p>レジ・キッチン・ダッシュボード・会計の一覧で使われるのは、<b>「レジで使用中」の催し1つだけ</b>です。前の催しの売上や商品は、催しを切り替えても消えずに残ります。</p>
+  </details>
+
+  <details>
+    <summary>新しい催しを作る（次の学祭の準備）</summary>
+    <figure class="narrow"><img src="/help/master-newproject.webp" width="362" height="688" loading="lazy" alt="新しい催しを作るフォーム。催し名、模擬店の名前、開始日、終了日、営業開始、営業終了、目標金額、前の催しから設定を複製と複製する内容のチェック、作ったらこの催しをレジで使うのチェック、作成して開くボタン"></figure>
+    <p>催しの一覧の下の「＋ 新しい催しを作る」で、催し名・開始日・終了日・営業時間を入れて「作成して開く」を押します。模擬店の名前（例：混声合唱と学祭のための 団子）を入れると、ダッシュボードに表示されます。</p>
+    <p><b>前の催しから設定を複製</b>で前の催しを選ぶと、商品・価格・セット・味と容器代のルールをそのまま引き継げます（目標金額も選べます）。売上は複製されません。複製したあとで、値段や味を今年の分に直してください。</p>
+    <p>「作ったら、この催しをレジで使う」を外しておくと、今の催しの営業を続けたまま、次の催しの準備だけできます。</p>
+  </details>
+
+  <details>
+    <summary>レジで使う催しを切り替える</summary>
+    <p>催しの一覧で、使いたい催しの「レジで使う」を押します（開いている催しの画面の上の「この催しをレジで使う」でも同じ）。レジ・キッチン・ダッシュボードは30秒ほどで新しい催しに切り替わり、商品も切り替わります。</p>
+    <p>切り替える前にレジで打った会計は、電波がなくて未送信のままでも、あとで届いたときに<b>打ったときの催し</b>に記録されます。</p>
+  </details>
+
+  <details>
+    <summary>催しの名前・日程・営業時間を直す</summary>
+    <p>催しを開いて、いちばん上の「催しの設定」を開き、直して「保存」を押します。営業時間は、ダッシュボードの「1時間ごとの売上」の範囲と「目標達成の目安（1時間あたり）」の計算に使います。</p>
+  </details>
+
+  <details>
+    <summary>催しを削除したい</summary>
+    <p>会計の記録がなく、レジで使っていない催しだけ、一覧の「削除」で消せます（作り間違えたとき用）。会計の記録がある催しは、記録を残すため削除できません。</p>
   </details>
 
   <h3 class="help-group">よく使う操作</h3>
@@ -267,7 +393,7 @@
 
   <details>
     <summary>売上明細と操作の記録</summary>
-    <p>いちばん上の CSV のボタンで、売上の記録を保存できます（取り消した会計を除く）。「手集計用CSV」は Excel で開いて人が集計するためのもので、見出しが日本語、味ごとの本数が1列ずつ並びます（レジ締めや味ごとの本数の確認に）。データ分析用の3つのうち、「会計CSV」は1行が1回の会計、「明細CSV」は1行が1回の会計の1つの商品の1つの味（味ごとの集計用）、「セットの内訳CSV」はセットごとの個数と金額です。3つは sale_id（会計番号）でつながります。1行目の項目名は英数字、金額は円の整数、日時は日本時間の ISO 8601 形式です。Excel で開いても文字化けしません（UTF-8・BOM 付き）。項目の定義は README の「CSV の項目定義」にあります。「操作の記録」には、取消、目標の変更、ログインなどを誰がいつしたかが並びます。</p>
+    <p>いちばん上の CSV のボタンで、売上の記録を保存できます（取り消した会計を除く）。「手集計用CSV」は Excel で開いて人が集計するためのもので、見出しが日本語、味ごとの本数が1列ずつ並びます（レジ締めや味ごとの本数の確認に）。データ分析用の3つのうち、「会計CSV」は1行が1回の会計、「明細CSV」は1行が1回の会計の1つの商品の1つの味（味ごとの集計用）、「セットの内訳CSV」はセットごとの個数と金額です。3つは sale_id（会計ID）でつながります。1行目の項目名は英数字、金額は円の整数、日時は日本時間の ISO 8601 形式です。Excel で開いても文字化けしません（UTF-8・BOM 付き）。項目の定義は README の「CSV の項目定義」にあります。「操作の記録」には、取消、目標の変更、ログインなどを誰がいつしたかが並びます。</p>
   </details>
 </dialog>
 
@@ -281,10 +407,14 @@
   const fmt = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const ROLE = { register: 'レジ', master: 'マスター' };
 
+  // 開いている催し（null なら催しの一覧）。催しについての操作には X-Project で催しの番号を付ける
+  let currentProject = null;
   async function api(path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentProject && !/^(projects|login|logout)/.test(path)) headers['X-Project'] = String(currentProject);
     const res = await fetch('/api/master/' + path, {
       method: body ? 'POST' : 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store',
       credentials: 'same-origin',
@@ -304,8 +434,9 @@
   }
 
   function showLogin(msg) {
-    if (!$('app').classList.contains('hidden') && msg) toast(msg, true);
+    if ((!$('app').classList.contains('hidden') || !$('projectsView').classList.contains('hidden')) && msg) toast(msg, true);
     $('app').classList.add('hidden');
+    $('projectsView').classList.add('hidden');
     $('login').classList.remove('hidden');
   }
 
@@ -313,7 +444,9 @@
   function render(d) {
     lastClosed = d.closed || null;
     $('login').classList.add('hidden');
+    $('projectsView').classList.add('hidden');
     $('app').classList.remove('hidden');
+    renderProjectSettings(d.projectSettings, d.projects);
     $('mTotal').textContent = yen(d.total);
     $('mOrders').textContent = d.orders + '件';
     $('mSticks').textContent = d.byProduct.filter(g => g.qty).map(g => g.name + ' ' + g.qty + g.unit).join('\n') || '0';   // 商品ごとに 1 行
@@ -503,8 +636,8 @@
 
   async function login() {
     if (!$('pw').value) return;
-    await run(() => api('login', { password: $('pw').value }));
-    $('pw').value = '';
+    try { route(await api('login', { password: $('pw').value })); $('pw').value = ''; }
+    catch (e) { toast(e.message, true); }
   }
   $('loginBtn').onclick = login;
   $('pw').onkeydown = e => { if (e.key === 'Enter') login(); };
@@ -563,8 +696,149 @@
     }, 'マスターパスワードを変更しました');
   };
 
-  api('data').then(render).catch(() => showLogin());
-  setInterval(() => { if (!$('app').classList.contains('hidden')) api('data').then(render).catch(() => {}); }, 30000);
+  // ========== 催し（プロジェクト） ==========
+  const mdShort = s => { const [y, m, d] = s.split('-'); return y + '/' + Number(m) + '/' + Number(d); };
+  const periodText = p => (p.startDate === p.endDate ? mdShort(p.startDate) : mdShort(p.startDate) + '〜' + mdShort(p.endDate)) + '・' + p.openHour + ':00〜' + p.closeHour + ':00';
+  const projectHash = () => { const m = location.hash.match(/project=(\d+)/); return m ? Number(m[1]) : null; };
+
+  /** ログイン直後・再読み込み時：URL に催しがあればその催しを開き、なければ一覧 */
+  function route(d) {
+    const id = projectHash();
+    if (id && d.projects.some(p => p.id === id)) openProject(id);
+    else showProjects(d);
+  }
+
+  let projectsCache = [];
+  let formReady = false;
+  function showProjects(d) {
+    currentProject = null;
+    projectsCache = d.projects;
+    if (location.hash) history.replaceState(null, '', location.pathname);
+    $('login').classList.add('hidden');
+    $('app').classList.add('hidden');
+    $('projectsView').classList.remove('hidden');
+    $('projectList').innerHTML = d.projects.length ? d.projects.map(p =>
+      '<div class="pj-item' + (p.active ? ' active' : '') + '">' +
+        '<div class="info"><div class="nm">' + esc(p.name) + (p.active ? ' <span class="badge ok">レジで使用中</span>' : '') + '</div>' +
+        '<div class="meta">' + periodText(p) + (p.shopName ? '・' + esc(p.shopName) : '') + '</div>' +
+        '<div class="meta">売上 ' + yen(p.total) + '（' + p.orders + '件）・目標 ' + yen(p.target) + '・商品 ' + p.products + '件</div></div>' +
+        '<div class="acts"><button class="btn small" data-open="' + p.id + '">開く</button>' +
+        (p.active ? '' : '<button class="btn sub small" data-activate="' + p.id + '">レジで使う</button>') +
+        (!p.active && !p.orders ? '<button class="btn danger small" data-delete="' + p.id + '">削除</button>' : '') + '</div>' +
+      '</div>').join('') : '<div class="empty">催しがありません。下から作ってください</div>';
+    // 複製元の選択肢（新しい順）
+    const sel = $('npFrom'), keep = sel.value;
+    sel.innerHTML = '<option value="">複製しない（商品は空から作る）</option>' +
+      d.projects.map(p => '<option value="' + p.id + '">' + esc(p.name) + '（' + periodText(p) + '・商品 ' + p.products + '件）</option>').join('');
+    sel.value = keep;
+    if (!formReady) {
+      // 最初だけ入力欄の初期値（今日・いちばん新しい催しの営業時間・いちばん新しい催しから複製）
+      formReady = true;
+      $('npStart').value = $('npEnd').value = d.today;
+      const latest = d.projects[0];
+      $('npOpen').value = latest ? latest.openHour : 9;
+      $('npClose').value = latest ? latest.closeHour : 19;
+      if (latest) sel.value = String(latest.id);
+      syncCopyWhat();
+    }
+  }
+  function syncCopyWhat() { $('npCopyWhat').classList.toggle('hidden', !$('npFrom').value); }
+  $('npFrom').onchange = syncCopyWhat;
+  const readFields = prefix => ({
+    name: $(prefix + 'Name').value, shopName: $(prefix + 'Shop').value,
+    startDate: $(prefix + 'Start').value, endDate: $(prefix + 'End').value,
+    openHour: Number($(prefix + 'Open').value), closeHour: Number($(prefix + 'Close').value),
+  });
+  $('npStart').onchange = () => { if (!$('npEnd').value || $('npEnd').value < $('npStart').value) $('npEnd').value = $('npStart').value; };
+
+  $('npBtn').onclick = async () => {
+    const body = readFields('np');
+    if (!body.name.trim()) return toast('催し名を入力してください', true);
+    if ($('npTarget').value) body.target = Number($('npTarget').value);
+    if ($('npFrom').value) {
+      body.copyFrom = Number($('npFrom').value);
+      body.copy = { products: $('npCopyProducts').checked, rule: $('npCopyRule').checked, target: $('npCopyTarget').checked };
+    }
+    body.activate = $('npActivate').checked;
+    const from = body.copyFrom ? projectsCache.find(p => p.id === body.copyFrom) : null;
+    if (!confirm('催し「' + body.name.trim() + '」を作りますか？' + (from ? '\n「' + from.name + '」から設定を複製します。' : '') +
+      (body.activate ? '\nレジ・キッチン・ダッシュボードは、この催しに切り替わります。' : ''))) return;
+    try {
+      const d = await api('projects', body);
+      ['npName', 'npShop', 'npTarget'].forEach(id => $(id).value = '');
+      formReady = false;
+      toast('催し「' + body.name.trim() + '」を作りました');
+      openProject(d.created);
+    } catch (e) { toast(e.message, true); }
+  };
+
+  $('projectList').onclick = async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const p = projectsCache.find(x => String(x.id) === (b.dataset.open || b.dataset.activate || b.dataset.delete));
+    if (!p) return;
+    try {
+      if (b.dataset.open) return openProject(p.id);
+      if (b.dataset.activate) {
+        if (!confirm('レジ・キッチン・ダッシュボードで使う催しを「' + p.name + '」に切り替えますか？\n（レジの画面は30秒以内に切り替わります）')) return;
+        await api('projects/' + p.id + '/activate', {});
+        toast('「' + p.name + '」をレジで使うようにしました');
+        showProjects(await api('projects'));
+      }
+      if (b.dataset.delete) {
+        if (!confirm('催し「' + p.name + '」を削除しますか？（商品の設定も消えます）')) return;
+        showProjects(await api('projects/' + p.id + '/delete', {}));
+        toast('削除しました');
+      }
+    } catch (err) { toast(err.message, true); }
+  };
+
+  function openProject(id) {
+    currentProject = id;
+    if (projectHash() !== id) history.replaceState(null, '', '#project=' + id);
+    forceProducts = true;
+    ruleDirty = false;
+    psDirty = false;
+    run(() => api('data')).then(() => { window.scrollTo(0, 0); });
+  }
+  $('backToList').onclick = () => { api('projects').then(showProjects).catch(e => toast(e.message, true)); };
+
+  // 開いている催しの見出しと設定
+  let psDirty = false;
+  function renderProjectSettings(ps, list) {
+    if (!ps) return;
+    projectsCache = list || projectsCache;
+    $('projSub').textContent = ps.name;
+    $('pjTitle').textContent = ps.name;
+    $('pjActive').textContent = ps.active ? 'レジで使用中' : 'レジでは使っていない';
+    $('pjActive').className = 'badge ' + (ps.active ? 'ok' : 'warn');
+    $('pjActivateBtn').classList.toggle('hidden', ps.active);
+    $('pjSummary').textContent = periodText(ps) + (ps.shopName ? '・' + ps.shopName : '');
+    if (!psDirty) {
+      $('psName').value = ps.name; $('psShop').value = ps.shopName || '';
+      $('psStart').value = ps.startDate; $('psEnd').value = ps.endDate;
+      $('psOpen').value = ps.openHour; $('psClose').value = ps.closeHour;
+    }
+    // CSV はこの催しの分をダウンロード
+    document.querySelectorAll('a[data-csv]').forEach(a => { a.href = a.getAttribute('href').split('?')[0] + '?project=' + ps.id; });
+    document.title = ps.name + '｜管理画面';
+  }
+  $('pjSettings').addEventListener('input', () => { psDirty = true; });
+  $('psBtn').onclick = () => {
+    const body = readFields('ps');
+    run(async () => { const d = await api('projects/' + currentProject, body); psDirty = false; return d; }, '催しの設定を保存しました');
+  };
+  $('pjActivateBtn').onclick = () => {
+    if (!confirm('レジ・キッチン・ダッシュボードで使う催しを、この催しに切り替えますか？\n（レジの画面は30秒以内に切り替わります）')) return;
+    run(async () => { await api('projects/' + currentProject + '/activate', {}); return api('data'); }, 'この催しをレジで使うようにしました');
+  };
+  $('logoutBtn2').onclick = async () => { await api('logout', {}).catch(() => {}); location.reload(); };
+
+  api('projects').then(route).catch(() => showLogin());
+  setInterval(() => {
+    if (!$('app').classList.contains('hidden') && currentProject) api('data').then(render).catch(() => {});
+    else if (!$('projectsView').classList.contains('hidden')) api('projects').then(d => { if (!$('projectsView').classList.contains('hidden')) showProjects(d); }).catch(() => {});
+  }, 30000);
 </script>
 <script src="/help.js"></script>
 </body>

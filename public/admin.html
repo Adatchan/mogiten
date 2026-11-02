@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>レジ｜団子</title>
+<title>レジ｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -211,7 +211,8 @@
 <body>
 
 <div id="login" class="card login-card hidden">
-  <span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+  <span class="app-mark" aria-hidden="true"></span>
+  <div class="login-system">岡大グリー模擬店システム</div>
   <h2>レジ</h2>
   <p class="login-lead">担当者名とレジ用パスワードを入力してください</p>
   <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="担当者名（例: 学祭太郎）">
@@ -225,7 +226,7 @@
 
 <div id="app" class="wrap hidden">
   <header class="app-header">
-    <div class="app-title"><span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span><div class="app-name"><h1>レジ</h1><span class="app-sub" id="staffLabel"></span></div></div>
+    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>レジ</h1><span class="app-sub" id="staffLabel"></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
     <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
   </header>
@@ -361,7 +362,7 @@
 
   <details>
     <summary>ログインのしかたは？</summary>
-    <figure class="narrow"><img src="/help/reg-login.webp" width="380" height="432" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-login.webp" width="380" height="450" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
     <p>自分の名前（担当者名）と、レジ用のパスワードを入れて「ログイン」を押します。パスワードは店の責任者に聞いてください。名前は会計ごとに記録されるので、本人の名前を入れてください。</p>
     <p>ログインは<b>3日間</b>有効なので、同じスマホなら翌日もそのまま使えます。パスワードはスマホに保存されません。</p>
   </details>
@@ -434,7 +435,7 @@
 
   <details>
     <summary>「#12」や「✓できた」は何？</summary>
-    <p>「#12」は会計番号で、キッチン画面の注文番号と同じです。お客さんへの受け渡しや、キッチンとのやりとりに使えます（電波がなくて未送信の会計には、送信されるまで番号が付きません）。</p>
+    <p>「#12」は会計番号で、キッチン画面の注文番号と同じです。会計番号は催し（学祭）ごとに #1 から始まります。お客さんへの受け渡しや、キッチンとのやりとりに使えます（電波がなくて未送信の会計には、送信されるまで番号が付きません）。</p>
     <p>「✓できた」は、キッチンでその注文を作り終えた印です。受け渡しの目安にしてください。</p>
   </details>
 
@@ -497,7 +498,7 @@
       <li><b>明細</b>（sale_items.csv）：1行が「1回の会計の、1つの商品の、1つの味」。味ごとの本数を数えるときはこちら（例：みたらしは全部で何本？）</li>
       <li><b>セットの内訳</b>（sale_packs.csv）：どのセットが何個売れたか、商品ごとの金額</li>
     </ul>
-    <p>3つは「sale_id」（会計番号、キッチンの#と同じ）でつながります。1行目の項目名は英数字です（例：total_amount_yen＝合計金額・円）。日時は「2026-11-02T11:48:26+09:00」（日本時間）の形です。項目の一覧は README からリンクしている「CSV の項目定義」にあります。</p>
+    <p>3つは「sale_id」（会計ID）でつながります。レジ・キッチンの「#」は「order_no」の列です。ファイルには「レジで使用中」の催しの会計だけが入ります。1行目の項目名は英数字です（例：total_amount_yen＝合計金額・円）。日時は「2026-11-02T11:48:26+09:00」（日本時間）の形です。項目の一覧は README からリンクしている「CSV の項目定義」にあります。</p>
     <p>「操作の記録」を開くと、取消やログインなどを誰がいつしたかを確認できます。</p>
   </details>
 
@@ -619,9 +620,11 @@
 
   // ---------- 表示 ----------
   function renderData(d) {
-    if (!d.cachedAt) { checkEpoch(d.epoch); saveCachedData(d); }
+    if (!d.cachedAt) { checkEpoch(d.epoch, d.project); saveCachedData(d); }
+    // 管理画面で「レジで使う催し」が切り替わった
+    const switched = lastData && lastData.project && d.project && lastData.project.id !== d.project.id;
     lastData = d;
-    $('staffLabel').textContent = '担当: ' + d.me.staff + (d.cachedAt ? '（オフライン表示）' : '');
+    $('staffLabel').textContent = (d.project ? d.project.name + '・' : '') + '担当: ' + d.me.staff + (d.cachedAt ? '（オフライン表示）' : '');
     // 営業終了中
     $('closedBox').classList.toggle('hidden', !d.closed);
     $('app').classList.toggle('is-closed', !!d.closed);
@@ -644,6 +647,8 @@
       '<span class="who">' + esc(a.actor) + '</span>' +
       '<span class="what">' + esc(a.action) + (a.detail ? '　<span style="color:var(--sub)">' + esc(a.detail) + '</span>' : '') + '</span></div>'
     ).join('') : '<div class="empty">記録はありません</div>';
+    // 商品の更新のお知らせより後に出す（こちらを優先して見せる）
+    if (switched) toast('催しが「' + d.project.name + '」に切り替わりました。商品も切り替わっています');
   }
   /** 最近の会計：サーバーの記録＋この端末の未送信／送信直後の会計をまとめて新しい順に 5 件 */
   function renderHist() {
@@ -659,6 +664,7 @@
     })).concat(d.recent.filter(r => !r.client_id || !localIds.has(r.client_id)).map(r => ({
       key: r.client_id ? 'c:' + r.client_id : 'i:' + r.id, clientId: r.client_id, id: r.id, created_at: r.created_at, desc: r.desc,
       container: r.container, container_auto: r.container_auto, payment: r.payment, staff: r.staff, amount: r.amount, cancelled: r.cancelled, state: 'server',
+      no: r.order_no ?? r.id,
       done: !!r.kitchen_done_at,
     })));
     // まだ送っていない取消／戻すを表示に反映
@@ -674,7 +680,7 @@
       const tag = (r.state === 'pending' ? '<span class="q">未送信</span>' : r.cancelPending ? '<span class="q">取消は未送信</span>' : '') +
         (r.done && !r.cancelled ? '<span class="k">✓できた</span>' : '');
       return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
-        '<span class="t">' + (r.id ? '#' + r.id + ' ' : '') + time + '</span>' +
+        '<span class="t">' + (r.no ? '#' + r.no + ' ' : '') + time + '</span>' +
         '<span class="d">' + esc(r.desc) + ' ' + fee + '　' + r.payment + (r.staff ? '（' + esc(r.staff) + '）' : '') + tag + '</span>' +
         '<span class="a">' + yen(r.amount) + '</span>' +
         '<button data-cancel="' + esc(r.key) + '" data-to="' + (r.cancelled ? 0 : 1) + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
@@ -1028,16 +1034,22 @@
 
   // 管理画面で売上記録が全リセットされたら、リセット前の未送信・送信済みの表示用データを捨てる
   const EPOCH_KEY = 'mogiten_epoch_v1';
-  function checkEpoch(epoch) {
+  // 売上記録の世代は催しごと。同じ催しで世代が進んだときだけ「リセットされた」とみなす（催しの切り替えでは何も捨てない）
+  function checkEpoch(epoch, project) {
     if (epoch == null) return;
-    const prev = localStorage.getItem(EPOCH_KEY);
-    localStorage.setItem(EPOCH_KEY, String(epoch));
-    if (prev == null || Number(prev) === epoch) return;
+    const pid = project ? project.id : null;
+    let prev = null;
+    try { prev = JSON.parse(localStorage.getItem(EPOCH_KEY)); } catch {}
+    if (prev != null && typeof prev !== 'object') prev = { projectId: pid, epoch: Number(prev) };   // 以前の版の形（数字だけ）
+    localStorage.setItem(EPOCH_KEY, JSON.stringify({ projectId: pid, epoch }));
+    if (!prev || prev.projectId !== pid || prev.epoch === epoch) return;
+    // この催しの、リセット前の操作だけを捨てる（ほかの催しの未送信の会計は残す）
+    const stale = o => (o.projectId == null || o.projectId === pid) && o.epoch != null && o.epoch !== epoch;
     const q = loadQ();
-    const keep = q.filter(o => o.epoch == null || o.epoch === epoch);
+    const keep = q.filter(o => !stale(o));
     saveQ(keep);
     localStorage.removeItem(SENT_KEY);
-    localStorage.setItem(FAILED_KEY, JSON.stringify(loadFailed().filter(o => o.epoch == null || o.epoch === epoch)));
+    localStorage.setItem(FAILED_KEY, JSON.stringify(loadFailed().filter(o => !stale(o))));
     toast('管理画面で売上記録がリセットされました' + (q.length > keep.length ? '（リセット前の未送信 ' + (q.length - keep.length) + ' 件は破棄）' : ''));
     renderNet();
   }
@@ -1050,7 +1062,9 @@
 
   function enqueue(op) {
     const q = loadQ();
-    q.push({ ...op, opId: newId(), wasOffline: !netOk, epoch: lastData && lastData.epoch != null ? lastData.epoch : null });
+    // 会計した時点の催しと世代を付けておく（あとで催しが切り替わったりリセットされたりしても、正しく扱えるように）
+    q.push({ ...op, opId: newId(), wasOffline: !netOk, epoch: lastData && lastData.epoch != null ? lastData.epoch : null,
+      projectId: lastData && lastData.project ? lastData.project.id : null });
     saveQ(q);
     renderNet();
   }
@@ -1069,14 +1083,14 @@
         try {
           if (op.kind === 'sale') {
             await api('sales', {
-              lite: true, epoch: op.epoch, clientId: op.clientId, createdAt: op.createdAt, items: op.items, flavors: op.flavors, lines: op.lines,
+              lite: true, epoch: op.epoch, projectId: op.projectId, clientId: op.clientId, createdAt: op.createdAt, items: op.items, flavors: op.flavors, lines: op.lines,
               container: op.container, containerAuto: op.containerAuto, payment: op.payment,
             });
             const sent = loadSent().filter(s => s.clientId !== op.clientId);
             sent.unshift({ ...op, sentAt: new Date().toISOString() });
             localStorage.setItem(SENT_KEY, JSON.stringify(sent.slice(0, 20)));
           } else if (op.kind === 'cancel') {
-            await api('sales/set-cancel', { epoch: op.epoch, clientId: op.clientId, id: op.id, cancelled: op.cancelled, offline: !!op.wasOffline });
+            await api('sales/set-cancel', { epoch: op.epoch, projectId: op.projectId, clientId: op.clientId, id: op.id, cancelled: op.cancelled, offline: !!op.wasOffline });
           }
           removeOp(op.opId);
           sentAny = true;

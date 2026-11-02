@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="robots" content="noindex">
-<title>会計の一覧｜団子</title>
+<title>会計の一覧｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -37,7 +37,7 @@
 <body>
 <div class="wrap">
   <header class="app-header">
-    <div class="app-title"><span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span><div class="app-name"><h1>会計の一覧</h1><span class="app-sub"><a href="/admin">← レジに戻る</a></span></div></div>
+    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>会計の一覧</h1><span class="app-sub"><span id="projName"></span><a href="/admin">← レジに戻る</a></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
   </header>
 
@@ -116,7 +116,7 @@
         return '<div class="line' + (r.cancelled ? ' cancelled' : '') + '">' +
           '<span class="t">' + timeLabel(r.created_at) + '</span>' +
           '<span class="d">' + desc + (r.cancelled ? '<span class="tag">取消</span>' : '') +
-            '<br><span class="s">' + ['#' + r.id, fee, r.payment, r.staff ? '担当 ' + esc(r.staff) : ''].filter(Boolean).map(x => '<span class="nw">' + x + '</span>').join('　') + '</span></span>' +
+            '<br><span class="s">' + ['#' + (r.order_no ?? r.id), fee, r.payment, r.staff ? '担当 ' + esc(r.staff) : ''].filter(Boolean).map(x => '<span class="nw">' + x + '</span>').join('　') + '</span></span>' +
           '<span class="a">' + yen(r.amount) + '</span>' +
           '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
       }).join('') + '</section>').join('');
@@ -132,6 +132,7 @@
       const d = await api('sales?limit=50' + before);
       rows = more ? rows.concat(d.sales) : d.sales;
       hasMore = d.hasMore;
+      if (d.project) $('projName').textContent = d.project.name + '・';
       renderStats(d);
       render();
       $('main').classList.remove('hidden');
@@ -149,8 +150,8 @@
     const row = rows.find(r => r.id === id);
     const label = row.cancelled ? '戻す' : '取消';
     if (!confirm(row.cancelled
-      ? '#' + id + '（' + yen(row.amount) + '）の取消を元に戻しますか？'
-      : '#' + id + '（' + yen(row.amount) + '・' + row.payment + '）を取り消しますか？')) return;
+      ? '#' + (row.order_no ?? id) + '（' + yen(row.amount) + '）の取消を元に戻しますか？'
+      : '#' + (row.order_no ?? id) + '（' + yen(row.amount) + '・' + row.payment + '）を取り消しますか？')) return;
     try {
       await api('sales/' + id + '/toggle-cancel', {});
       row.cancelled = row.cancelled ? 0 : 1;

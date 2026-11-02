@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>キッチン｜団子</title>
+<title>キッチン｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -86,7 +86,8 @@
 <body>
 
 <div id="login" class="card login-card hidden">
-  <span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+  <span class="app-mark" aria-hidden="true"></span>
+  <div class="login-system">岡大グリー模擬店システム</div>
   <h2>キッチン</h2>
   <p class="login-lead">レジと同じパスワードでログインします</p>
   <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="名前（例: キッチン）">
@@ -100,7 +101,7 @@
   <div class="bar">
     <!-- 1 行目：見出し（全画面共通）。件数は見出しの下 -->
     <header class="app-header">
-      <div class="app-title"><span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span><div class="app-name"><h1>キッチン</h1><span class="app-sub">まだ <b id="nTodo">0</b> 件</span></div></div>
+      <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>キッチン</h1><span class="app-sub"><span id="projName"></span>まだ <b id="nTodo">0</b> 件</span></div></div>
       <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
       <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
     </header>
@@ -134,7 +135,7 @@
 
   <details>
     <summary>ログインのしかたは？</summary>
-    <figure class="narrow"><img src="/help/kitchen-login.webp" width="380" height="432" loading="lazy" alt="キッチンのログイン画面。名前とレジ用パスワードの入力欄とログインボタン"></figure>
+    <figure class="narrow"><img src="/help/kitchen-login.webp" width="380" height="450" loading="lazy" alt="キッチンのログイン画面。名前とレジ用パスワードの入力欄とログインボタン"></figure>
     <p>名前（例：「キッチン」や自分の名前）と、<b>レジと同じパスワード</b>を入れて「ログイン」を押します。ログインは3日間有効です。</p>
   </details>
 
@@ -310,7 +311,8 @@
     if (polling) return;
     polling = true;
     try {
-      const q = data && !force ? '?rev=' + data.rev + '&day=' + data.day : '';
+      // 変化がないか確かめるための印（催し・版・日付）。どれかが変わっていれば全件が返ってくる
+      const q = data && !force ? '?project=' + (data.project ? data.project.id : '') + '&rev=' + data.rev + '&day=' + data.day : '';
       const d = await api('kitchen' + q);
       showApp();
       if (d.same) {
@@ -347,6 +349,7 @@
   let renderLater = false;
   function render() {
     if (!data) return;
+    $('projName').textContent = data.project ? data.project.name + '・' : '';
     if (drag && drag.active) { renderLater = true; return; }   // スワイプ中は描き直さない
     $('closedBox').classList.toggle('hidden', !data.closed);
     const orders = data.orders || [];
@@ -392,7 +395,7 @@
         : 'タップ／右へスワイプで「できた」';
       return '<div class="' + cls.join(' ') + '" data-id="' + o.id + '" role="button" tabindex="0" aria-pressed="' + done + '">' +
         '<div class="hint ok">✓ 離すと「できた」</div><div class="hint back">↩ 離すと戻す</div>' +
-        '<div class="oh"><span class="no">#' + o.id + '</span><span class="tm">' + hhmm(o.createdAt) + '</span>' +
+        '<div class="oh"><span class="no">#' + o.no + '</span><span class="tm">' + hhmm(o.createdAt) + '</span>' +
           '<span class="age">' + (done || o.cancelled ? '' : age.text) + '</span></div>' +
         '<ul class="ol">' + o.lines.map(l => '<li><span>' + lineLabel(l) + '</span><span class="q t">×' + l.qty + '</span></li>').join('') + '</ul>' +
         '<div class="ostate">' + state + '</div></div>';
@@ -414,7 +417,7 @@
     if (isDone(o) === done) return;
     overrides[id] = done;
     render();
-    if (withUndo) toast('#' + id + (done ? ' をできたにしました' : ' を戻しました'), { undo: () => setDone(id, !done, { withUndo: false }) });
+    if (withUndo) toast('#' + o.no + (done ? ' をできたにしました' : ' を戻しました'), { undo: () => setDone(id, !done, { withUndo: false }) });
     try {
       await api('kitchen/done', { id, done });
       o.doneAt = done ? (o.doneAt || new Date().toISOString()) : null;
