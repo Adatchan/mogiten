@@ -226,6 +226,19 @@ async function masterApi(request, env, url, route) {
       `会計 ${before.n} 件（うち取消 ${before.cancelled} 件・売上 ${yen(before.total)}）を削除`);
     return json(await masterData(db, sess));
   }
+  // 営業終了／再開（営業終了中はレジで新しい会計を記録できない）
+  if (route === 'POST /api/master/closed') {
+    const body = await readJson(request);
+    if (body.closed) {
+      const at = new Date().toISOString();
+      await db.prepare("INSERT INTO settings (key, value) VALUES ('sales_closed_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(at).run();
+      await audit(db, 'マスター', role, '営業終了', 'レジの会計の記録を停止');
+    } else {
+      await db.prepare("DELETE FROM settings WHERE key = 'sales_closed_at'").run();
+      await audit(db, 'マスター', role, '営業再開', 'レジの会計の記録を再開');
+    }
+    return json(await masterData(db, sess));
+  }
   if (route === 'POST /api/master/unlock') {
     const res = await db.prepare('DELETE FROM login_failures').run();
     await audit(db, 'マスター', role, 'ログイン制限を解除', `失敗記録 ${res.meta.changes || 0} 件を消去`);
@@ -648,6 +661,12 @@ async function audit(db, actor, role, action, detail) {
 }
 
 /** 売上記録の世代番号（全リセットのたびに 1 増える） */
+/** 営業終了の状態（管理画面で設定）。null なら営業中 */
+async function getClosed(db) {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'sales_closed_at'").first();
+  return row && row.value ? { at: row.value } : null;
+}
+
 async function getEpoch(db) {
   const row = await db.prepare("SELECT value FROM settings WHERE key = 'sales_epoch'").first();
   return row ? Number(row.value) : 1;
@@ -737,6 +756,7 @@ async function summary(db) {
     byPayment,
     payments: PAYMENTS,
     avgPerOrder: t.orders > 0 ? Math.round(t.total / t.orders) : 0,   // 客単価（取消を除く）
+    closed: await getClosed(db),   // 営業終了中なら { at }
     hourly: await hourlySales(db),
     updatedAt: new Date().toISOString(),
   };
@@ -795,6 +815,12 @@ async function masterData(db, sess) {
 
 async function recordSale(db, body, staff) {
   if (!PAYMENTS.includes(body.payment)) throw httpError('支払方法が不正です', 400);
+  // 営業終了後に打った会計は受け付けない（終了前に端末で打って、あとから届いた未送信の会計は受け付ける）
+  const closed = await getClosed(db);
+  if (closed) {
+    const t = Date.parse(body.createdAt);
+    if (!Number.isFinite(t) || t >= Date.parse(closed.at)) throw httpError('営業は終了しました。会計は記録できません', 423);
+  }
   const clientId = body.clientId == null ? null : String(body.clientId).slice(0, 64);
   if (clientId && !/^[A-Za-z0-9_-]{8,64}$/.test(clientId)) throw httpError('会計IDが不正です', 400);
   // 売上記録の全リセットより前に端末で打った会計は捨てる（リセットした記録を復活させない）

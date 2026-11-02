@@ -57,6 +57,7 @@
   .remain.done b { color: var(--green); }
   .hint { color: var(--sub); font-size: 13px; margin-top: 4px; }
   .hidden { display: none !important; }
+  .closed-note { text-align: center; background: #2b2420; color: #fff; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-weight: 700; }
   /* 目標達成のための1時間あたりの目安 */
   .pace { margin: 12px auto 2px; max-width: 460px; background: #fdf3f5; border: 1px solid #f3cdd6; border-radius: 12px; padding: 8px 12px; font-size: 14px; line-height: 1.6; }
   .pace b { font-size: 22px; color: #c2566f; font-variant-numeric: tabular-nums; }
@@ -140,6 +141,7 @@
     <h1><span class="dango"><i></i><i></i><i></i></span>団子</h1>
   </header>
 
+  <div class="closed-note hidden" id="closedNote"></div>
   <section class="card hero">
     <div class="label">現在の売上</div>
     <div class="total" id="total">—</div>
@@ -185,7 +187,7 @@
   </div>
 
   <footer>
-    最終更新 <span id="updated">—</span>（1分ごとに自動更新）
+    最終更新 <span id="updated">—</span><span id="autoNote">（1分ごとに自動更新）</span>
     <div id="err" class="error"></div>
   </footer>
 </div>
@@ -334,7 +336,7 @@
   let currentPace = 0;
   function paceInfo(d) {
     const h = d.hourly;
-    if (!h || d.total >= d.target) return null;
+    if (!h || d.total >= d.target || d.closed) return null;
     const jst = new Date(Date.parse(d.updatedAt) + 9 * 3600000);
     const nowMin = jst.getUTCHours() * 60 + jst.getUTCMinutes();
     const openMin = h.open * 60, closeMin = h.close * 60;
@@ -438,6 +440,17 @@
 
   function render(d) {
     lastData = d;
+    // 営業終了：自動更新を止め、終了時点の集計として表示
+    const closedEl = document.getElementById('closedNote');
+    if (d.closed) {
+      if (timer) { clearInterval(timer); timer = null; }
+      const t = new Date(d.closed.at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      closedEl.textContent = '🌙 営業終了（' + t + '）の集計です';
+      closedEl.classList.remove('hidden');
+      document.getElementById('autoNote').textContent = '（営業終了のため自動更新は停止中）';
+    } else {
+      closedEl.classList.add('hidden');
+    }
     document.getElementById('total').textContent = yen(d.total);
     document.getElementById('target').textContent = yen(d.target);
     document.getElementById('breakdown').textContent = '（商品 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）';
@@ -508,7 +521,8 @@
   }
 
   load();
-  setInterval(load, 60000);
+  // 1分ごとに自動更新（営業終了中は止める）
+  let timer = setInterval(load, 60000);
 </script>
 <script src="/help.js"></script>
 </body>
