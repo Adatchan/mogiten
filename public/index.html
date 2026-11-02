@@ -3,49 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>団子 売上ダッシュボード</title>
+<title>ダッシュボード｜団子</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
 <style>
-  :root {
-    --bg: #fbf7f0;
-    --card: #ffffff;
-    --ink: #2b2420;
-    --sub: #7a6f66;
-    --line: #ebe3d8;
-    --pink: #e8879f;
-    --green: #7fae5c;
-    --brown: #8a5a3b;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
-  header { position: relative; text-align: center; margin-bottom: 16px; }
-  header .btn-help { position: absolute; top: 0; right: 0; }
-  header .sub { font-size: 14px; color: var(--sub); }
-  header h1 { margin: 2px 0 0; font-size: 34px; letter-spacing: .1em; }
-  .dango { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 8px; }
-  .dango i { width: 14px; height: 14px; border-radius: 50%; display: block; }
-  .dango i:nth-child(1) { background: var(--pink); }
-  .dango i:nth-child(2) { background: #fff; border: 1.5px solid var(--line); }
-  .dango i:nth-child(3) { background: var(--green); }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 14px;
-  }
-  .label { font-size: 14px; color: var(--sub); font-weight: 700; }
+  /* 色・文字・見出し・カードなどの共通部分は /app.css */
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 40px; }
+  .card { padding: 20px; margin-bottom: 14px; }
+  .label { font-size: 14px; margin-bottom: 0; }
   .hero { text-align: center; }
   .hero .total { font-size: 56px; font-weight: 700; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
   .hero .target { color: var(--sub); font-size: 16px; }
@@ -56,8 +24,7 @@
   .remain b { color: var(--pink); font-size: 30px; font-variant-numeric: tabular-nums; }
   .remain.done b { color: var(--green); }
   .hint { color: var(--sub); font-size: 13px; margin-top: 4px; }
-  .hidden { display: none !important; }
-  .closed-note { text-align: center; background: #2b2420; color: #fff; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-weight: 700; }
+  .closed-note { text-align: center; }
   /* 目標達成のための1時間あたりの目安 */
   .pace { margin: 12px auto 2px; max-width: 460px; background: #fdf3f5; border: 1px solid #f3cdd6; border-radius: 12px; padding: 8px 12px; font-size: 14px; line-height: 1.6; }
   .pace b { font-size: 22px; color: #c2566f; font-variant-numeric: tabular-nums; }
@@ -137,13 +104,13 @@
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>見方</button>
-    <div class="sub" id="shopSub">混声合唱と学祭のための</div>
-    <h1><span class="dango"><i></i><i></i><i></i></span>団子</h1>
+  <header class="app-header">
+    <div class="app-title"><span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span><div class="app-name"><h1>ダッシュボード</h1><span class="app-sub" id="shopSub"><span class="nw">混声合唱と学祭のための</span><span class="nw">団子</span></span></div></div>
+    <nav class="screen-links" aria-label="ほかの画面"><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
+    <button class="btn-help" type="button" data-help-open aria-label="見方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">見方</span></button>
   </header>
 
-  <div class="closed-note hidden" id="closedNote"></div>
+  <div class="closed-band closed-note hidden" id="closedNote"></div>
   <section class="card hero">
     <div class="label">現在の売上</div>
     <div class="total" id="total">—</div>

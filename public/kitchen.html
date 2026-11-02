@@ -3,40 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>キッチン注文キュー</title>
+<title>キッチン｜団子</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
 <style>
-  :root {
-    --bg: #fbf7f0;
-    --card: #ffffff;
-    --ink: #2b2420;
-    --sub: #7a6f66;
-    --line: #ebe3d8;
-    --pink: #e8879f;
-    --brown: #8a5a3b;
-    --green: #5b8c3a;
-    --red: #c0392b;
-    --amber: #d98a00;
-    --strike: #8a5a3b;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; font-family: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', sans-serif; background: var(--bg); color: var(--ink); }
-  button, input { font-family: inherit; }
-  button { cursor: pointer; border: none; touch-action: manipulation; }
-  .hidden { display: none !important; }
+  /* 色・文字・見出し・ボタン・ログイン・トーストの共通部分は /app.css */
+  :root { --strike: var(--brown); }
 
   /* 上の帯 */
   .bar { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); padding: 8px 12px; }
-  .bar-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .bar h1 { font-size: 18px; margin: 0; white-space: nowrap; }
-  .count { font-size: 14px; color: var(--sub); white-space: nowrap; }
-  .count b { font-size: 22px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .bar .app-header { margin: 0; }
+  .bar .app-sub { font-size: 13px; overflow: visible; }
+  .bar .app-sub b { font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .bar-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
   .sp { flex: 1; }
   .net { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--sub); white-space: nowrap; }
-  .net .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
+  .net .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
   .net.off .dot { background: var(--red); }
   .net.off { color: var(--red); font-weight: 700; }
   .tool { background: #fff; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; white-space: nowrap; }
@@ -78,7 +63,7 @@
   .done .oh .no { color: var(--sub); }
   .done .oh .age { color: var(--sub) !important; }
   .ostate { font-size: 12px; color: var(--sub); border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 2px; }
-  .done .ostate { color: var(--green); font-weight: 700; }
+  .done .ostate { color: var(--ok); font-weight: 700; }
   .cancelled { opacity: .55; background: #fdf3f2; border-color: #f2c2bc !important; }
   .cancelled .ol .t { background-image: linear-gradient(var(--red), var(--red)); background-size: 100% 3px; }
   .cancelled .ostate { color: var(--red); font-weight: 700; }
@@ -87,48 +72,44 @@
   /* 線の手前までは薄く、指を離せば決まるところまで来たら不透明になる */
   .order .hint { position: absolute; inset: 0; z-index: 2; border-radius: 12px; display: flex; align-items: center; justify-content: center;
                  font-size: 26px; font-weight: 700; color: #fff; opacity: 0; pointer-events: none; }
-  .order .hint.ok { background: var(--green); }
+  .order .hint.ok { background: var(--ok); }
   .order .hint.back { background: var(--sub); }
   .empty { text-align: center; color: var(--sub); padding: 40px 12px; grid-column: 1 / -1; }
 
-  /* ログイン */
-  #login { max-width: 360px; margin: 80px auto; padding: 20px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; text-align: center; }
-  #login h2 { margin: 0 0 8px; }
-  #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
-  #login button.go { width: 100%; padding: 14px; font-size: 18px; background: var(--brown); color: #fff; border-radius: 10px; margin-top: 6px; }
-  #login .note { color: var(--sub); font-size: 12px; margin-top: 10px; }
-
-  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(140px); background: var(--ink); color: #fff; padding: 12px 14px 12px 18px; border-radius: 12px;
-           font-size: 16px; transition: transform .25s; z-index: 30; max-width: calc(100% - 32px); display: flex; align-items: center; gap: 12px; }
-  .toast.show { transform: translateX(-50%) translateY(0); }
+  /* トースト（「元に戻す」ボタンつき） */
+  .toast { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 18px; }
   #toastMsg { white-space: nowrap; }
-  .toast.err { background: var(--red); }
   .toast button { background: #fff; color: var(--ink); border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 700; white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) { .ol .t, .order { transition: none; } .order.new { animation: none; } }
 </style>
 </head>
 <body>
 
-<div id="login" class="hidden">
-  <h2>🍳 キッチン</h2>
-  <div class="note" style="margin:0 0 6px">レジと同じパスワードでログインします</div>
+<div id="login" class="card login-card hidden">
+  <span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+  <h2>キッチン</h2>
+  <p class="login-lead">レジと同じパスワードでログインします</p>
   <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="名前（例: キッチン）">
   <input id="pw" type="password" autocomplete="current-password" placeholder="レジ用パスワード">
-  <button class="go" id="loginBtn">ログイン</button>
-  <div class="note">ログインは3日間有効です</div>
-  <button class="btn-help" type="button" data-help-open style="margin-top:14px"><span class="help-badge" aria-hidden="true">?</span>使い方</button>
+  <button class="btn big block login-go" id="loginBtn">ログイン</button>
+  <div class="login-note">ログインは3日間有効です</div>
+  <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
 <div id="app" class="hidden">
   <div class="bar">
-    <div class="bar-top">
-      <h1>🍳 キッチン</h1>
-      <span class="count">まだ <b id="nTodo">0</b> 件</span>
-      <span class="sp"></span>
+    <!-- 1 行目：見出し（全画面共通）。件数は見出しの下 -->
+    <header class="app-header">
+      <div class="app-title"><span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span><div class="app-name"><h1>キッチン</h1><span class="app-sub">まだ <b id="nTodo">0</b> 件</span></div></div>
+      <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
+      <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
+    </header>
+    <!-- 2 行目：通信状態と表示の切り替え -->
+    <div class="bar-tools">
       <span class="net" id="net"><span class="dot"></span><span id="netText">確認中…</span></span>
+      <span class="sp"></span>
       <button class="tool" id="hideBtn" aria-pressed="false">できたを隠す</button>
       <button class="tool" id="soundBtn" aria-pressed="true">🔔 音</button>
-      <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span>使い方</button>
     </div>
     <div class="todo" id="todo"></div>
   </div>
@@ -153,7 +134,7 @@
 
   <details>
     <summary>ログインのしかたは？</summary>
-    <figure class="narrow"><img src="/help/kitchen-login.webp" width="360" height="346" loading="lazy" alt="キッチンのログイン画面。名前とレジ用パスワードの入力欄とログインボタン"></figure>
+    <figure class="narrow"><img src="/help/kitchen-login.webp" width="380" height="432" loading="lazy" alt="キッチンのログイン画面。名前とレジ用パスワードの入力欄とログインボタン"></figure>
     <p>名前（例：「キッチン」や自分の名前）と、<b>レジと同じパスワード</b>を入れて「ログイン」を押します。ログインは3日間有効です。</p>
   </details>
 
@@ -172,7 +153,7 @@
 
   <details>
     <summary>上のピンクの枠（味ごとの合計）は？</summary>
-    <figure class="narrow"><img src="/help/kitchen-todo.webp" width="390" height="159" loading="lazy" alt="画面上部。キッチン、まだ4件、更新時刻、できたを隠す・音・使い方のボタン、みたらし4・あんこ4・きなこ3・焼きマシュマロ3"></figure>
+    <figure class="narrow"><img src="/help/kitchen-todo.webp" width="390" height="197" loading="lazy" alt="画面上部。キッチン、まだ4件、右上にダッシュボード・レジ・管理画面へのリンクと使い方のボタン、その下に更新時刻、できたを隠す・音のボタン、みたらし4・あんこ4・きなこ3・焼きマシュマロ3"></figure>
     <p>「まだ ○件」は、まだ「できた」にしていない注文の数です。ピンクの枠は、それらの注文を<b>味ごとに足した本数</b>です。まとめて焼くときや、タレの準備の目安にしてください。「できた」にすると、その分が減ります。</p>
   </details>
 
