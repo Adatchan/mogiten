@@ -73,6 +73,15 @@
   .pj-wide { grid-column: 1 / -1; }
   .pj-grid input, .pj-grid select, .pj-line input, .pj-line select { padding: 9px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; font-weight: 400; width: 100%; min-width: 0; }
   .req { font-size: 10px; color: var(--red); font-weight: 700; }
+  .pj-add { border: 1.5px dashed var(--line); border-radius: 12px; margin-bottom: 10px; }
+  .pj-add.open { border-style: solid; border-color: var(--brown); }
+  .pj-add-row { display: flex; align-items: center; gap: 8px; width: 100%; background: none; padding: 14px 12px; font-size: 16px; font-weight: 700; color: var(--brown); text-align: left; }
+  .pj-add-row .plus { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--soft); font-size: 16px; }
+  .pj-add-row .chev { margin-left: auto; width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .2s; }
+  .pj-add.open .pj-add-row .chev { transform: rotate(-135deg); }
+  .pj-add-form { padding: 0 12px 12px; }
+  .pj-grid input[type=date] { padding: 9px 6px; font-size: 15px; }   /* スマホでも年まで見えるように */
+  .pj-add-btns { display: flex; gap: 8px; }
   .pj-copy { background: var(--bg); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
   .pj-copy .pj-line { margin-bottom: 0; }
   .pj-check { display: flex; gap: 6px; align-items: center; font-size: 14px; margin: 4px 0 10px; }
@@ -111,14 +120,13 @@
   <section class="card">
     <h2>催しの一覧</h2>
     <div id="projectList"></div>
-    <div class="note">「開く」で、その催しの商品・価格・目標などを設定する画面に入ります。レジ・キッチン・ダッシュボードで使われるのは「レジで使用中」の催しだけです。</div>
-  </section>
-
-  <section class="card" id="newProjectCard">
-    <h2>＋ 新しい催しを作る</h2>
+    <!-- 新しい催しを追加：押すと、この下に入力欄が開く -->
+    <div class="pj-add" id="newProjectCard">
+      <button class="pj-add-row" id="npToggle" type="button" aria-expanded="false" aria-controls="npForm"><span class="plus" aria-hidden="true">＋</span>新しい催しを追加<span class="chev" aria-hidden="true"></span></button>
+      <div class="pj-add-form" id="npForm" hidden>
       <div class="pj-grid">
         <label class="pj-wide"><span class="lb">催し名 <span class="req">必須</span></span><input id="npName" type="text" maxlength="40" placeholder="例: 27岡山大学祭"></label>
-        <label class="pj-wide"><span class="lb">模擬店の名前（ダッシュボードに表示・なくてもよい）</span><input id="npShop" type="text" maxlength="40" placeholder="例: 混声合唱と学祭のための 団子"></label>
+        <label class="pj-wide"><span class="lb">模擬店の名前（ダッシュボードに表示・任意）</span><input id="npShop" type="text" maxlength="40" placeholder="例: 混声合唱と学祭のための 団子"></label>
         <label><span class="lb">開始日 <span class="req">必須</span></span><input id="npStart" type="date"></label>
         <label><span class="lb">終了日 <span class="req">必須</span></span><input id="npEnd" type="date"></label>
         <label><span class="lb">営業開始</span><select id="npOpen"><option value="0">0:00</option><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option></select></label>
@@ -136,9 +144,13 @@
         </div>
       </div>
       <label class="pj-check"><input type="checkbox" id="npActivate" checked> 作ったら、この催しをレジで使う</label>
-      <button class="btn" id="npBtn">作成して開く</button>
+      <div class="pj-add-btns"><button class="btn" id="npBtn">作成して開く</button><button class="btn sub" id="npCancel" type="button">やめる</button></div>
       <div class="note">会計（売上）は複製されません。新しい催しの会計番号は #1 から始まります。</div>
+      </div>
+    </div>
+    <div class="note">「開く」で、その催しの商品・価格・目標などを設定する画面に入ります。レジ・キッチン・ダッシュボードで使われるのは「レジで使用中」の催しだけです。</div>
   </section>
+
 
   <button class="btn sub" id="logoutBtn2">ログアウト</button>
 </div>
@@ -162,7 +174,7 @@
       <summary><h2 style="display:inline">催しの設定</h2> <span class="note" id="pjSummary"></span></summary>
       <div class="pj-grid">
         <label class="pj-wide"><span class="lb">催し名 <span class="req">必須</span></span><input id="psName" type="text" maxlength="40" placeholder="例: 27岡山大学祭"></label>
-        <label class="pj-wide"><span class="lb">模擬店の名前（ダッシュボードに表示・なくてもよい）</span><input id="psShop" type="text" maxlength="40" placeholder="例: 混声合唱と学祭のための 団子"></label>
+        <label class="pj-wide"><span class="lb">模擬店の名前（ダッシュボードに表示・任意）</span><input id="psShop" type="text" maxlength="40" placeholder="例: 混声合唱と学祭のための 団子"></label>
         <label><span class="lb">開始日 <span class="req">必須</span></span><input id="psStart" type="date"></label>
         <label><span class="lb">終了日 <span class="req">必須</span></span><input id="psEnd" type="date"></label>
         <label><span class="lb">営業開始</span><select id="psOpen"><option value="0">0:00</option><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option></select></label>
@@ -303,15 +315,15 @@
 
   <details>
     <summary>催しとは？</summary>
-    <figure class="narrow"><img src="/help/master-projects.webp" width="390" height="483" loading="lazy" alt="催しの一覧。27岡山大学祭と、レジで使用中の26岡山大学祭。それぞれ期間・営業時間・売上・目標・商品の数と、開く・レジで使うのボタン"></figure>
+    <figure class="narrow"><img src="/help/master-projects.webp" width="390" height="681" loading="lazy" alt="催しの一覧。27岡山大学祭と、レジで使用中の26岡山大学祭。それぞれ期間・営業時間・売上・目標・商品の数と、開く・レジで使うのボタン。いちばん下に「新しい催しを追加」の行"></figure>
     <p>「26岡山大学祭」「27岡山大学祭」のような、模擬店を出す1回ごとのまとまりです。催しごとに、商品・価格・味・セット、目標金額、容器代のルール、営業時間、会計（売上）が別々に記録されます。会計番号（#）も催しごとに #1 から始まります。</p>
     <p>レジ・キッチン・ダッシュボード・会計の一覧で使われるのは、<b>「レジで使用中」の催し1つだけ</b>です。前の催しの売上や商品は、催しを切り替えても消えずに残ります。</p>
   </details>
 
   <details>
     <summary>新しい催しを作る（次の学祭の準備）</summary>
-    <figure class="narrow"><img src="/help/master-newproject.webp" width="362" height="688" loading="lazy" alt="新しい催しを作るフォーム。催し名、模擬店の名前、開始日、終了日、営業開始、営業終了、目標金額、前の催しから設定を複製と複製する内容のチェック、作ったらこの催しをレジで使うのチェック、作成して開くボタン"></figure>
-    <p>催しの一覧の下の「＋ 新しい催しを作る」で、催し名・開始日・終了日・営業時間を入れて「作成して開く」を押します。模擬店の名前（例：混声合唱と学祭のための 団子）を入れると、ダッシュボードに表示されます。</p>
+    <figure class="narrow"><img src="/help/master-newproject.webp" width="328" height="732" loading="lazy" alt="「新しい催しを追加」を押して開いた入力欄。催し名、模擬店の名前、開始日、終了日、営業開始、営業終了、目標金額、前の催しから設定を複製と複製する内容のチェック、作ったらこの催しをレジで使うのチェック、作成して開くボタン"></figure>
+    <p>催しの一覧のいちばん下の「＋ 新しい催しを追加」を押すと、入力欄が開きます。催し名・開始日・終了日・営業時間を入れて「作成して開く」を押します（「やめる」で閉じます）。模擬店の名前（例：混声合唱と学祭のための 団子）を入れると、ダッシュボードに表示されます。</p>
     <p><b>前の催しから設定を複製</b>で前の催しを選ぶと、商品・価格・セット・味と容器代のルールをそのまま引き継げます（目標金額も選べます）。売上は複製されません。複製したあとで、値段や味を今年の分に直してください。</p>
     <p>「作ったら、この催しをレジで使う」を外しておくと、今の催しの営業を続けたまま、次の催しの準備だけできます。</p>
   </details>
@@ -740,8 +752,19 @@
       $('npClose').value = latest ? latest.closeHour : 19;
       if (latest) sel.value = String(latest.id);
       syncCopyWhat();
+      setAddOpen(!d.projects.length);   // 催しがまだないときは最初から開いておく
     }
   }
+  // 「新しい催しを追加」の行：押すと入力欄を開く／閉じる
+  function setAddOpen(open) {
+    $('npForm').hidden = !open;
+    $('newProjectCard').classList.toggle('open', open);
+    $('npToggle').setAttribute('aria-expanded', open);
+    if (open) setTimeout(() => $('npName').focus(), 50);
+  }
+  $('npToggle').onclick = () => setAddOpen($('npForm').hidden);
+  $('npCancel').onclick = () => setAddOpen(false);
+
   function syncCopyWhat() { $('npCopyWhat').classList.toggle('hidden', !$('npFrom').value); }
   $('npFrom').onchange = syncCopyWhat;
   const readFields = prefix => ({
