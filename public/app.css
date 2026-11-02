@@ -1,5 +1,5 @@
 /*
- * 全画面で共通のデザイン（ダッシュボード・レジ・キッチン・管理画面・会計の一覧）
+ * 岡大グリー模擬店システム：全画面で共通のデザイン（ダッシュボード・レジ・キッチン・管理画面・会計の一覧）
  *   色・文字・見出し（ヘッダー）・カード・ボタン・ログイン・トースト
  * 画面ごとの部品は各 HTML の <style> に置く。色は必ずここの変数を使う。
  * レジはオフラインでも開くので、Service Worker（sw.js）でこのファイルもキャッシュしている。
@@ -12,7 +12,7 @@
   --sub: #7a6f66;         /* 補足の文字 */
   --line: #ebe3d8;        /* 線・枠 */
   --soft: #f1ebe2;        /* 控えめなボタン・バーの地 */
-  /* ブランド（団子の色） */
+  /* アクセントの色 */
   --pink: #e8879f;
   --pink-soft: #fff4f6;
   --green: #7fae5c;
@@ -48,7 +48,7 @@ button { cursor: pointer; border: none; touch-action: manipulation; }
 button:disabled { opacity: .45; cursor: default; }
 .hidden { display: none !important; }
 
-/* ── 見出し（ヘッダー）：左に団子のマークと画面名、右にほかの画面へのリンクと使い方 ── */
+/* ── 見出し（ヘッダー）：左にシステムのマークと画面名、右にほかの画面へのリンクと使い方 ── */
 .app-header { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; min-height: 44px; }
 .app-title { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 0; max-width: 55%; color: inherit; text-decoration: none; }
 .app-name { min-width: 0; }
@@ -59,19 +59,24 @@ button:disabled { opacity: .45; cursor: default; }
 .app-header .screen-links { flex: 1; }
 .app-header .btn-help { flex-shrink: 0; }
 
-/* 団子のマーク（3 つの団子）。全画面の左上とログイン画面で共通 */
+/* システムのマーク（模擬店の屋台）。全画面の左上とログイン画面で共通。絵は CSS のマスクで描くので HTML は空の span */
 .app-mark {
   flex-shrink: 0;
   width: 40px; height: 40px;
   border-radius: 12px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  background: var(--brown);
+  display: inline-flex; align-items: center; justify-content: center;
 }
-.app-mark i { width: 9px; height: 9px; border-radius: 50%; display: block; }
-.app-mark i:nth-child(1) { background: var(--pink); }
-.app-mark i:nth-child(2) { background: #fff; box-shadow: inset 0 0 0 1.5px var(--line); }
-.app-mark i:nth-child(3) { background: var(--green); }
+.app-mark::before {
+  content: '';
+  width: 60%; height: 60%;
+  background: #fff;
+  -webkit-mask: var(--mark-icon) center / contain no-repeat;
+  mask: var(--mark-icon) center / contain no-repeat;
+}
+:root {
+  --mark-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 9.5 4.6 4h14.8L21 9.5'/%3E%3Cpath d='M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0'/%3E%3Cpath d='M5 12.5V20h14v-7.5'/%3E%3Cpath d='M10 20v-4.5h4V20'/%3E%3C/svg%3E");
+}
 
 /* ほかの画面へのリンク */
 .screen-links {
@@ -84,8 +89,7 @@ button:disabled { opacity: .45; cursor: default; }
 
 @media (max-width: 420px) {
   .app-header { gap: 8px; }
-  .app-mark { width: 34px; height: 34px; border-radius: 10px; gap: 2px; }
-  .app-mark i { width: 8px; height: 8px; }
+  .app-mark { width: 34px; height: 34px; border-radius: 10px; }
   .app-name h1 { font-size: 17px; }
   .screen-links { font-size: 12px; gap: 0 10px; }
   .app-header .help-label { display: none; }
@@ -115,8 +119,8 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* ── ログイン画面（レジ・キッチン・管理画面で共通） ── */
 .card.login-card { max-width: 380px; margin: 64px auto; padding: 28px 22px 22px; text-align: center; }
-.login-card .app-mark { width: 52px; height: 52px; border-radius: 16px; gap: 4px; margin-bottom: 10px; }
-.login-card .app-mark i { width: 11px; height: 11px; }
+.login-card .app-mark { width: 52px; height: 52px; border-radius: 16px; margin-bottom: 8px; }
+.login-card .login-system { font-size: 12px; color: var(--sub); font-weight: 700; letter-spacing: .04em; margin-bottom: 2px; }
 .login-card h2 { margin: 0 0 4px; font-size: 22px; }
 .login-card .login-lead { color: var(--sub); font-size: 13px; margin: 0 0 14px; }
 .login-card input { display: block; width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: var(--radius-sm); margin: 0 0 10px; background: #fff; color: var(--ink); }

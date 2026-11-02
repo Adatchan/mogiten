@@ -1,5 +1,8 @@
 /**
- * 模擬店（団子）売上ダッシュボード & かんたんレジ — Cloudflare Workers + D1
+ * 岡大グリー模擬店システム — 売上ダッシュボード・レジ・キッチン・管理画面（Cloudflare Workers + D1）
+ *
+ * 催し（プロジェクト）ごとに、商品・価格・目標・営業時間と会計を分けて管理する。
+ * レジ・キッチン・ダッシュボードは、管理画面で「レジで使う」にした催しを使う。
  *
  *   /            ダッシュボード（public/index.html・認証不要・集計のみ）
  *   /admin       レジ（public/admin.html・レジ用パスワード＋担当者名）
@@ -20,7 +23,7 @@
  * あとで価格を変えても過去の記録は変わらない。
  */
 
-import { DEFAULT_RULE, DEFAULT_PRODUCTS, MAX_QTY, priceCart, describeItems, itemsFromLines, withFlavors } from '../public/pricing.js';
+import { DEFAULT_RULE, MAX_QTY, priceCart, describeItems, itemsFromLines, withFlavors } from '../public/pricing.js';
 
 const DEFAULT_TARGET = 30000;
 
@@ -51,7 +54,7 @@ export default {
         if (origin && origin !== url.origin) return json({ error: '不正なリクエストです' }, 403);
       }
 
-      if (route === 'GET /api/summary') return json(await summary(env.DB));
+      if (route === 'GET /api/summary') return json(await summary(env.DB, await getActiveProject(env.DB)));
       if (url.pathname.startsWith('/api/admin/')) return await registerApi(request, env, url, route);
       if (url.pathname.startsWith('/api/master/')) return await masterApi(request, env, url, route);
       return json({ error: 'Not Found' }, 404);
@@ -81,21 +84,21 @@ async function registerApi(request, env, url, route) {
 
   if (route === 'GET /api/admin/data') return json(await registerData(db, sess));
   const csvName = request.method === 'GET' && url.pathname.match(/^\/api\/(?:admin|master)\/([a-z_]+\.csv)$/);
-  if (csvName && CSV_FILES[csvName[1]]) return csvResponse(db, csvName[1], url.searchParams);
-  if (route === 'GET /api/admin/sales') return json(await salesPage(db, url.searchParams));
-  // キッチンの注文キュー（今日の注文。変化がなければ rev だけ返す）
-  if (route === 'GET /api/admin/kitchen') return json(await kitchenData(db, url.searchParams));
+  if (csvName && CSV_FILES[csvName[1]]) return csvResponse(db, await getActiveProject(db), csvName[1], url.searchParams);
+  if (route === 'GET /api/admin/sales') return json(await salesPage(db, await getActiveProject(db), url.searchParams));
+  // キッチンの注文キュー（レジで使っている催しの今日の注文。変化がなければ rev だけ返す）
+  if (route === 'GET /api/admin/kitchen') return json(await kitchenData(db, await getActiveProject(db), url.searchParams));
   // キッチンで「できた」にする／戻す（状態を指定するので何度送っても同じ）
   if (route === 'POST /api/admin/kitchen/done') {
     const body = await readJson(request);
     const id = Math.floor(Number(body.id) || 0);
-    const row = await db.prepare('SELECT id, kitchen_done_at FROM sales WHERE id = ?').bind(id).first();
+    const row = await db.prepare('SELECT id, project_id, kitchen_done_at FROM sales WHERE id = ?').bind(id).first();
     if (!row) throw httpError('注文が見つかりません', 404);
     const want = !!body.done;
     if (!!row.kitchen_done_at !== want) {
       await db.batch([
         db.prepare('UPDATE sales SET kitchen_done_at = ? WHERE id = ?').bind(want ? new Date().toISOString() : null, id),
-        bumpRev(db),
+        bumpRev(db, row.project_id),
       ]);
     }
     return json({ ok: true, id, done: want });
@@ -110,16 +113,17 @@ async function registerApi(request, env, url, route) {
   if (route === 'POST /api/admin/sales/set-cancel') {
     const body = await readJson(request);
     // 売上記録の全リセットより前に端末で行った操作は捨てる（リセットした記録を復活させない）
-    if (body.epoch != null && Number(body.epoch) !== await getEpoch(db)) return json({ ok: true, stale: true });
+    const P = body.projectId != null ? await getProject(db, body.projectId) : await getActiveProject(db);
+    if (P && body.epoch != null && Number(body.epoch) !== P.epoch) return json({ ok: true, stale: true });
     const row = body.clientId
       ? await db.prepare('SELECT * FROM sales WHERE client_id = ?').bind(String(body.clientId)).first()
       : await db.prepare('SELECT * FROM sales WHERE id = ?').bind(Number(body.id) || 0).first();
     if (!row) throw httpError('会計が見つかりません', 404);
     const want = body.cancelled ? 1 : 0;
     if (row.cancelled !== want) {
-      await db.batch([db.prepare('UPDATE sales SET cancelled = ? WHERE id = ?').bind(want, row.id), bumpRev(db)]);
+      await db.batch([db.prepare('UPDATE sales SET cancelled = ? WHERE id = ?').bind(want, row.id), bumpRev(db, row.project_id)]);
       await audit(db, sess.staff, role, want ? '会計を取消' : '取消を戻す',
-        `#${row.id} ${yen(row.amount)} ${row.payment}（担当 ${row.staff || '—'}）` + (body.offline ? '・オフライン操作' : ''));
+        `${await projectLabel(db, row.project_id)}#${row.order_no ?? row.id} ${yen(row.amount)} ${row.payment}（担当 ${row.staff || '—'}）` + (body.offline ? '・オフライン操作' : ''));
     }
     return json({ ok: true, id: row.id, cancelled: want });
   }
@@ -128,8 +132,8 @@ async function registerApi(request, env, url, route) {
     const id = Number(m[1]);
     const row = await db.prepare('SELECT * FROM sales WHERE id = ?').bind(id).first();
     if (!row) throw httpError('会計が見つかりません', 404);
-    await db.batch([db.prepare('UPDATE sales SET cancelled = 1 - cancelled WHERE id = ?').bind(id), bumpRev(db)]);
-    await audit(db, sess.staff, role, row.cancelled ? '取消を戻す' : '会計を取消', `#${id} ${yen(row.amount)} ${row.payment}（担当 ${row.staff || '—'}）`);
+    await db.batch([db.prepare('UPDATE sales SET cancelled = 1 - cancelled WHERE id = ?').bind(id), bumpRev(db, row.project_id)]);
+    await audit(db, sess.staff, role, row.cancelled ? '取消を戻す' : '会計を取消', `${await projectLabel(db, row.project_id)}#${row.order_no ?? id} ${yen(row.amount)} ${row.payment}（担当 ${row.staff || '—'}）`);
     return json(await registerData(db, sess));
   }
   return json({ error: 'Not Found' }, 404);
@@ -145,54 +149,94 @@ async function masterApi(request, env, url, route) {
     await login(request, env, role, body.password);
     const sess = await createSession(request, db, role, 'マスター');
     await audit(db, 'マスター', role, 'ログイン', sess.device);
-    return json(await masterData(db, sess.row), 200, { 'Set-Cookie': sess.cookie });
+    return json(await projectsData(db), 200, { 'Set-Cookie': sess.cookie });
   }
   if (route === 'POST /api/master/logout') return logout(request, db, role);
 
   const sess = await requireSession(request, db, role);
 
-  if (route === 'GET /api/master/data') return json(await masterData(db, sess));
+  // ----- 催しの一覧・作成・変更（催しを選ぶ前の画面） -----
+  if (route === 'GET /api/master/projects') return json(await projectsData(db));
+  if (route === 'POST /api/master/projects') {
+    const body = await readJson(request);
+    const made = await createProject(db, body);
+    const what = made.src ? `（「${made.src.name}」から複製：${[made.copy.products && `商品 ${made.copied} 件`, made.copy.rule && '容器代のルール', made.copy.target && '目標金額'].filter(Boolean).join('・') || 'なし'}）` : '';
+    await audit(db, 'マスター', role, '催しを作成', made.name + what);
+    if (body.activate) await setActiveProject(db, made.id);
+    return json({ ...(await projectsData(db)), created: made.id });
+  }
+  const pj = url.pathname.match(/^\/api\/master\/projects\/(\d+)(?:\/(activate|delete))?$/);
+  if (request.method === 'POST' && pj) {
+    const P = await getProject(db, pj[1]);
+    if (!P) throw httpError('催しが見つかりません', 404);
+    if (pj[2] === 'activate') {
+      await setActiveProject(db, P.id);
+      await audit(db, 'マスター', role, 'レジで使う催しを変更', P.name);
+    } else if (pj[2] === 'delete') {
+      const { n } = await db.prepare('SELECT COUNT(*) AS n FROM sales WHERE project_id = ?').bind(P.id).first();
+      if (n > 0) throw httpError('会計の記録がある催しは削除できません', 400);
+      if (P.id === await activeProjectId(db)) throw httpError('レジで使っている催しは削除できません。先にほかの催しをレジで使うようにしてください', 400);
+      await db.batch([db.prepare('DELETE FROM products WHERE project_id = ?').bind(P.id), db.prepare('DELETE FROM projects WHERE id = ?').bind(P.id)]);
+      await audit(db, 'マスター', role, '催しを削除', P.name);
+      return json(await projectsData(db));
+    } else {
+      // 催しの設定（催し名・模擬店名・期間・営業時間）の変更
+      const f = readProjectFields(await readJson(request), P);
+      await db.prepare('UPDATE projects SET name = ?, shop_name = ?, start_date = ?, end_date = ?, open_hour = ?, close_hour = ? WHERE id = ?')
+        .bind(f.name, f.shopName, f.startDate, f.endDate, f.openHour, f.closeHour, P.id).run();
+      await audit(db, 'マスター', role, '催しの設定を変更', `［${f.name}］${f.startDate}〜${f.endDate}・${f.openHour}:00〜${f.closeHour}:00` + (f.shopName ? `・${f.shopName}` : ''));
+    }
+    return json(await masterData(db, sess, await getProject(db, P.id)));
+  }
+
+  // ----- ここから下は、選んだ催し（?project= / X-Project）についての操作 -----
+  const P = await projectFromRequest(db, request, url);
+  const tag = `［${P.name}］`;
+  const reload = async () => json(await masterData(db, sess, await getProject(db, P.id)));
+
+  if (route === 'GET /api/master/data') return json(await masterData(db, sess, P));
   const csvName = request.method === 'GET' && url.pathname.match(/^\/api\/(?:admin|master)\/([a-z_]+\.csv)$/);
-  if (csvName && CSV_FILES[csvName[1]]) return csvResponse(db, csvName[1], url.searchParams);
+  if (csvName && CSV_FILES[csvName[1]]) return csvResponse(db, P, csvName[1], url.searchParams);
 
   if (route === 'POST /api/master/target') {
-    const before = await getTarget(db);
-    const n = await setTarget(db, await readJson(request));
-    await audit(db, 'マスター', role, '目標金額を変更', `${yen(before)} → ${yen(n)}`);
-    return json(await masterData(db, sess));
+    const n = await setTarget(db, P, await readJson(request));
+    await audit(db, 'マスター', role, '目標金額を変更', `${tag}${yen(P.target)} → ${yen(n)}`);
+    return reload();
   }
   if (route === 'POST /api/master/products') {
     const body = await readJson(request);
-    const { before, after } = await saveProduct(db, body);
-    await audit(db, 'マスター', role, before ? '商品を変更' : '商品を追加', before ? productDiff(before, after) : productText(after));
-    return json(await masterData(db, sess));
+    const { before, after } = await saveProduct(db, P, body);
+    await audit(db, 'マスター', role, before ? '商品を変更' : '商品を追加', tag + (before ? productDiff(before, after) : productText(after)));
+    return reload();
   }
   if (route === 'POST /api/master/container-rule') {
-    const before = await getRule(db);
-    const after = await saveRule(db, await readJson(request));
-    await audit(db, 'マスター', role, '容器代のルールを変更', `${ruleText(before)} → ${ruleText(after)}`);
-    return json(await masterData(db, sess));
+    const after = await saveRule(db, P, await readJson(request));
+    await audit(db, 'マスター', role, '容器代のルールを変更', `${tag}${ruleText(P.rule)} → ${ruleText(after)}`);
+    return reload();
   }
   const pm = url.pathname.match(/^\/api\/master\/products\/(\d+)\/(move|delete)$/);
   if (request.method === 'POST' && pm) {
     const id = Number(pm[1]);
-    const prod = await db.prepare('SELECT * FROM products WHERE id = ?').bind(id).first();
+    const prod = await db.prepare('SELECT * FROM products WHERE id = ? AND project_id = ?').bind(id, P.id).first();
     if (!prod) throw httpError('商品が見つかりません', 404);
     if (pm[2] === 'delete') {
       const used = await db.prepare('SELECT COUNT(*) AS n FROM sale_items WHERE product_id = ?').bind(id).first();
       if (used.n > 0) throw httpError('販売の記録がある商品は削除できません。「販売中」を外して販売停止にしてください', 400);
-      await db.prepare('DELETE FROM products WHERE id = ?').bind(id).run();
-      await audit(db, 'マスター', role, '商品を削除', prod.name);
+      await db.batch([
+        db.prepare('UPDATE products SET bundle_with = NULL WHERE bundle_with = ?').bind(id),   // この商品のセットに含めていた商品は単独に
+        db.prepare('DELETE FROM products WHERE id = ?').bind(id),
+      ]);
+      await audit(db, 'マスター', role, '商品を削除', tag + prod.name);
     } else {
       const dir = Number((await readJson(request)).dir) < 0 ? -1 : 1;
-      const list = (await db.prepare('SELECT id FROM products ORDER BY sort, id').all()).results.map((x) => x.id);
+      const list = (await db.prepare('SELECT id FROM products WHERE project_id = ? ORDER BY sort, id').bind(P.id).all()).results.map((x) => x.id);
       const i = list.indexOf(id), j = i + dir;
       if (j >= 0 && j < list.length) {
         [list[i], list[j]] = [list[j], list[i]];
         await db.batch(list.map((pid, k) => db.prepare('UPDATE products SET sort = ? WHERE id = ?').bind(k + 1, pid)));
       }
     }
-    return json(await masterData(db, sess));
+    return reload();
   }
   if (route === 'POST /api/master/register-password') {
     const body = await readJson(request);
@@ -203,7 +247,7 @@ async function masterApi(request, env, url, route) {
       detail = `レジ端末 ${n} 台を締め出し`;
     }
     await audit(db, 'マスター', role, 'レジのパスワードを変更', detail);
-    return json(await masterData(db, sess));
+    return reload();
   }
   if (route === 'POST /api/master/master-password') {
     const body = await readJson(request);
@@ -212,7 +256,7 @@ async function masterApi(request, env, url, route) {
     // 他の端末のマスターログインは無効にする
     await revokeWhere(db, "role = 'master' AND id != ?", sess.id);
     await audit(db, 'マスター', role, 'マスターパスワードを変更', '他の端末のマスターログインを解除');
-    return json(await masterData(db, sess));
+    return reload();
   }
   if (route === 'POST /api/master/revoke-all') {
     const body = await readJson(request);
@@ -225,46 +269,37 @@ async function masterApi(request, env, url, route) {
       what = `レジ端末 ${n} 台`;
     }
     await audit(db, 'マスター', role, '締め出し', what);
-    return json(await masterData(db, sess));
+    return reload();
   }
-  // 売上記録の全リセット（テスト用）。確認の文字とマスターパスワードの再入力が必要
+  // 売上記録の全リセット（テスト用・この催しの会計だけ）。確認の文字とマスターパスワードの再入力が必要
   if (route === 'POST /api/master/reset-sales') {
     const body = await readJson(request);
     if (String(body.confirm || '').trim() !== 'リセット') throw httpError('確認のため「リセット」と入力してください', 400);
     await login(request, env, role, body.password, 'マスターパスワードが違います');
     const before = await db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN cancelled = 0 THEN amount ELSE 0 END), 0) AS total,
-        COALESCE(SUM(cancelled), 0) AS cancelled FROM sales`).first();
-    const epoch = await getEpoch(db);
+        COALESCE(SUM(cancelled), 0) AS cancelled FROM sales WHERE project_id = ?`).bind(P.id).first();
     await db.batch([
-      db.prepare('DELETE FROM sale_items'),
-      db.prepare('DELETE FROM sale_flavors'),
-      db.prepare('DELETE FROM sales'),
-      db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('sales', 'sale_items', 'sale_flavors')"),
-      bumpRev(db),
-      db.prepare("DELETE FROM audit WHERE action IN ('会計を取消', '取消を戻す', '今の価格と違う会計を記録')"),
-      db.prepare("INSERT INTO settings (key, value) VALUES ('sales_epoch', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(epoch + 1)),
+      db.prepare('DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE project_id = ?)').bind(P.id),
+      db.prepare('DELETE FROM sale_flavors WHERE sale_id IN (SELECT id FROM sales WHERE project_id = ?)').bind(P.id),
+      db.prepare('DELETE FROM sales WHERE project_id = ?').bind(P.id),   // 会計番号（order_no）は次から #1 に戻る
+      // 世代を進めて、リセット前にレジ端末で打った未送信の会計を受け付けないようにする
+      db.prepare('UPDATE projects SET epoch = epoch + 1, kitchen_rev = kitchen_rev + 1 WHERE id = ?').bind(P.id),
     ]);
     await audit(db, 'マスター', role, '売上記録を全リセット',
-      `会計 ${before.n} 件（うち取消 ${before.cancelled} 件・売上 ${yen(before.total)}）を削除`);
-    return json(await masterData(db, sess));
+      `${tag}会計 ${before.n} 件（うち取消 ${before.cancelled} 件・売上 ${yen(before.total)}）を削除`);
+    return reload();
   }
   // 営業終了／再開（営業終了中はレジで新しい会計を記録できない）
   if (route === 'POST /api/master/closed') {
     const body = await readJson(request);
-    if (body.closed) {
-      const at = new Date().toISOString();
-      await db.prepare("INSERT INTO settings (key, value) VALUES ('sales_closed_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(at).run();
-      await audit(db, 'マスター', role, '営業終了', 'レジの会計の記録を停止');
-    } else {
-      await db.prepare("DELETE FROM settings WHERE key = 'sales_closed_at'").run();
-      await audit(db, 'マスター', role, '営業再開', 'レジの会計の記録を再開');
-    }
-    return json(await masterData(db, sess));
+    await db.prepare('UPDATE projects SET closed_at = ? WHERE id = ?').bind(body.closed ? new Date().toISOString() : null, P.id).run();
+    await audit(db, 'マスター', role, body.closed ? '営業終了' : '営業再開', tag + (body.closed ? 'レジの会計の記録を停止' : 'レジの会計の記録を再開'));
+    return reload();
   }
   if (route === 'POST /api/master/unlock') {
     const res = await db.prepare('DELETE FROM login_failures').run();
     await audit(db, 'マスター', role, 'ログイン制限を解除', `失敗記録 ${res.meta.changes || 0} 件を消去`);
-    return json(await masterData(db, sess));
+    return reload();
   }
   const m = url.pathname.match(/^\/api\/master\/sessions\/(\d+)\/revoke$/);
   if (request.method === 'POST' && m) {
@@ -274,9 +309,18 @@ async function masterApi(request, env, url, route) {
     if (!row) throw httpError('端末が見つかりません', 404);
     await revokeWhere(db, 'id = ?', id);
     await audit(db, 'マスター', role, '締め出し', `${ROLES[row.role].label}：${row.staff}（${row.device}）`);
-    return json(await masterData(db, sess));
+    return reload();
   }
   return json({ error: 'Not Found' }, 404);
+}
+
+/** 催しの一覧の画面に渡すデータ */
+async function projectsData(db) {
+  return { projects: await projectList(db), active: await activeProjectId(db), today: jstDay().date };
+}
+
+async function setActiveProject(db, id) {
+  await db.prepare("INSERT INTO settings (key, value) VALUES ('active_project', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(id)).run();
 }
 
 // ===== 認証 =====
@@ -503,7 +547,22 @@ async function ensureSchema(db) {
       qty INTEGER NOT NULL
     )`),
     db.prepare('CREATE INDEX IF NOT EXISTS sale_flavors_sale ON sale_flavors (sale_id)'),
-    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS products_name ON products (name)'),
+    // 催し（プロジェクト）。会計・商品は催しごと。設定（目標・容器代・営業時間など）も催しごとに持つ
+    db.prepare(`CREATE TABLE IF NOT EXISTS projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      shop_name TEXT NOT NULL DEFAULT '',
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      open_hour INTEGER NOT NULL DEFAULT 9,
+      close_hour INTEGER NOT NULL DEFAULT 19,
+      target INTEGER NOT NULL DEFAULT 30000,
+      container_rule TEXT,
+      closed_at TEXT,
+      epoch INTEGER NOT NULL DEFAULT 1,
+      kitchen_rev INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       token_hash TEXT NOT NULL UNIQUE,
@@ -551,19 +610,164 @@ async function ensureSchema(db) {
   // 混ぜたセットの組み方（例: 5本セット×1）。混ぜたセットの明細だけに入る
   const icols = await db.prepare('PRAGMA table_info(sale_items)').all();
   if (!icols.results.some((c) => c.name === 'pack_label')) await addColumn(db, 'ALTER TABLE sale_items ADD COLUMN pack_label TEXT');
-  // 初期商品の登録は最初の 1 回だけ。
-  // 同時に何件もリクエストが来ても、印（products_seeded）を書き込めた 1 件だけが登録する。
-  // 商品名には一意制約も付けているので、万一重なっても同じ名前の商品はできない。
-  const seeded = await db.prepare("INSERT INTO settings (key, value) VALUES ('products_seeded', '1') ON CONFLICT(key) DO NOTHING").run();
-  if (seeded.meta.changes === 1) {
-    const pc = await db.prepare('SELECT COUNT(*) AS n FROM products').first();
-    if (pc.n === 0) {
-      await db.batch(DEFAULT_PRODUCTS.map((p, i) => db.prepare(
-        'INSERT OR IGNORE INTO products (name, unit, sets, container, active, sort, flavors) VALUES (?, ?, ?, ?, 1, ?, ?)',
-      ).bind(p.name, p.unit, JSON.stringify(p.sets), p.container ? 1 : 0, i + 1, JSON.stringify(p.flavors || []))));
-    }
-  }
+  // 催しごとに分ける列（後から追加）。会計番号 order_no は催しごとに #1 から
+  if (!cols.results.some((c) => c.name === 'project_id')) await addColumn(db, 'ALTER TABLE sales ADD COLUMN project_id INTEGER');
+  if (!cols.results.some((c) => c.name === 'order_no')) await addColumn(db, 'ALTER TABLE sales ADD COLUMN order_no INTEGER');
+  if (!pcols.results.some((c) => c.name === 'project_id')) await addColumn(db, 'ALTER TABLE products ADD COLUMN project_id INTEGER');
+  await migrateToProjects(db);
+  await db.batch([
+    db.prepare('CREATE INDEX IF NOT EXISTS sales_project ON sales (project_id, id)'),
+    // 商品名の重複チェックは催しごと（前の催しから同じ名前の商品を複製できるように）
+    db.prepare('DROP INDEX IF EXISTS products_name'),
+    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS products_project_name ON products (project_id, name)'),
+  ]);
   schemaReady = true;
+}
+
+/**
+ * 催し（プロジェクト）を入れる前のデータを、最初の催しにまとめる。
+ * 何度実行しても同じ結果になる（すでに移したものは触らない）。
+ *   - 催しがまだ 1 つもなければ、催し #1 を作る。会計か商品があれば名前は LEGACY_PROJECT_NAME（本番の既存データ）
+ *   - 目標・容器代のルール・営業終了・リセットの世代・キッチンの版は、これまでの settings から引き継ぐ
+ *   - 催しの決まっていない会計・商品を催し #1 に入れ、会計番号（order_no）はこれまでの番号（id）のまま
+ */
+async function migrateToProjects(db) {
+  const { n } = await db.prepare('SELECT COUNT(*) AS n FROM projects').first();
+  if (n === 0) {
+    const legacy = await db.prepare('SELECT MIN(created_at) AS a, MAX(created_at) AS b, COUNT(*) AS n FROM sales').first();
+    const pc = await db.prepare('SELECT COUNT(*) AS n FROM products').first();
+    const st = {};
+    for (const r of (await db.prepare("SELECT key, value FROM settings WHERE key IN ('target', 'container_rule', 'sales_closed_at', 'sales_epoch', 'kitchen_rev')").all()).results) st[r.key] = r.value;
+    const hasData = legacy.n > 0 || pc.n > 0;
+    const today = jstDay().date;
+    const start = legacy.a ? jstDate(legacy.a) : today;
+    const end = legacy.b ? jstDate(legacy.b) : start;
+    await db.prepare(`INSERT INTO projects (id, name, shop_name, start_date, end_date, open_hour, close_hour, target, container_rule, closed_at, epoch, kitchen_rev, created_at)
+        SELECT 1, ?, ?, ?, ?, 9, 19, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM projects)`)
+      .bind(hasData ? LEGACY_PROJECT_NAME : '最初の催し', hasData ? LEGACY_SHOP_NAME : '', start, end,
+        Number(st.target) || DEFAULT_TARGET, st.container_rule || null, st.sales_closed_at || null,
+        Number(st.sales_epoch) || 1, Number(st.kitchen_rev) || 0, new Date().toISOString()).run();
+  }
+  await db.batch([
+    db.prepare('UPDATE sales SET project_id = 1 WHERE project_id IS NULL'),
+    db.prepare('UPDATE sales SET order_no = id WHERE order_no IS NULL'),
+    db.prepare('UPDATE products SET project_id = 1 WHERE project_id IS NULL'),
+    db.prepare("INSERT INTO settings (key, value) VALUES ('active_project', (SELECT MIN(id) FROM projects)) ON CONFLICT(key) DO NOTHING"),
+  ]);
+}
+
+// ===== 催し（プロジェクト） =====
+const LEGACY_PROJECT_NAME = '26岡山大学祭';            // 催しを入れる前からある本番のデータの催し名
+const LEGACY_SHOP_NAME = '混声合唱と学祭のための 団子';   // 同じく模擬店の名前（ダッシュボードに表示）
+
+function rowToProject(r) {
+  let rule = {};
+  try { rule = JSON.parse(r.container_rule || '{}') || {}; } catch {}
+  return {
+    id: r.id, name: r.name, shopName: r.shop_name || '', startDate: r.start_date, endDate: r.end_date,
+    openHour: r.open_hour, closeHour: r.close_hour, target: r.target, rule: { ...DEFAULT_RULE, ...rule },
+    closedAt: r.closed_at || null, epoch: r.epoch, rev: r.kitchen_rev, createdAt: r.created_at,
+  };
+}
+
+async function getProject(db, id) {
+  const row = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(Math.floor(Number(id)) || 0).first();
+  return row ? rowToProject(row) : null;
+}
+
+async function activeProjectId(db) {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'active_project'").first();
+  return row ? Number(row.value) : 1;
+}
+
+/** レジ・キッチン・ダッシュボードで使う催し（管理画面で「レジで使う」にした催し） */
+async function getActiveProject(db) {
+  const p = await getProject(db, await activeProjectId(db));
+  if (p) return p;
+  const first = await db.prepare('SELECT * FROM projects ORDER BY id LIMIT 1').first();
+  if (!first) throw httpError('催しがありません。管理画面で作ってください', 503);
+  return rowToProject(first);
+}
+
+/** 管理画面の操作の対象の催し（?project= または X-Project。なければレジで使っている催し） */
+async function projectFromRequest(db, request, url) {
+  const id = url.searchParams.get('project') || request.headers.get('X-Project');
+  if (!id) return getActiveProject(db);
+  const p = await getProject(db, id);
+  if (!p) throw httpError('催しが見つかりません', 404);
+  return p;
+}
+
+/** 操作の記録に付ける催しの名前（例: ［26岡山大学祭］） */
+async function projectLabel(db, id) {
+  const p = await getProject(db, id);
+  return p ? `［${p.name}］` : '';
+}
+
+/** 画面に渡す催しの情報 */
+const projectInfo = (P) => ({ id: P.id, name: P.name, shopName: P.shopName, startDate: P.startDate, endDate: P.endDate, openHour: P.openHour, closeHour: P.closeHour });
+
+/** 催しの入力（名前・模擬店名・期間・営業時間・目標）をチェックして整える */
+function readProjectFields(body, base = {}) {
+  const name = cleanName(body.name ?? base.name).slice(0, 40);
+  if (!name) throw httpError('催し名を入力してください', 400);
+  const shopName = cleanName(body.shopName ?? base.shopName ?? '').slice(0, 40);
+  const date = (v, label) => {
+    const s = String(v || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s + 'T00:00:00Z'))) throw httpError(`${label}を入力してください`, 400);
+    return s;
+  };
+  const startDate = date(body.startDate ?? base.startDate, '開始日');
+  const endDate = date(body.endDate ?? base.endDate, '終了日');
+  if (endDate < startDate) throw httpError('終了日は開始日と同じか、それより後にしてください', 400);
+  const openHour = intIn(body.openHour ?? base.openHour ?? 9, 0, 23, '営業開始の時刻');
+  const closeHour = intIn(body.closeHour ?? base.closeHour ?? 19, 1, 24, '営業終了の時刻');
+  if (closeHour <= openHour) throw httpError('営業終了の時刻は、開始より後にしてください', 400);
+  const target = intIn(body.target ?? base.target ?? DEFAULT_TARGET, 1, 100000000, '目標金額');
+  return { name, shopName, startDate, endDate, openHour, closeHour, target };
+}
+
+/** 催しの一覧（会計の件数・売上つき） */
+async function projectList(db) {
+  const rows = (await db.prepare(`SELECT p.*, 
+      (SELECT COUNT(*) FROM sales s WHERE s.project_id = p.id AND s.cancelled = 0) AS orders,
+      (SELECT COALESCE(SUM(amount), 0) FROM sales s WHERE s.project_id = p.id AND s.cancelled = 0) AS total,
+      (SELECT COUNT(*) FROM products x WHERE x.project_id = p.id) AS products
+    FROM projects p ORDER BY p.start_date DESC, p.id DESC`).all()).results;
+  const active = await activeProjectId(db);
+  return rows.map((r) => ({ ...projectInfo(rowToProject(r)), target: r.target, orders: r.orders, total: r.total, products: r.products, active: r.id === active }));
+}
+
+/**
+ * 催しを作る。copyFrom があれば、その催しから選んだ設定（商品・価格・味・セット / 容器代のルール / 目標金額）を複製する。
+ * 会計（売上）は複製しない。
+ */
+async function createProject(db, body) {
+  const f = readProjectFields(body);
+  const copy = body.copy || {};
+  const src = body.copyFrom ? await getProject(db, body.copyFrom) : null;
+  if (body.copyFrom && !src) throw httpError('複製元の催しが見つかりません', 400);
+  if (src && copy.target && body.target == null) f.target = src.target;
+  const rule = src && copy.rule ? JSON.stringify(src.rule) : null;
+  const res = await db.prepare(`INSERT INTO projects (name, shop_name, start_date, end_date, open_hour, close_hour, target, container_rule, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(f.name, f.shopName, f.startDate, f.endDate, f.openHour, f.closeHour, f.target, rule, new Date().toISOString()).run();
+  const id = res.meta.last_row_id;
+  let copied = 0;
+  if (src && copy.products) {
+    const rows = (await db.prepare('SELECT * FROM products WHERE project_id = ? ORDER BY sort, id').bind(src.id).all()).results;
+    // 商品を 1 つずつ複製して、新しい ID を控える（「○○のセットに含める」の相手を新しい ID に付け替えるため）
+    const map = new Map();
+    for (const r of rows) {
+      const ins = await db.prepare(`INSERT INTO products (project_id, name, unit, sets, container, active, sort, flavors, bundle_with)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`).bind(id, r.name, r.unit, r.sets, r.container, r.active, r.sort, r.flavors || '[]').run();
+      map.set(r.id, ins.meta.last_row_id);
+    }
+    const links = rows.filter((r) => r.bundle_with && map.has(r.bundle_with));
+    if (links.length) await db.batch(links.map((r) => db.prepare('UPDATE products SET bundle_with = ? WHERE id = ?').bind(map.get(r.bundle_with), map.get(r.id))));
+    copied = rows.length;
+  }
+  return { id, name: f.name, src, copied, copy };
 }
 
 // ===== 商品・容器代 =====
@@ -574,15 +778,12 @@ function rowToProduct(r) {
     flavors: Array.isArray(flavors) ? flavors : [] };
 }
 
-async function getProducts(db, { all = false } = {}) {
-  const rows = (await db.prepare(`SELECT * FROM products ${all ? '' : 'WHERE active = 1'} ORDER BY sort, id`).all()).results;
+/** 催しの商品（並び順）。all = false なら販売中だけ */
+async function getProducts(db, projectId, { all = false } = {}) {
+  const rows = (await db.prepare(`SELECT * FROM products WHERE project_id = ? ${all ? '' : 'AND active = 1'} ORDER BY sort, id`).bind(projectId).all()).results;
   return rows.map(rowToProduct);
 }
 
-async function getRule(db) {
-  const row = await db.prepare("SELECT value FROM settings WHERE key = 'container_rule'").first();
-  return row ? { ...DEFAULT_RULE, ...JSON.parse(row.value) } : { ...DEFAULT_RULE };
-}
 
 function intIn(v, min, max, label) {
   const n = Number(v);
@@ -590,15 +791,14 @@ function intIn(v, min, max, label) {
   return n;
 }
 
-async function saveRule(db, body) {
+async function saveRule(db, P, body) {
   const rule = {
     freeUpTo: intIn(body.freeUpTo, 0, 999, '無料になる数'),
     per: intIn(body.per, 1, 999, '何個ごとか'),
     fee: intIn(body.fee, 0, 10000, '容器代の金額'),
     maxCount: intIn(body.maxCount ?? 0, 0, 999, '容器の数の上限'),
   };
-  await db.prepare("INSERT INTO settings (key, value) VALUES ('container_rule', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-    .bind(JSON.stringify(rule)).run();
+  await db.prepare('UPDATE projects SET container_rule = ? WHERE id = ?').bind(JSON.stringify(rule), P.id).run();
   return rule;
 }
 
@@ -610,7 +810,7 @@ function productDiff(a, b) {
   return t === u ? u : `${t} → ${u}`;
 }
 
-async function saveProduct(db, body) {
+async function saveProduct(db, P, body) {
   const name = cleanName(body.name).slice(0, 20);
   if (!name) throw httpError('商品名を入力してください', 400);
   const unit = cleanName(body.unit).slice(0, 4) || '個';
@@ -625,14 +825,14 @@ async function saveProduct(db, body) {
   const container = body.container ? 1 : 0;
   const active = body.active === false ? 0 : 1;
   const flavors = parseFlavors(body.flavors);
-  const dup = await db.prepare('SELECT id FROM products WHERE name = ? AND id != ?').bind(name, Number(body.id) || 0).first();
+  const dup = await db.prepare('SELECT id FROM products WHERE project_id = ? AND name = ? AND id != ?').bind(P.id, name, Number(body.id) || 0).first();
   if (dup) throw httpError(`「${name}」という商品はすでにあります`, 400);
   // 「○○のセットに含める」：相手は自分以外で、相手自身はほかの商品のセットに含めていないこと（1 段だけ）
   let bundleWith = Number(body.bundleWith) || null;
   if (bundleWith) {
     const self = Number(body.id) || 0;
     if (bundleWith === self) throw httpError('自分自身のセットには含められません', 400);
-    const leader = await db.prepare('SELECT id, name, bundle_with FROM products WHERE id = ?').bind(bundleWith).first();
+    const leader = await db.prepare('SELECT id, name, bundle_with FROM products WHERE id = ? AND project_id = ?').bind(bundleWith, P.id).first();
     if (!leader) throw httpError('セットに含める相手の商品が見つかりません', 400);
     const leaderSets = JSON.parse((await db.prepare('SELECT sets FROM products WHERE id = ?').bind(bundleWith).first()).sets);
     // 相手が「ほかの商品のセットに含める」になっていたら不可（ただしセット価格のない相手への無効な設定は無視）
@@ -652,15 +852,15 @@ async function saveProduct(db, body) {
 
   let before = null;
   if (body.id) {
-    const row = await db.prepare('SELECT * FROM products WHERE id = ?').bind(Number(body.id)).first();
+    const row = await db.prepare('SELECT * FROM products WHERE id = ? AND project_id = ?').bind(Number(body.id), P.id).first();
     if (!row) throw httpError('商品が見つかりません', 404);
     before = rowToProduct(row);
     await db.prepare('UPDATE products SET name = ?, unit = ?, sets = ?, container = ?, active = ?, bundle_with = ?, flavors = ? WHERE id = ?')
       .bind(name, unit, JSON.stringify(sets), container, active, bundleWith, JSON.stringify(flavors), before.id).run();
   } else {
-    const { m } = await db.prepare('SELECT COALESCE(MAX(sort), 0) AS m FROM products').first();
-    await db.prepare('INSERT INTO products (name, unit, sets, container, active, sort, bundle_with, flavors) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(name, unit, JSON.stringify(sets), container, active, m + 1, bundleWith, JSON.stringify(flavors)).run();
+    const { m } = await db.prepare('SELECT COALESCE(MAX(sort), 0) AS m FROM products WHERE project_id = ?').bind(P.id).first();
+    await db.prepare('INSERT INTO products (project_id, name, unit, sets, container, active, sort, bundle_with, flavors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(P.id, name, unit, JSON.stringify(sets), container, active, m + 1, bundleWith, JSON.stringify(flavors)).run();
   }
   const leaderName = bundleWith ? (await db.prepare('SELECT name FROM products WHERE id = ?').bind(bundleWith).first()).name : null;
   if (before && before.bundleWith) before.bundleName = (await db.prepare('SELECT name FROM products WHERE id = ?').bind(before.bundleWith).first() || {}).name;
@@ -695,7 +895,7 @@ async function attachItems(db, sales) {
   const flavors = await flavorsOf(db, ids);
   return sales.map((x) => {
     let its = items.filter((i) => i.sale_id === x.id);
-    // 商品管理を入れる前の古い記録（団子のみ）
+    // 商品管理を入れる前の古い記録（最初の催しの、1 種類の商品だけの頃）
     if (!its.length && (x.s1 || x.s3 || x.s5)) {
       its = [[1, 150, x.s1], [3, 400, x.s3], [5, 500, x.s5]].filter((a) => a[2] > 0)
         .map(([q, pr, c]) => ({ name: '団子', unit: '本', set_qty: q, set_price: pr, count: c, product_id: 0 }));
@@ -718,38 +918,34 @@ async function flavorsOf(db, ids) {
 }
 
 /** キッチンの注文キュー用の版番号（会計・取消・「できた」のたびに 1 増える）。db.batch に入れて使う */
-function bumpRev(db) {
-  return db.prepare(`INSERT INTO settings (key, value) VALUES ('kitchen_rev', '1')
-    ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`);
+function bumpRev(db, projectId) {
+  return db.prepare('UPDATE projects SET kitchen_rev = kitchen_rev + 1 WHERE id = ?').bind(projectId);
 }
 
-async function getRev(db) {
-  const row = await db.prepare("SELECT value FROM settings WHERE key = 'kitchen_rev'").first();
-  return row ? Number(row.value) : 0;
-}
 
 /**
  * キッチンの注文キュー：今日（日本時間）の注文を、サーバーに届いた順に。
  * 端末が持っている rev と日付が今と同じなら、注文は返さない（数秒ごとに読まれるので軽くする）。
  */
-async function kitchenData(db, params) {
+async function kitchenData(db, P, params) {
   const day = jstDay();
-  const rev = await getRev(db);
-  const closed = await getClosed(db);
-  if (params.get('rev') === String(rev) && params.get('day') === day.date) return { rev, day: day.date, same: true, closed };
-  const sales = (await db.prepare(`SELECT id, created_at, cancelled, kitchen_done_at, staff FROM sales
-      WHERE created_at >= ? AND created_at < ? ORDER BY id`).bind(day.start, day.end).all()).results;
+  const rev = P.rev;
+  const closed = closedOf(P);
+  // 変化なし：同じ催し・同じ版・同じ日
+  if (params.get('project') === String(P.id) && params.get('rev') === String(rev) && params.get('day') === day.date) return { rev, day: day.date, same: true, closed };
+  const sales = (await db.prepare(`SELECT id, order_no, created_at, cancelled, kitchen_done_at, staff FROM sales
+      WHERE project_id = ? AND created_at >= ? AND created_at < ? ORDER BY id`).bind(P.id, day.start, day.end).all()).results;
   const fl = (await db.prepare(`SELECT sf.sale_id, sf.product_id, sf.name, sf.unit, sf.flavor, sf.qty FROM sale_flavors sf
-      JOIN sales s ON s.id = sf.sale_id WHERE s.created_at >= ? AND s.created_at < ? ORDER BY sf.id`).bind(day.start, day.end).all()).results;
+      JOIN sales s ON s.id = sf.sale_id WHERE s.project_id = ? AND s.created_at >= ? AND s.created_at < ? ORDER BY sf.id`).bind(P.id, day.start, day.end).all()).results;
   // 味の記録がない古い会計は、明細（sale_items）から商品ごとの数を出す
   const withFl = new Set(fl.map((f) => f.sale_id));
   const old = sales.filter((x) => !withFl.has(x.id));
   let items = [];
   if (old.length) {
     items = (await db.prepare(`SELECT si.sale_id, si.product_id, si.name, si.unit, si.set_qty * si.count AS qty FROM sale_items si
-        JOIN sales s ON s.id = si.sale_id WHERE s.created_at >= ? AND s.created_at < ? ORDER BY si.id`).bind(day.start, day.end).all()).results;
+        JOIN sales s ON s.id = si.sale_id WHERE s.project_id = ? AND s.created_at >= ? AND s.created_at < ? ORDER BY si.id`).bind(P.id, day.start, day.end).all()).results;
   }
-  const products = await getProducts(db, { all: true });
+  const products = await getProducts(db, P.id, { all: true });
   const orders = sales.map((x) => {
     let lines = fl.filter((f) => f.sale_id === x.id);
     if (!lines.length) {
@@ -763,12 +959,12 @@ async function kitchenData(db, params) {
       lines = [...by.values()];
     }
     return {
-      id: x.id, createdAt: x.created_at, cancelled: !!x.cancelled, doneAt: x.kitchen_done_at || null, staff: x.staff,
+      id: x.id, no: x.order_no ?? x.id, createdAt: x.created_at, cancelled: !!x.cancelled, doneAt: x.kitchen_done_at || null, staff: x.staff,
       lines: lines.map((l) => ({ productId: l.product_id, name: l.name, unit: l.unit, flavor: l.flavor, qty: l.qty })),
     };
   });
   return {
-    rev, day: day.date, closed, orders,
+    rev, day: day.date, closed, orders, project: projectInfo(P),
     // 味の並び順（管理画面で決めた順）
     products: products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, flavors: p.flavors })),
   };
@@ -786,28 +982,18 @@ async function audit(db, actor, role, action, detail) {
     .bind(new Date().toISOString(), actor, role, action, detail || '').run();
 }
 
-/** 売上記録の世代番号（全リセットのたびに 1 増える） */
 /** 営業終了の状態（管理画面で設定）。null なら営業中 */
-async function getClosed(db) {
-  const row = await db.prepare("SELECT value FROM settings WHERE key = 'sales_closed_at'").first();
-  return row && row.value ? { at: row.value } : null;
-}
+const closedOf = (P) => (P.closedAt ? { at: P.closedAt } : null);
 
-async function getEpoch(db) {
-  const row = await db.prepare("SELECT value FROM settings WHERE key = 'sales_epoch'").first();
-  return row ? Number(row.value) : 1;
-}
 
-async function getTarget(db) {
-  const row = await db.prepare("SELECT value FROM settings WHERE key = 'target'").first();
-  return row ? Number(row.value) : DEFAULT_TARGET;
-}
 
-// 営業時間（日本時間）。1時間ごとの売上はこの範囲で集計する
-const OPEN_HOUR = 9;
-const CLOSE_HOUR = 19;
 
 /** 今日（日本時間）の日付と、その範囲（UTC の ISO 文字列） */
+/** ISO の日時を日本時間の日付（YYYY-MM-DD）に */
+function jstDate(iso) {
+  return new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
+}
+
 function jstDay() {
   const JST = 9 * 3600000;
   const nowJst = new Date(Date.now() + JST);
@@ -821,16 +1007,16 @@ function jstDay() {
 }
 
 /** 今日（日本時間）の 1 時間ごとの売上（取消を除く）。営業時間外の会計はまとめて outside に入れる */
-async function hourlySales(db) {
+async function hourlySales(db, P) {
   const JST = 9 * 3600000;
   const nowJst = new Date(Date.now() + JST);
   const y = nowJst.getUTCFullYear(), m = nowJst.getUTCMonth(), d = nowJst.getUTCDate();
   const start = new Date(Date.UTC(y, m, d) - JST);
   const end = new Date(start.getTime() + 86400000);
-  const rows = (await db.prepare('SELECT created_at, amount FROM sales WHERE cancelled = 0 AND created_at >= ? AND created_at < ?')
-    .bind(start.toISOString(), end.toISOString()).all()).results;
+  const rows = (await db.prepare('SELECT created_at, amount FROM sales WHERE project_id = ? AND cancelled = 0 AND created_at >= ? AND created_at < ?')
+    .bind(P.id, start.toISOString(), end.toISOString()).all()).results;
   const buckets = [];
-  for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) buckets.push({ hour: h, amount: 0, orders: 0 });
+  for (let h = P.openHour; h < P.closeHour; h++) buckets.push({ hour: h, amount: 0, orders: 0 });
   const outside = { amount: 0, orders: 0 };
   for (const r of rows) {
     const h = new Date(Date.parse(r.created_at) + JST).getUTCHours();
@@ -840,27 +1026,28 @@ async function hourlySales(db) {
   }
   return {
     date: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-    open: OPEN_HOUR, close: CLOSE_HOUR,
+    open: P.openHour, close: P.closeHour,
     nowHour: nowJst.getUTCHours(),
     buckets, outside,
   };
 }
 
-async function summary(db) {
+/** 催しの集計（ダッシュボード・レジ・管理画面で共通） */
+async function summary(db, P) {
   const t = await db.prepare(`SELECT
       COUNT(*) AS orders,
       COALESCE(SUM(amount), 0) AS total,
       COALESCE(SUM(goods), 0) AS goods,
       COALESCE(SUM(container), 0) AS container,
       COALESCE(SUM(sticks), 0) AS units
-    FROM sales WHERE cancelled = 0`).first();
+    FROM sales WHERE project_id = ? AND cancelled = 0`).bind(P.id).first();
   // 商品ごと・セットごとの集計（その時点の商品名で）
   const packs = (await db.prepare(`SELECT si.product_id, MAX(si.name) AS name, MAX(si.unit) AS unit, si.set_qty, si.set_price, SUM(si.count) AS count,
         (si.pack_label IS NOT NULL) AS mixed
-      FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE s.cancelled = 0
-      GROUP BY si.product_id, si.set_qty, si.set_price, (si.pack_label IS NOT NULL)`).all()).results;
-  const products = await getProducts(db);
-  const rule = await getRule(db);
+      FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE s.project_id = ? AND s.cancelled = 0
+      GROUP BY si.product_id, si.set_qty, si.set_price, (si.pack_label IS NOT NULL)`).bind(P.id).all()).results;
+  const products = await getProducts(db, P.id);
+  const rule = P.rule;
   // 現在の商品の並び順で、売れていない商品も 0 で表示する
   const byProduct = products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, qty: 0, amount: 0, packs: [], mixedQty: 0 }));
   for (const k of packs) {
@@ -874,8 +1061,8 @@ async function summary(db) {
   byProduct.forEach((g) => g.packs.sort((a, b) => a.qty - b.qty || a.price - b.price));
   // 味ごとの数（今の味の並び順。味の指定なし（''）は最後）
   const fl = (await db.prepare(`SELECT sf.product_id, sf.flavor, SUM(sf.qty) AS qty
-      FROM sale_flavors sf JOIN sales s ON s.id = sf.sale_id WHERE s.cancelled = 0
-      GROUP BY sf.product_id, sf.flavor`).all()).results;
+      FROM sale_flavors sf JOIN sales s ON s.id = sf.sale_id WHERE s.project_id = ? AND s.cancelled = 0
+      GROUP BY sf.product_id, sf.flavor`).bind(P.id).all()).results;
   for (const g of byProduct) {
     const cur = products.find((p) => p.id === g.id);
     const order = cur ? cur.flavors : [];
@@ -890,14 +1077,15 @@ async function summary(db) {
     g.flavors = list;
   }
   const pays = await db.prepare(`SELECT payment, COUNT(*) AS count, SUM(amount) AS amount
-    FROM sales WHERE cancelled = 0 GROUP BY payment`).all();
+    FROM sales WHERE project_id = ? AND cancelled = 0 GROUP BY payment`).bind(P.id).all();
 
   const byPayment = {};
   PAYMENTS.forEach((p) => (byPayment[p] = { amount: 0, count: 0 }));
   pays.results.forEach((r) => (byPayment[r.payment] = { amount: r.amount, count: r.count }));
 
-  const target = await getTarget(db);
+  const target = P.target;
   return {
+    project: projectInfo(P),
     total: t.total,
     goods: t.goods,
     container: t.container,
@@ -912,8 +1100,8 @@ async function summary(db) {
     byPayment,
     payments: PAYMENTS,
     avgPerOrder: t.orders > 0 ? Math.round(t.total / t.orders) : 0,   // 客単価（取消を除く）
-    closed: await getClosed(db),   // 営業終了中なら { at }
-    hourly: await hourlySales(db),
+    closed: closedOf(P),   // 営業終了中なら { at }
+    hourly: await hourlySales(db, P),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -923,31 +1111,32 @@ async function recentAudit(db, limit) {
 }
 
 /** 会計一覧（新しい順・ページ送り）。取消済みも含む */
-async function salesPage(db, params) {
+async function salesPage(db, P, params) {
   const limit = Math.min(100, Math.max(1, Math.floor(Number(params.get('limit')) || 50)));
   const before = Math.floor(Number(params.get('before')) || 0);
   const rows = (before > 0
-    ? await db.prepare('SELECT * FROM sales WHERE id < ? ORDER BY id DESC LIMIT ?').bind(before, limit + 1).all()
-    : await db.prepare('SELECT * FROM sales ORDER BY id DESC LIMIT ?').bind(limit + 1).all()).results;
+    ? await db.prepare('SELECT * FROM sales WHERE project_id = ? AND id < ? ORDER BY id DESC LIMIT ?').bind(P.id, before, limit + 1).all()
+    : await db.prepare('SELECT * FROM sales WHERE project_id = ? ORDER BY id DESC LIMIT ?').bind(P.id, limit + 1).all()).results;
   const counts = await db.prepare(`SELECT COUNT(*) AS total, COALESCE(SUM(cancelled), 0) AS cancelled,
-      COALESCE(SUM(CASE WHEN cancelled = 0 THEN amount ELSE 0 END), 0) AS amount FROM sales`).first();
-  return { sales: await attachItems(db, rows.slice(0, limit)), hasMore: rows.length > limit, ...counts };
+      COALESCE(SUM(CASE WHEN cancelled = 0 THEN amount ELSE 0 END), 0) AS amount FROM sales WHERE project_id = ?`).bind(P.id).first();
+  return { project: projectInfo(P), sales: await attachItems(db, rows.slice(0, limit)), hasMore: rows.length > limit, ...counts };
 }
 
 async function registerData(db, sess) {
-  const recent = await db.prepare('SELECT * FROM sales ORDER BY id DESC LIMIT 5').all();
-  const { n } = await db.prepare('SELECT COUNT(*) AS n FROM sales').first();
+  const P = await getActiveProject(db);
+  const recent = await db.prepare('SELECT * FROM sales WHERE project_id = ? ORDER BY id DESC LIMIT 5').bind(P.id).all();
+  const { n } = await db.prepare('SELECT COUNT(*) AS n FROM sales WHERE project_id = ?').bind(P.id).first();
   return {
-    ...(await summary(db)),
+    ...(await summary(db, P)),
     recent: await attachItems(db, recent.results),
     salesCount: n,
-    epoch: await getEpoch(db),
+    epoch: P.epoch,
     audit: await recentAudit(db, 30),
     me: { staff: sess.staff, expiresAt: sess.expires_at },
   };
 }
 
-async function masterData(db, sess) {
+async function masterData(db, sess, P) {
   const sessions = await db.prepare(`SELECT id, role, staff, device, created_at, last_seen, expires_at FROM sessions
       WHERE revoked = 0 AND expires_at > ? ORDER BY role, last_seen DESC`).bind(new Date().toISOString()).all();
   const pw = await db.prepare("SELECT key FROM settings WHERE key IN ('register_pw_hash', 'master_pw_hash')").all();
@@ -955,7 +1144,9 @@ async function masterData(db, sess) {
   const locks = await db.prepare(`SELECT role, COUNT(*) AS n FROM login_failures WHERE at > ? GROUP BY ip, role HAVING n >= ?`)
     .bind(new Date(Date.now() - LOCK_MINUTES * 60000).toISOString(), MAX_FAILS).all();
   return {
-    ...(await summary(db)),
+    ...(await summary(db, P)),
+    projects: await projectList(db),
+    projectSettings: { ...projectInfo(P), target: P.target, active: P.id === await activeProjectId(db) },
     sessions: sessions.results.map((s) => ({ ...s, current: s.id === sess.id })),
     audit: await recentAudit(db, 200),
     passwords: {
@@ -963,16 +1154,19 @@ async function masterData(db, sess) {
       masterChanged: changed.includes('master_pw_hash'),
     },
     locked: locks.results.map((l) => ROLES[l.role].label),
-    allProducts: await getProducts(db, { all: true }),
-    allSales: await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(cancelled), 0) AS cancelled FROM sales').first(),
+    allProducts: await getProducts(db, P.id, { all: true }),
+    allSales: await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(cancelled), 0) AS cancelled FROM sales WHERE project_id = ?').bind(P.id).first(),
     me: { expiresAt: sess.expires_at },
   };
 }
 
 async function recordSale(db, body, staff) {
   if (!PAYMENTS.includes(body.payment)) throw httpError('支払方法が不正です', 400);
+  // 会計した時点の催し（オフラインで打った会計は、そのあと催しが切り替わっても元の催しに記録する）
+  const P = body.projectId != null ? await getProject(db, body.projectId) : await getActiveProject(db);
+  if (!P) throw httpError('この会計の催しが見つかりません（管理画面で削除された可能性があります）', 409);
   // 営業終了後に打った会計は受け付けない（終了前に端末で打って、あとから届いた未送信の会計は受け付ける）
-  const closed = await getClosed(db);
+  const closed = closedOf(P);
   if (closed) {
     const t = Date.parse(body.createdAt);
     if (!Number.isFinite(t) || t >= Date.parse(closed.at)) throw httpError('営業は終了しました。会計は記録できません', 423);
@@ -980,13 +1174,13 @@ async function recordSale(db, body, staff) {
   const clientId = body.clientId == null ? null : String(body.clientId).slice(0, 64);
   if (clientId && !/^[A-Za-z0-9_-]{8,64}$/.test(clientId)) throw httpError('会計IDが不正です', 400);
   // 売上記録の全リセットより前に端末で打った会計は捨てる（リセットした記録を復活させない）
-  if (body.epoch != null && Number(body.epoch) !== await getEpoch(db)) return { stale: true };
+  if (body.epoch != null && Number(body.epoch) !== P.epoch) return { stale: true };
   // 同じ会計ID がすでにあれば何もしない（再送による二重登録の防止）
   if (clientId && await db.prepare('SELECT id FROM sales WHERE client_id = ?').bind(clientId).first()) return { duplicate: true };
 
   const snapshot = Array.isArray(body.lines) ? body.lines : null;   // 端末で計算した明細（オフライン対応版の画面が送る）
-  const all = await getProducts(db, { all: true });
-  const rule = await getRule(db);
+  const all = await getProducts(db, P.id, { all: true });
+  const rule = P.rule;
   // 個数からお客さんに有利なセットをサーバー側で組み直す（画面側の計算は信用しない）
   const cart = {};
   let unknown = false;
@@ -1069,10 +1263,11 @@ async function recordSale(db, body, staff) {
 
   const cid = clientId || 'srv-' + b64url(crypto.getRandomValues(new Uint8Array(12)));
   // 会計と明細を 1 つのトランザクションで書く（明細は client_id で会計を引く）
+  // 会計番号（order_no）は催しごとに 1 から。1 つの INSERT の中で決めるので、同時に届いても重ならない
   const stmts = [db.prepare(`INSERT INTO sales
-      (created_at, sticks, goods, container, container_auto, amount, payment, staff, client_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(createdAt, units, goods, container, auto, goods + container, body.payment, staff, cid)];
+      (project_id, order_no, created_at, sticks, goods, container, container_auto, amount, payment, staff, client_id)
+      VALUES (?, (SELECT COALESCE(MAX(order_no), 0) + 1 FROM sales WHERE project_id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(P.id, P.id, createdAt, units, goods, container, auto, goods + container, body.payment, staff, cid)];
   const items = itemsFromLines(lines);
   for (const it of items) {
     stmts.push(db.prepare(`INSERT INTO sale_items (sale_id, product_id, name, unit, set_qty, set_price, count, pack_label)
@@ -1084,7 +1279,7 @@ async function recordSale(db, body, staff) {
         VALUES ((SELECT id FROM sales WHERE client_id = ?), ?, ?, ?, ?, ?)`)
       .bind(cid, f.productId, f.name, f.unit, f.flavor, f.qty));
   }
-  stmts.push(bumpRev(db));
+  stmts.push(bumpRev(db, P.id));
   try {
     await db.batch(stmts);
   } catch (e) {
@@ -1094,7 +1289,7 @@ async function recordSale(db, body, staff) {
   }
   if (mismatch) {
     await audit(db, staff, 'register', '今の価格と違う会計を記録',
-      `${withFlavors(describeItems(items), flavorRows)} ${yen(goods + container)}（端末で会計した金額のまま）`);
+      `［${P.name}］${withFlavors(describeItems(items), flavorRows)} ${yen(goods + container)}（端末で会計した金額のまま）`);
   }
   return { duplicate: false };
 }
@@ -1137,11 +1332,10 @@ function validateSnapshot(snapshot) {
   });
 }
 
-async function setTarget(db, body) {
+async function setTarget(db, P, body) {
   const n = Math.floor(Number(body.target));
   if (!(n > 0)) throw httpError('目標金額が不正です', 400);
-  await db.prepare("INSERT INTO settings (key, value) VALUES ('target', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-    .bind(String(n)).run();
+  await db.prepare('UPDATE projects SET target = ? WHERE id = ?').bind(n, P.id).run();
   return n;
 }
 
@@ -1187,16 +1381,17 @@ const CSV_FILES = {
   'sales_ja.csv': salesJaCsvRows,
 };
 
-async function csvResponse(db, name, params) {
-  const sales = await attachItems(db, (await db.prepare('SELECT * FROM sales WHERE cancelled = 0 ORDER BY id').all()).results);
-  const rows = CSV_FILES[name](sales, { products: await getProducts(db, { all: true }) });
+async function csvResponse(db, P, name, params) {
+  const sales = await attachItems(db, (await db.prepare('SELECT * FROM sales WHERE project_id = ? AND cancelled = 0 ORDER BY id').bind(P.id).all()).results);
+  const rows = CSV_FILES[name](sales, { products: await getProducts(db, P.id, { all: true }), project: P });
   const body = rows.map((cols) => cols.map(csvCell).join(',')).join('\r\n') + '\r\n';
   const stamp = isoJst(new Date().toISOString()).slice(0, 16).replace(/[-:T]/g, '');
   const bom = params.get('bom') === '0' ? '' : '﻿';   // Excel で文字化けしないよう既定は BOM 付き
   return new Response(bom + body, {
     headers: {
       'content-type': 'text/csv; charset=utf-8; header=present',
-      'content-disposition': `attachment; filename="mogiten_${name.replace('.csv', '')}_${stamp}.csv"`,
+      // ファイル名に催しの番号を入れる（例: mogiten_p1_sales_202611021930.csv）
+      'content-disposition': `attachment; filename="mogiten_p${P.id}_${name.replace('.csv', '')}_${stamp}.csv"`,
       'cache-control': 'no-store',
     },
   });
@@ -1213,11 +1408,11 @@ function csvCell(c) {
 
 const businessDate = (iso) => isoJst(iso).slice(0, 10);
 
-function salesCsvRows(sales) {
-  const header = ['sale_id', 'sold_at', 'business_date', 'payment_method', 'item_quantity',
+function salesCsvRows(sales, { project }) {
+  const header = ['sale_id', 'project_id', 'order_no', 'sold_at', 'business_date', 'payment_method', 'item_quantity',
     'goods_amount_yen', 'container_fee_charged_yen', 'container_fee_auto_yen', 'total_amount_yen', 'staff_name', 'kitchen_done_at'];
   return [header].concat(sales.map((r) => [
-    r.id, isoJst(r.created_at), businessDate(r.created_at), r.payment, r.sticks,
+    r.id, project.id, r.order_no, isoJst(r.created_at), businessDate(r.created_at), r.payment, r.sticks,
     r.goods, r.container, r.container_auto, r.amount, r.staff, r.kitchen_done_at ? isoJst(r.kitchen_done_at) : null,
   ]));
 }
@@ -1300,7 +1495,7 @@ function salesJaCsvRows(sales, { products }) {
   return [header].concat(sales.map((r) => {
     const ls = linesOf.get(r.id);
     const t = isoJst(r.created_at);
-    return [r.id, t.slice(0, 10).replace(/-/g, '/'), t.slice(11, 19), r.payment, r.staff, ...cols.map((c) => c.get(ls)),
+    return [r.order_no ?? r.id, t.slice(0, 10).replace(/-/g, '/'), t.slice(11, 19), r.payment, r.staff, ...cols.map((c) => c.get(ls)),
       r.sticks, r.goods, r.container, r.container_auto, r.container !== r.container_auto ? 'あり' : 'なし', r.amount,
       r.kitchen_done_at ? isoJst(r.kitchen_done_at).slice(11, 19) : null, r.desc];
   }));

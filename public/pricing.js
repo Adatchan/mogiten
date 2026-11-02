@@ -1,5 +1,5 @@
 /**
- * 料金計算（レジ画面とサーバーで共通）
+ * 料金計算（レジ画面とサーバーで共通）。商品は催しごとに管理画面で登録する（初期の商品はない）
  *
  * 商品（product）の形:
  *   { id, name, unit: '本', sets: [{ qty: 1, price: 150 }, { qty: 3, price: 400 }, ...],
@@ -16,10 +16,6 @@
 
 export const DEFAULT_RULE = { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 };
 
-export const DEFAULT_PRODUCTS = [
-  { name: '団子', unit: '本', sets: [{ qty: 1, price: 150 }, { qty: 3, price: 400 }, { qty: 5, price: 500 }], container: true },
-  { name: '焼きマシュマロ', unit: '本', sets: [{ qty: 1, price: 150 }], container: false },
-];
 
 export const MAX_QTY = 200;   // 1会計・1商品あたりの上限
 

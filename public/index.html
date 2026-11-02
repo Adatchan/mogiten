@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ダッシュボード｜団子</title>
+<title>ダッシュボード｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -105,7 +105,7 @@
 <body>
 <div class="wrap">
   <header class="app-header">
-    <div class="app-title"><span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span><div class="app-name"><h1>ダッシュボード</h1><span class="app-sub" id="shopSub"><span class="nw">混声合唱と学祭のための</span><span class="nw">団子</span></span></div></div>
+    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>ダッシュボード</h1><span class="app-sub" id="shopSub"></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
     <button class="btn-help" type="button" data-help-open aria-label="見方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">見方</span></button>
   </header>
@@ -174,6 +174,7 @@
     <summary>このページは何ですか？</summary>
     <p>模擬店の売上が、目標に対して今どこまで来ているかを見るためのページです。レジで会計を記録すると、ここの数字に反映されます。ページは<b>1分ごとに自動で更新</b>されるので、開いたままにしておけば最新の状況が分かります。</p>
     <p>ログインなしで、URL を知っている人なら誰でも見られます。表示しているのは合計の数字だけで、会計ごとの明細や担当者名は出ません。</p>
+    <p>上の小さい文字は、いま表示している<b>催し</b>（例：26岡山大学祭）と期間、模擬店の名前です。数字はすべてこの催しの分です。表示する催しは管理画面で切り替えます。</p>
   </details>
 
   <h3 class="help-group">数字の見方</h3>
@@ -201,7 +202,7 @@
 
   <details>
     <summary>「今日の1時間ごとの売上」の棒グラフ</summary>
-    <p>今日の営業時間（9:00〜19:00）の売上を、1時間ごとの棒で表します。いちばん売れた時間帯には金額が出ます。棒に触れると、その時間帯の売上、会計件数、客単価が出ます。今の時間帯は「集計中」です。</p>
+    <p>今日の営業時間（管理画面で催しごとに決めた時間。例：9:00〜19:00）の売上を、1時間ごとの棒で表します。いちばん売れた時間帯には金額が出ます。棒に触れると、その時間帯の売上、会計件数、客単価が出ます。今の時間帯は「集計中」です。</p>
     <p>赤い点線は、目標を達成するのに必要な<b>1時間あたりの目安</b>です。棒が線を超えていれば、その時間帯はペースどおりです。</p>
     <p>営業時間の外に記録された会計は、グラフの下に件数と金額だけ出ます。取り消した会計は含みません。日付が変わると、その日の分に切り替わります。</p>
   </details>
@@ -409,7 +410,18 @@
   document.getElementById('hourChart').addEventListener('pointerleave', () => hourFocus(null));
   window.addEventListener('resize', () => { if (hourData && lastData) renderHourly(lastData); });
 
+  // 催しの名前（模擬店の名前があれば一緒に）
+  const mdShort = s => { const [, m, dd] = s.split('-'); return Number(m) + '/' + Number(dd); };
+  function renderProject(p) {
+    if (!p) return;
+    const el = document.getElementById('shopSub');
+    const period = p.startDate === p.endDate ? mdShort(p.startDate) : mdShort(p.startDate) + '〜' + mdShort(p.endDate);
+    el.innerHTML = '<span class="nw">' + esc(p.name) + '（' + period + '）</span>' + (p.shopName ? '<span class="nw">' + esc(p.shopName) + '</span>' : '');
+    document.title = (p.shopName || p.name) + '｜ダッシュボード';
+  }
+
   function render(d) {
+    renderProject(d.project);
     lastData = d;
     // 営業終了：自動更新を止め、終了時点の集計として表示
     const closedEl = document.getElementById('closedNote');
