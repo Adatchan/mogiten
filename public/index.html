@@ -29,7 +29,7 @@
   }
   .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
   header { position: relative; text-align: center; margin-bottom: 16px; }
-  header .btn-help { position: absolute; top: 0; right: 0; }
+  header .head-right { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 6px; }
   header .sub { font-size: 14px; color: var(--sub); }
   header h1 { margin: 2px 0 0; font-size: 34px; letter-spacing: .1em; }
   .dango { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 8px; }
@@ -138,7 +138,7 @@
 <body>
 <div class="wrap">
   <header>
-    <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>見方</button>
+    <div class="head-right"><nav class="screen-links" aria-label="ほかの画面"><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav><button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>見方</button></div>
     <div class="sub" id="shopSub">混声合唱と学祭のための</div>
     <h1><span class="dango"><i></i><i></i><i></i></span>団子</h1>
   </header>

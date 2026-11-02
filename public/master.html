@@ -26,9 +26,9 @@
   button { cursor: pointer; border: none; }
   .wrap { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
-  .top h1 { font-size: 20px; margin: 0; }
-  .top .links { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 4px 0; }
-  .top .links a { font-size: 13px; color: var(--brown); margin-left: 10px; }
+  .top h1 { font-size: 20px; margin: 0; white-space: nowrap; flex-shrink: 0; }
+  @media (max-width: 420px) { .top h1 { font-size: 17px; } .top .help-label { display: none; } .top .btn-help { padding-left: 6px; padding-right: 6px; } }
+  .top .links { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
   h2 { font-size: 15px; margin: 0 0 10px; }
   .note { color: var(--sub); font-size: 12px; margin-top: 6px; line-height: 1.6; }
@@ -72,6 +72,8 @@
   .flv-edit input { display: block; width: 100%; margin-top: 4px; color: var(--ink); }
   .checks label { display: flex; gap: 6px; align-items: center; }
   .checks select { padding: 6px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; max-width: 100%; }
+  .checks label.bundle { width: 100%; min-width: 0; }
+  .checks label.bundle select { flex: 1; min-width: 0; width: 100%; }
   .pactions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pactions .sp { flex: 1; }
   .dirty-badge { font-size: 11px; color: #9a5b00; background: #fde7c8; padding: 2px 7px; border-radius: 10px; }
@@ -105,8 +107,8 @@
 
 <div id="app" class="wrap hidden">
   <div class="top">
-    <h1>🔐 団子レジ 管理画面</h1>
-    <div class="links"><button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button><a href="/admin" target="_blank">レジ ↗</a><a href="/" target="_blank">ダッシュボード ↗</a></div>
+    <h1>🔐 管理画面</h1>
+    <div class="links"><nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav><button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button></div>
   </div>
 
   <section class="card">

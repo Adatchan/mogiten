@@ -141,3 +141,23 @@
   font-size: 12px;
   color: var(--sub);
 }
+
+/* ── ほかの画面へのリンク（4画面の右上で共通） ───────────── */
+.screen-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px 12px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.screen-links a {
+  color: var(--brown, #8a5a3b);
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.screen-links a:active { opacity: .6; }
+@media (max-width: 420px) { .screen-links { font-size: 12px; gap: 0 10px; } }

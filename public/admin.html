@@ -40,8 +40,9 @@
   .top a { font-size: 13px; color: var(--brown); }
   .top { gap: 8px; }
   .top h1 { flex-shrink: 0; white-space: nowrap; }
-  #staffLabel { flex: 1; min-width: 0; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #dashLink { flex-shrink: 0; white-space: nowrap; font-size: 12px; }
+  .top .tl { flex-shrink: 0; min-width: 0; max-width: 45%; }
+  #staffLabel { display: block; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top .screen-links { flex: 1; }
   .top .btn-help { flex-shrink: 0; }
   @media (max-width: 420px) { .top .help-label { display: none; } .top .btn-help { padding-left: 6px; padding-right: 6px; } }
 
@@ -273,9 +274,8 @@
 
 <div id="app" class="wrap hidden">
   <div class="top">
-    <h1>🍡 団子レジ</h1>
-    <span id="staffLabel"></span>
-    <a id="dashLink" href="/" target="_blank">ダッシュボード ↗</a>
+    <div class="tl"><h1>🍡 団子レジ</h1><span id="staffLabel"></span></div>
+    <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
     <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
   </div>
 
