@@ -322,7 +322,7 @@
 
   <details>
     <summary>新しい催しを作る（次の学祭の準備）</summary>
-    <figure class="narrow"><img src="/help/master-newproject.webp" width="328" height="732" loading="lazy" alt="「新しい催しを追加」を押して開いた入力欄。催し名、模擬店の名前、開始日、終了日、営業開始、営業終了、目標金額、前の催しから設定を複製と複製する内容のチェック、作ったらこの催しをレジで使うのチェック、作成して開くボタン"></figure>
+    <figure class="narrow"><img src="/help/master-newproject.webp" width="313" height="620" loading="lazy" alt="「新しい催しを追加」を押して開いた入力欄。催し名、模擬店の名前、開始日、終了日、営業開始、営業終了、目標金額、前の催しから設定を複製（初期は「複製しない」）、作ったらこの催しをレジで使うのチェック、作成して開くボタン"></figure>
     <p>催しの一覧のいちばん下の「＋ 新しい催しを追加」を押すと、入力欄が開きます。催し名・開始日・終了日・営業時間を入れて「作成して開く」を押します（「やめる」で閉じます）。模擬店の名前（例：混声合唱と学祭のための 団子）を入れると、ダッシュボードに表示されます。</p>
     <p><b>前の催しから設定を複製</b>で前の催しを選ぶと、商品・価格・セット・味と容器代のルールをそのまま引き継げます（目標金額も選べます）。売上は複製されません。複製したあとで、値段や味を今年の分に直してください。</p>
     <p>「作ったら、この催しをレジで使う」を外しておくと、今の催しの営業を続けたまま、次の催しの準備だけできます。</p>
@@ -744,13 +744,13 @@
       d.projects.map(p => '<option value="' + p.id + '">' + esc(p.name) + '（' + periodText(p) + '・商品 ' + p.products + '件）</option>').join('');
     sel.value = keep;
     if (!formReady) {
-      // 最初だけ入力欄の初期値（今日・いちばん新しい催しの営業時間・いちばん新しい催しから複製）
+      // 最初だけ入力欄の初期値（今日・いちばん新しい催しの営業時間）。複製は原則しない（「複製しない」を初期表示）
       formReady = true;
       $('npStart').value = $('npEnd').value = d.today;
       const latest = d.projects[0];
       $('npOpen').value = latest ? latest.openHour : 9;
       $('npClose').value = latest ? latest.closeHour : 19;
-      if (latest) sel.value = String(latest.id);
+      sel.value = '';
       syncCopyWhat();
       setAddOpen(!d.projects.length);   // 催しがまだないときは最初から開いておく
     }
