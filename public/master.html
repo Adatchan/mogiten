@@ -4,55 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>団子レジ 管理画面</title>
+<title>管理画面｜団子</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
 <style>
-  :root {
-    --bg: #f4f1ec;
-    --card: #ffffff;
-    --ink: #2b2420;
-    --sub: #7a6f66;
-    --line: #e4dccf;
-    --brown: #8a5a3b;
-    --dark: #3d3029;
-    --red: #c0392b;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', sans-serif; background: var(--bg); color: var(--ink); }
-  button, input { font-family: inherit; }
-  button { cursor: pointer; border: none; }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
-  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
-  .top h1 { font-size: 20px; margin: 0; white-space: nowrap; flex-shrink: 0; }
-  @media (max-width: 420px) { .top h1 { font-size: 17px; } .top .help-label { display: none; } .top .btn-help { padding-left: 6px; padding-right: 6px; } }
-  .top .links { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+  /* 色・文字・見出し・カード・ボタン・ログイン・トーストの共通部分は /app.css */
+  .wrap { max-width: 720px; margin: 0 auto; padding: 14px 14px 48px; }
   h2 { font-size: 15px; margin: 0 0 10px; }
-  .note { color: var(--sub); font-size: 12px; margin-top: 6px; line-height: 1.6; }
+  #mSticks { font-size: 15px; line-height: 1.35; padding-top: 3px; white-space: pre-line; }   /* 商品ごとの本数（長くなるので小さめ） */
   .mini { display: flex; gap: 8px; text-align: center; }
   .mini > div { flex: 1; }
   .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .mini .k { font-size: 11px; color: var(--sub); }
 
-  .btn { background: var(--dark); color: #fff; border-radius: 8px; padding: 10px 14px; font-size: 14px; text-decoration: none; display: inline-block; }
-  .btn.danger { background: var(--red); }
-  .btn.sub { background: #efe8de; color: var(--ink); }
-  .btn.small { padding: 5px 10px; font-size: 12px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; }
   .form input[type=password] { width: 100%; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; }
   .form label { display: flex; gap: 6px; align-items: center; font-size: 14px; margin-bottom: 8px; }
-  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 10px; background: #efe8de; color: var(--sub); vertical-align: middle; }
-  .badge.ok { background: #e3f0d8; color: #3d6b1f; }
-  .badge.warn { background: #fde7c8; color: #9a5b00; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 10px; background: var(--soft); color: var(--sub); vertical-align: middle; }
+  .badge.ok { background: var(--ok-soft); color: #3d6b1f; }
+  .badge.warn { background: var(--amber-soft); color: #9a5b00; }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
   th { color: var(--sub); font-weight: 700; font-size: 12px; border-top: none; }
   td.t { color: var(--sub); white-space: nowrap; }
-  .empty { color: var(--sub); text-align: center; padding: 10px 0; }
   .scroll { max-height: 420px; overflow: auto; }
 
   /* 商品の編集 */
@@ -82,34 +60,26 @@
   .danger-zone { border-color: #f2c2bc; background: #fffaf9; }
   .danger-zone h2 { color: var(--red); }
 
-  #login { max-width: 360px; margin: 80px auto; text-align: center; }
-  #login input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
-  #login button:not(.btn-help) { width: 100%; padding: 14px; font-size: 18px; background: var(--dark); color: #fff; border-radius: 10px; }
-
-  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px); background: var(--dark); color: #fff;
-           padding: 12px 18px; border-radius: 10px; font-size: 14px; transition: transform .25s; max-width: 92vw; z-index: 10; }
-  .toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; }
-  .toast.show { transform: translateX(-50%) translateY(0); }
-  .toast.err { background: var(--red); }
-  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
-<div id="login" class="card hidden">
-  <h2 style="font-size:20px">🔐 管理画面</h2>
-  <div class="note">マスターパスワードを入力してください</div>
+<div id="login" class="card login-card hidden">
+  <span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+  <h2>管理画面</h2>
+  <p class="login-lead">店の責任者用の画面です。<br>マスターパスワードを入力してください</p>
   <input id="pw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
-  <button id="loginBtn">ログイン</button>
-  <div class="note">ログインは12時間有効です</div>
-  <button class="btn-help" type="button" data-help-open style="margin-top:14px"><span class="help-badge" aria-hidden="true">?</span>使い方</button>
+  <button class="btn big block login-go" id="loginBtn">ログイン</button>
+  <div class="login-note">ログインは12時間有効です</div>
+  <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
 <div id="app" class="wrap hidden">
-  <div class="top">
-    <h1>🔐 管理画面</h1>
-    <div class="links"><nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav><button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button></div>
-  </div>
+  <header class="app-header">
+    <div class="app-title"><span class="app-mark" aria-hidden="true"><i></i><i></i><i></i></span><div class="app-name"><h1>管理画面</h1><span class="app-sub">店の責任者用</span></div></div>
+    <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav>
+    <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
+  </header>
 
   <section class="card">
     <div class="mini">
@@ -346,7 +316,7 @@
     $('app').classList.remove('hidden');
     $('mTotal').textContent = yen(d.total);
     $('mOrders').textContent = d.orders + '件';
-    $('mSticks').textContent = d.byProduct.filter(g => g.qty).map(g => g.name + ' ' + g.qty + g.unit).join('・') || '0';
+    $('mSticks').textContent = d.byProduct.filter(g => g.qty).map(g => g.name + ' ' + g.qty + g.unit).join('\n') || '0';   // 商品ごとに 1 行
     $('mRate').textContent = '目標 ' + yen(d.target) + '（達成率 ' + Math.floor(d.rate * 100) + '%）' +
       (d.total >= d.target ? '　🎉 達成！' + yen(d.total - d.target) + 'の黒字（見込）' : '');
     if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
