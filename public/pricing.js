@@ -7,19 +7,48 @@
  *     bundleWith: null または 商品ID（その商品のセットに含めて、本数を合わせてセットを組む）,
  *     flavors: ['みたらし', 'あんこ', ...]（味。空なら味を選ばずに数だけ入れる。料金には関係しない） }
  *
- * 容器代のルール（rule）:
+ * 容器代のルール（rule）: enabled = false なら容器代を取らない（いつも 0 円）
  *   { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 }
  *   → 容器代の対象の合計が freeUpTo 以下なら 0円、それより多ければ per 個ごとに 1 個（fee 円）。
  *     容器の数は maxCount 個まで（0 = 上限なし）
  *     （初期値: 1〜2本 0円 / 3本以上は何本でも 1 個 10円）
  */
 
-export const DEFAULT_RULE = { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 };
+export const DEFAULT_RULE = { enabled: true, freeUpTo: 2, per: 4, fee: 10, maxCount: 1 };
 
 
 export const MAX_QTY = 200;   // 1会計・1商品あたりの上限
 
+/**
+ * 支払方法の候補（管理画面で催しごとに選ぶ。候補にないものも名前を入れて追加できる）。
+ * 「現金」だけはレジでお預かり金額とおつりを入れる。color はレジのボタンの色
+ */
+export const PAYMENT_PRESETS = [
+  { name: '現金', color: '#5b8c3a' },
+  { name: 'PayPay', color: '#e60012' },
+  { name: 'd払い', color: '#cc0033' },
+  { name: '楽天ペイ', color: '#bf0000' },
+  { name: 'au PAY', color: '#eb5505' },
+  { name: 'メルペイ', color: '#e3242b' },
+  { name: '交通系IC', color: '#2f6db5' },
+  { name: 'クレジットカード', color: '#3d4a8a' },
+];
+export const DEFAULT_PAYMENTS = ['現金', 'PayPay', 'd払い'];   // これまでの催しと、新しい催しの初期値
+export const MAX_PAYMENTS = 8;
+export const isCashPayment = (name) => name === '現金';
+
+/** 支払方法のボタンの色（候補はその色、追加したものは名前から決まる色） */
+export function paymentColor(name) {
+  const p = PAYMENT_PRESETS.find((x) => x.name === name);
+  if (p) return p.color;
+  const palette = ['#2a78d6', '#7a52b3', '#1f8a8a', '#8a5a3b', '#b5566e', '#4d6b2f'];
+  let h = 0;
+  for (const c of String(name)) h = (h * 31 + c.codePointAt(0)) >>> 0;
+  return palette[h % palette.length];
+}
+
 export function containerFee(rule, n) {
+  if (rule.enabled === false) return 0;   // この催しでは容器代を取らない
   if (!(n > 0) || n <= rule.freeUpTo) return 0;
   let count = Math.ceil(n / rule.per);
   if (rule.maxCount > 0) count = Math.min(count, rule.maxCount);   // 容器の数の上限

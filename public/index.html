@@ -209,7 +209,7 @@
 
   <details>
     <summary>「お会計○件」と客単価、支払方法</summary>
-    <p>記録された会計の件数と、<b>客単価</b>（売上の合計を会計の件数で割った、1回の会計あたりの平均金額）、支払方法（現金、PayPay、d払い）ごとの件数と金額です。バーの長さは、売上全体に占める割合を表します。取り消した会計は含みません。</p>
+    <p>記録された会計の件数と、<b>客単価</b>（売上の合計を会計の件数で割った、1回の会計あたりの平均金額）、支払方法（管理画面で催しごとに選んだもの。例：現金、PayPay、d払い）ごとの件数と金額です。バーの長さは、売上全体に占める割合を表します。取り消した会計は含みません。</p>
   </details>
 
   <h3 class="help-group">うまくいかないとき</h3>
@@ -227,7 +227,7 @@
 </dialog>
 
 <script type="module">
-  import { containerFee, packLabel } from '/pricing.js';
+  import { containerFee, packLabel, paymentColor } from '/pricing.js';
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
 
@@ -436,7 +436,9 @@
     }
     document.getElementById('total').textContent = yen(d.total);
     document.getElementById('target').textContent = yen(d.target);
-    document.getElementById('breakdown').textContent = '（商品 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）';
+    // 容器代を取らない催し（で容器代の売上もない）なら、内訳に容器代を出さない
+    const feeShown = (d.rule && d.rule.enabled !== false) || d.container > 0;
+    document.getElementById('breakdown').textContent = feeShown ? '（商品 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）' : '';
     const pct = Math.round(d.rate * 1000) / 10;
     document.getElementById('barFill').style.width = Math.min(100, pct) + '%';
     document.getElementById('rate').textContent = pct + '%';
@@ -455,8 +457,9 @@
       const p = d.products[0];
       if (p) {
         const big = p.sets[p.sets.length - 1];
-        const per = big.price + (p.container ? containerFee(d.rule, big.qty) : 0);
-        hint.textContent = p.name + 'の' + packLabel(big, p.unit) + '（' + (p.container ? '容器代込み' : '') + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
+        const withFee = p.container && d.rule.enabled !== false;
+        const per = big.price + (withFee ? containerFee(d.rule, big.qty) : 0);
+        hint.textContent = p.name + 'の' + packLabel(big, p.unit) + '（' + (withFee ? '容器代込み' : '') + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
       } else hint.textContent = '';
     }
 
@@ -487,8 +490,8 @@
     document.getElementById('pays').innerHTML = d.payments.map(p => {
       const v = d.byPayment[p];
       const w = d.total > 0 ? (v.amount / d.total * 100) : 0;
-      return '<div class="pay"><div class="head"><span>' + p + '（' + v.count + '件）</span><span class="v">' + yen(v.amount) + '</span></div>' +
-             '<div class="pay-bar"><div style="width:' + w + '%"></div></div></div>';
+      return '<div class="pay"><div class="head"><span>' + esc(p) + '（' + v.count + '件）</span><span class="v">' + yen(v.amount) + '</span></div>' +
+             '<div class="pay-bar"><div style="width:' + w + '%;background:' + paymentColor(p) + '"></div></div></div>';
     }).join('');
 
     document.getElementById('updated').textContent = new Date(d.updatedAt).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo' });
