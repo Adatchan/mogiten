@@ -4,6 +4,7 @@
  *   /            ダッシュボード（public/index.html・認証不要・集計のみ）
  *   /admin       レジ（public/admin.html・レジ用パスワード＋担当者名）
  *   /master      管理画面（public/master.html・マスターパスワード）
+ *   /kitchen     キッチンの注文キュー（public/kitchen.html・レジ用パスワード）
  *   /api/...     この Worker が処理する API
  *
  * 認証のしくみ
@@ -19,7 +20,7 @@
  * あとで価格を変えても過去の記録は変わらない。
  */
 
-import { DEFAULT_RULE, DEFAULT_PRODUCTS, MAX_QTY, priceCart, describeItems, itemsFromLines } from '../public/pricing.js';
+import { DEFAULT_RULE, DEFAULT_PRODUCTS, MAX_QTY, priceCart, describeItems, itemsFromLines, withFlavors, describeFlavors } from '../public/pricing.js';
 
 const DEFAULT_TARGET = 30000;
 
@@ -81,6 +82,23 @@ async function registerApi(request, env, url, route) {
   if (route === 'GET /api/admin/data') return json(await registerData(db, sess));
   if (route === 'GET /api/admin/sales.csv') return csv(db);
   if (route === 'GET /api/admin/sales') return json(await salesPage(db, url.searchParams));
+  // キッチンの注文キュー（今日の注文。変化がなければ rev だけ返す）
+  if (route === 'GET /api/admin/kitchen') return json(await kitchenData(db, url.searchParams));
+  // キッチンで「できた」にする／戻す（状態を指定するので何度送っても同じ）
+  if (route === 'POST /api/admin/kitchen/done') {
+    const body = await readJson(request);
+    const id = Math.floor(Number(body.id) || 0);
+    const row = await db.prepare('SELECT id, kitchen_done_at FROM sales WHERE id = ?').bind(id).first();
+    if (!row) throw httpError('注文が見つかりません', 404);
+    const want = !!body.done;
+    if (!!row.kitchen_done_at !== want) {
+      await db.batch([
+        db.prepare('UPDATE sales SET kitchen_done_at = ? WHERE id = ?').bind(want ? new Date().toISOString() : null, id),
+        bumpRev(db),
+      ]);
+    }
+    return json({ ok: true, id, done: want });
+  }
   if (route === 'POST /api/admin/sales') {
     const body = await readJson(request);
     await recordSale(db, body, sess.staff);
@@ -98,7 +116,7 @@ async function registerApi(request, env, url, route) {
     if (!row) throw httpError('会計が見つかりません', 404);
     const want = body.cancelled ? 1 : 0;
     if (row.cancelled !== want) {
-      await db.prepare('UPDATE sales SET cancelled = ? WHERE id = ?').bind(want, row.id).run();
+      await db.batch([db.prepare('UPDATE sales SET cancelled = ? WHERE id = ?').bind(want, row.id), bumpRev(db)]);
       await audit(db, sess.staff, role, want ? '会計を取消' : '取消を戻す',
         `#${row.id} ${yen(row.amount)} ${row.payment}（担当 ${row.staff || '—'}）` + (body.offline ? '・オフライン操作' : ''));
     }
@@ -109,7 +127,7 @@ async function registerApi(request, env, url, route) {
     const id = Number(m[1]);
     const row = await db.prepare('SELECT * FROM sales WHERE id = ?').bind(id).first();
     if (!row) throw httpError('会計が見つかりません', 404);
-    await db.prepare('UPDATE sales SET cancelled = 1 - cancelled WHERE id = ?').bind(id).run();
+    await db.batch([db.prepare('UPDATE sales SET cancelled = 1 - cancelled WHERE id = ?').bind(id), bumpRev(db)]);
     await audit(db, sess.staff, role, row.cancelled ? '取消を戻す' : '会計を取消', `#${id} ${yen(row.amount)} ${row.payment}（担当 ${row.staff || '—'}）`);
     return json(await registerData(db, sess));
   }
@@ -217,8 +235,10 @@ async function masterApi(request, env, url, route) {
     const epoch = await getEpoch(db);
     await db.batch([
       db.prepare('DELETE FROM sale_items'),
+      db.prepare('DELETE FROM sale_flavors'),
       db.prepare('DELETE FROM sales'),
-      db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('sales', 'sale_items')"),
+      db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('sales', 'sale_items', 'sale_flavors')"),
+      bumpRev(db),
       db.prepare("DELETE FROM audit WHERE action IN ('会計を取消', '取消を戻す', '今の価格と違う会計を記録')"),
       db.prepare("INSERT INTO settings (key, value) VALUES ('sales_epoch', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(epoch + 1)),
     ]);
@@ -470,6 +490,17 @@ async function ensureSchema(db) {
       count INTEGER NOT NULL
     )`),
     db.prepare('CREATE INDEX IF NOT EXISTS sale_items_sale ON sale_items (sale_id)'),
+    // 味ごとの数（キッチンの注文キューと味ごとの集計用。味のない商品は flavor = ''）
+    db.prepare(`CREATE TABLE IF NOT EXISTS sale_flavors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sale_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      unit TEXT NOT NULL,
+      flavor TEXT NOT NULL DEFAULT '',
+      qty INTEGER NOT NULL
+    )`),
+    db.prepare('CREATE INDEX IF NOT EXISTS sale_flavors_sale ON sale_flavors (sale_id)'),
     db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS products_name ON products (name)'),
     db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -507,9 +538,14 @@ async function ensureSchema(db) {
     await addColumn(db, 'ALTER TABLE sales ADD COLUMN client_id TEXT');
   }
   await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS sales_client_id ON sales (client_id)').run();
+  // キッチンで「できた」にした時刻（null = まだ）
+  if (!cols.results.some((c) => c.name === 'kitchen_done_at')) await addColumn(db, 'ALTER TABLE sales ADD COLUMN kitchen_done_at TEXT');
+  await db.prepare('CREATE INDEX IF NOT EXISTS sales_created ON sales (created_at)').run();
   // 「○○のセットに含める」相手の商品（本数を合わせてセットを組む）
   const pcols = await db.prepare('PRAGMA table_info(products)').all();
   if (!pcols.results.some((c) => c.name === 'bundle_with')) await addColumn(db, 'ALTER TABLE products ADD COLUMN bundle_with INTEGER');
+  // 味の一覧（JSON の配列。空なら味を選ばない商品）
+  if (!pcols.results.some((c) => c.name === 'flavors')) await addColumn(db, "ALTER TABLE products ADD COLUMN flavors TEXT NOT NULL DEFAULT '[]'");
   // 混ぜたセットの組み方（例: 5本セット×1）。混ぜたセットの明細だけに入る
   const icols = await db.prepare('PRAGMA table_info(sale_items)').all();
   if (!icols.results.some((c) => c.name === 'pack_label')) await addColumn(db, 'ALTER TABLE sale_items ADD COLUMN pack_label TEXT');
@@ -521,8 +557,8 @@ async function ensureSchema(db) {
     const pc = await db.prepare('SELECT COUNT(*) AS n FROM products').first();
     if (pc.n === 0) {
       await db.batch(DEFAULT_PRODUCTS.map((p, i) => db.prepare(
-        'INSERT OR IGNORE INTO products (name, unit, sets, container, active, sort) VALUES (?, ?, ?, ?, 1, ?)',
-      ).bind(p.name, p.unit, JSON.stringify(p.sets), p.container ? 1 : 0, i + 1)));
+        'INSERT OR IGNORE INTO products (name, unit, sets, container, active, sort, flavors) VALUES (?, ?, ?, ?, 1, ?, ?)',
+      ).bind(p.name, p.unit, JSON.stringify(p.sets), p.container ? 1 : 0, i + 1, JSON.stringify(p.flavors || []))));
     }
   }
   schemaReady = true;
@@ -530,7 +566,10 @@ async function ensureSchema(db) {
 
 // ===== 商品・容器代 =====
 function rowToProduct(r) {
-  return { id: r.id, name: r.name, unit: r.unit, sets: JSON.parse(r.sets), container: !!r.container, active: !!r.active, sort: r.sort, bundleWith: r.bundle_with || null };
+  let flavors = [];
+  try { flavors = JSON.parse(r.flavors || '[]'); } catch {}
+  return { id: r.id, name: r.name, unit: r.unit, sets: JSON.parse(r.sets), container: !!r.container, active: !!r.active, sort: r.sort, bundleWith: r.bundle_with || null,
+    flavors: Array.isArray(flavors) ? flavors : [] };
 }
 
 async function getProducts(db, { all = false } = {}) {
@@ -563,7 +602,7 @@ async function saveRule(db, body) {
 
 const ruleText = (r) => `${r.freeUpTo}個まで無料・${r.per}個ごとに${r.fee}円` + (r.maxCount > 0 ? `・最大${r.maxCount}個（${r.maxCount * r.fee}円）まで` : '・上限なし');
 const productText = (p) => `${p.name}：` + p.sets.map((s) => `${s.qty}${p.unit}${s.price}円`).join('・') +
-  (p.container ? '（容器代対象）' : '') + (p.bundleWith ? `（${p.bundleName || '別の商品'}のセットに含める）` : '') + (p.active ? '' : '（販売停止）');
+  ((p.flavors || []).length ? `（味：${p.flavors.join('・')}）` : '') + (p.container ? '（容器代対象）' : '') + (p.bundleWith ? `（${p.bundleName || '別の商品'}のセットに含める）` : '') + (p.active ? '' : '（販売停止）');
 function productDiff(a, b) {
   const t = productText(a), u = productText(b);
   return t === u ? u : `${t} → ${u}`;
@@ -583,6 +622,7 @@ async function saveProduct(db, body) {
   if (sets[0].qty !== 1) throw httpError(`1${unit}の価格は必ず入力してください（どの数でも組めるようにするため）`, 400);
   const container = body.container ? 1 : 0;
   const active = body.active === false ? 0 : 1;
+  const flavors = parseFlavors(body.flavors);
   const dup = await db.prepare('SELECT id FROM products WHERE name = ? AND id != ?').bind(name, Number(body.id) || 0).first();
   if (dup) throw httpError(`「${name}」という商品はすでにあります`, 400);
   // 「○○のセットに含める」：相手は自分以外で、相手自身はほかの商品のセットに含めていないこと（1 段だけ）
@@ -613,16 +653,29 @@ async function saveProduct(db, body) {
     const row = await db.prepare('SELECT * FROM products WHERE id = ?').bind(Number(body.id)).first();
     if (!row) throw httpError('商品が見つかりません', 404);
     before = rowToProduct(row);
-    await db.prepare('UPDATE products SET name = ?, unit = ?, sets = ?, container = ?, active = ?, bundle_with = ? WHERE id = ?')
-      .bind(name, unit, JSON.stringify(sets), container, active, bundleWith, before.id).run();
+    await db.prepare('UPDATE products SET name = ?, unit = ?, sets = ?, container = ?, active = ?, bundle_with = ?, flavors = ? WHERE id = ?')
+      .bind(name, unit, JSON.stringify(sets), container, active, bundleWith, JSON.stringify(flavors), before.id).run();
   } else {
     const { m } = await db.prepare('SELECT COALESCE(MAX(sort), 0) AS m FROM products').first();
-    await db.prepare('INSERT INTO products (name, unit, sets, container, active, sort, bundle_with) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(name, unit, JSON.stringify(sets), container, active, m + 1, bundleWith).run();
+    await db.prepare('INSERT INTO products (name, unit, sets, container, active, sort, bundle_with, flavors) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(name, unit, JSON.stringify(sets), container, active, m + 1, bundleWith, JSON.stringify(flavors)).run();
   }
   const leaderName = bundleWith ? (await db.prepare('SELECT name FROM products WHERE id = ?').bind(bundleWith).first()).name : null;
   if (before && before.bundleWith) before.bundleName = (await db.prepare('SELECT name FROM products WHERE id = ?').bind(before.bundleWith).first() || {}).name;
-  return { before, after: { name, unit, sets, container: !!container, active: !!active, bundleWith, bundleName: leaderName } };
+  return { before, after: { name, unit, sets, container: !!container, active: !!active, bundleWith, bundleName: leaderName, flavors } };
+}
+
+const MAX_FLAVORS = 12;
+/** 味の一覧（配列、または「、」「,」・改行区切りの文字列）を整える。重複は 1 つに */
+function parseFlavors(v) {
+  const list = Array.isArray(v) ? v : String(v || '').split(/[,、，\n]/);
+  const out = [];
+  for (const x of list) {
+    const f = cleanName(x).slice(0, 12);
+    if (f && !out.includes(f)) out.push(f);
+  }
+  if (out.length > MAX_FLAVORS) throw httpError(`味は${MAX_FLAVORS}種類までです`, 400);
+  return out;
 }
 
 /** 会計の行に明細（items と説明文）を付ける */
@@ -637,6 +690,7 @@ async function attachItems(db, sales) {
       .bind(...chunk).all()).results;
     items.push(...rows);
   }
+  const flavors = await flavorsOf(db, ids);
   return sales.map((x) => {
     let its = items.filter((i) => i.sale_id === x.id);
     // 商品管理を入れる前の古い記録（団子のみ）
@@ -644,8 +698,78 @@ async function attachItems(db, sales) {
       its = [[1, 150, x.s1], [3, 400, x.s3], [5, 500, x.s5]].filter((a) => a[2] > 0)
         .map(([q, pr, c]) => ({ name: '団子', unit: '本', set_qty: q, set_price: pr, count: c, product_id: 0 }));
     }
-    return { ...x, items: its, desc: describeItems(its) };
+    const fl = flavors.filter((f) => f.sale_id === x.id);
+    return { ...x, items: its, flavors: fl, desc: withFlavors(describeItems(its), fl) };
   });
+}
+
+/** 会計 ID の一覧から味ごとの数を読む（50 件ずつ） */
+async function flavorsOf(db, ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const rows = (await db.prepare(`SELECT * FROM sale_flavors WHERE sale_id IN (${chunk.map(() => '?').join(',')}) ORDER BY id`)
+      .bind(...chunk).all()).results;
+    out.push(...rows);
+  }
+  return out;
+}
+
+/** キッチンの注文キュー用の版番号（会計・取消・「できた」のたびに 1 増える）。db.batch に入れて使う */
+function bumpRev(db) {
+  return db.prepare(`INSERT INTO settings (key, value) VALUES ('kitchen_rev', '1')
+    ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`);
+}
+
+async function getRev(db) {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'kitchen_rev'").first();
+  return row ? Number(row.value) : 0;
+}
+
+/**
+ * キッチンの注文キュー：今日（日本時間）の注文を、サーバーに届いた順に。
+ * 端末が持っている rev と日付が今と同じなら、注文は返さない（数秒ごとに読まれるので軽くする）。
+ */
+async function kitchenData(db, params) {
+  const day = jstDay();
+  const rev = await getRev(db);
+  const closed = await getClosed(db);
+  if (params.get('rev') === String(rev) && params.get('day') === day.date) return { rev, day: day.date, same: true, closed };
+  const sales = (await db.prepare(`SELECT id, created_at, cancelled, kitchen_done_at, staff FROM sales
+      WHERE created_at >= ? AND created_at < ? ORDER BY id`).bind(day.start, day.end).all()).results;
+  const fl = (await db.prepare(`SELECT sf.sale_id, sf.product_id, sf.name, sf.unit, sf.flavor, sf.qty FROM sale_flavors sf
+      JOIN sales s ON s.id = sf.sale_id WHERE s.created_at >= ? AND s.created_at < ? ORDER BY sf.id`).bind(day.start, day.end).all()).results;
+  // 味の記録がない古い会計は、明細（sale_items）から商品ごとの数を出す
+  const withFl = new Set(fl.map((f) => f.sale_id));
+  const old = sales.filter((x) => !withFl.has(x.id));
+  let items = [];
+  if (old.length) {
+    items = (await db.prepare(`SELECT si.sale_id, si.product_id, si.name, si.unit, si.set_qty * si.count AS qty FROM sale_items si
+        JOIN sales s ON s.id = si.sale_id WHERE s.created_at >= ? AND s.created_at < ? ORDER BY si.id`).bind(day.start, day.end).all()).results;
+  }
+  const products = await getProducts(db, { all: true });
+  const orders = sales.map((x) => {
+    let lines = fl.filter((f) => f.sale_id === x.id);
+    if (!lines.length) {
+      const by = new Map();
+      for (const it of items) {
+        if (it.sale_id !== x.id) continue;
+        const g = by.get(it.product_id) || { product_id: it.product_id, name: it.name, unit: it.unit, flavor: '', qty: 0 };
+        g.qty += it.qty;
+        by.set(it.product_id, g);
+      }
+      lines = [...by.values()];
+    }
+    return {
+      id: x.id, createdAt: x.created_at, cancelled: !!x.cancelled, doneAt: x.kitchen_done_at || null, staff: x.staff,
+      lines: lines.map((l) => ({ productId: l.product_id, name: l.name, unit: l.unit, flavor: l.flavor, qty: l.qty })),
+    };
+  });
+  return {
+    rev, day: day.date, closed, orders,
+    // 味の並び順（管理画面で決めた順）
+    products: products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, flavors: p.flavors })),
+  };
 }
 
 /** 列の追加（同時に別のリクエストが追加済みでもエラーにしない） */
@@ -680,6 +804,19 @@ async function getTarget(db) {
 // 営業時間（日本時間）。1時間ごとの売上はこの範囲で集計する
 const OPEN_HOUR = 9;
 const CLOSE_HOUR = 19;
+
+/** 今日（日本時間）の日付と、その範囲（UTC の ISO 文字列） */
+function jstDay() {
+  const JST = 9 * 3600000;
+  const nowJst = new Date(Date.now() + JST);
+  const y = nowJst.getUTCFullYear(), m = nowJst.getUTCMonth(), d = nowJst.getUTCDate();
+  const start = new Date(Date.UTC(y, m, d) - JST);
+  return {
+    date: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+    start: start.toISOString(),
+    end: new Date(start.getTime() + 86400000).toISOString(),
+  };
+}
 
 /** 今日（日本時間）の 1 時間ごとの売上（取消を除く）。営業時間外の会計はまとめて outside に入れる */
 async function hourlySales(db) {
@@ -733,6 +870,23 @@ async function summary(db) {
     else g.packs.push({ qty: k.set_qty, price: k.set_price, count: k.count });
   }
   byProduct.forEach((g) => g.packs.sort((a, b) => a.qty - b.qty || a.price - b.price));
+  // 味ごとの数（今の味の並び順。味の指定なし（''）は最後）
+  const fl = (await db.prepare(`SELECT sf.product_id, sf.flavor, SUM(sf.qty) AS qty
+      FROM sale_flavors sf JOIN sales s ON s.id = sf.sale_id WHERE s.cancelled = 0
+      GROUP BY sf.product_id, sf.flavor`).all()).results;
+  for (const g of byProduct) {
+    const cur = products.find((p) => p.id === g.id);
+    const order = cur ? cur.flavors : [];
+    const rows = fl.filter((f) => f.product_id === g.id);
+    if (!order.length && !rows.some((r) => r.flavor)) { g.flavors = []; continue; }
+    const list = order.map((f) => ({ flavor: f, qty: 0 }));
+    for (const r of rows) {
+      const x = list.find((y) => y.flavor === r.flavor);
+      if (x) x.qty += r.qty; else list.push({ flavor: r.flavor, qty: r.qty });
+    }
+    list.sort((a, b) => (a.flavor === '' ? 1 : 0) - (b.flavor === '' ? 1 : 0));
+    g.flavors = list;
+  }
   const pays = await db.prepare(`SELECT payment, COUNT(*) AS count, SUM(amount) AS amount
     FROM sales WHERE cancelled = 0 GROUP BY payment`).all();
 
@@ -852,6 +1006,36 @@ async function recordSale(db, body, staff) {
   }
   if (priced && !priced.lines.length) throw httpError('商品が選択されていません', 400);
 
+  // 味ごとの数（{ 商品ID: { 味: 数 } }）。合計が商品の数と合わないものは受け付けない。
+  // 味の一覧はあとで変わることがあるので、届いた味の名前のまま記録する。味がない商品は flavor = ''
+  const flavorRows = [];
+  const sentFlavors = body.flavors && typeof body.flavors === 'object' ? body.flavors : {};
+  const snapMembers = (snapshot || []).flatMap((l) => (Array.isArray(l.members) && l.members.length ? l.members : [l]));
+  for (const [pid, n] of Object.entries(cart)) {
+    const p = all.find((x) => String(x.id) === String(pid));
+    const sm = snapMembers.find((m) => String(m.productId) === String(pid)) || {};
+    const name = p ? p.name : cleanName(sm.name).slice(0, 20) || '商品';
+    const unit = p ? p.unit : cleanName(sm.unit).slice(0, 4) || '個';
+    const productId = p ? p.id : Math.max(0, Math.floor(Number(pid) || 0));
+    const f = sentFlavors[pid];
+    if (f && typeof f === 'object' && Object.keys(f).length) {
+      const entries = Object.entries(f);
+      if (entries.length > 30) throw httpError('味の指定が不正です', 400);
+      let sum = 0;
+      for (const [flavor, q] of entries) {
+        const qn = Math.floor(Number(q) || 0);
+        if (qn <= 0) continue;
+        const fname = cleanName(flavor).slice(0, 12);
+        if (!fname) throw httpError('味の指定が不正です', 400);
+        sum += qn;
+        flavorRows.push({ productId, name, unit, flavor: fname, qty: qn });
+      }
+      if (sum !== n) throw httpError(`${name}の味ごとの数（${sum}）と合計（${n}）が合いません`, 400);
+    } else {
+      flavorRows.push({ productId, name, unit, flavor: '', qty: n });
+    }
+  }
+
   // 端末で表示・会計した内容が、今の価格と違うとき
   //   - 従来の画面（明細なし）: 記録せず 409 で確認を求める
   //   - オフライン対応の画面（明細あり）: お客さんから受け取った金額で記録し、操作の記録に残す
@@ -893,6 +1077,12 @@ async function recordSale(db, body, staff) {
         VALUES ((SELECT id FROM sales WHERE client_id = ?), ?, ?, ?, ?, ?, ?, ?)`)
       .bind(cid, it.product_id, it.name, it.unit, it.set_qty, it.set_price, it.count, it.pack_label));
   }
+  for (const f of flavorRows) {
+    stmts.push(db.prepare(`INSERT INTO sale_flavors (sale_id, product_id, name, unit, flavor, qty)
+        VALUES ((SELECT id FROM sales WHERE client_id = ?), ?, ?, ?, ?, ?)`)
+      .bind(cid, f.productId, f.name, f.unit, f.flavor, f.qty));
+  }
+  stmts.push(bumpRev(db));
   try {
     await db.batch(stmts);
   } catch (e) {
@@ -902,7 +1092,7 @@ async function recordSale(db, body, staff) {
   }
   if (mismatch) {
     await audit(db, staff, 'register', '今の価格と違う会計を記録',
-      `${describeItems(items)} ${yen(goods + container)}（端末で会計した金額のまま）`);
+      `${withFlavors(describeItems(items), flavorRows)} ${yen(goods + container)}（端末で会計した金額のまま）`);
   }
   return { duplicate: false };
 }
@@ -987,9 +1177,9 @@ async function csv(db) {
   const names = (await getProducts(db, { all: true })).map((p) => p.name);
   for (const x of sales) for (const it of x.items) if (!names.includes(it.name)) names.push(it.name);
   const qtyOf = (x, name) => x.items.filter((i) => i.name === name).reduce((a, i) => a + i.set_qty * i.count, 0);
-  const header = ['ID', '日時', ...names.map((n) => n + '(数量)'), '内容', '商品代', '容器代', '容器代(自動計算)', '合計', '支払方法', '担当者'];
+  const header = ['ID', '日時', ...names.map((n) => n + '(数量)'), '内容', '味', '商品代', '容器代', '容器代(自動計算)', '合計', '支払方法', '担当者'];
   const lines = [header].concat(sales.map((r) => [
-    r.id, toJst(r.created_at), ...names.map((n) => qtyOf(r, n)), r.desc, r.goods, r.container, r.container_auto, r.amount, r.payment, r.staff,
+    r.id, toJst(r.created_at), ...names.map((n) => qtyOf(r, n)), describeItems(r.items), describeFlavors(r.flavors), r.goods, r.container, r.container_auto, r.amount, r.payment, r.staff,
   ]));
   const body = lines.map((cols) => cols.map((c) => {
     let s = String(c);

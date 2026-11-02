@@ -4,7 +4,8 @@
  * 商品（product）の形:
  *   { id, name, unit: '本', sets: [{ qty: 1, price: 150 }, { qty: 3, price: 400 }, ...],
  *     container: true/false（容器代の対象か）, active: true/false,
- *     bundleWith: null または 商品ID（その商品のセットに含めて、本数を合わせてセットを組む） }
+ *     bundleWith: null または 商品ID（その商品のセットに含めて、本数を合わせてセットを組む）,
+ *     flavors: ['みたらし', 'あんこ', ...]（味。空なら味を選ばずに数だけ入れる。料金には関係しない） }
  *
  * 容器代のルール（rule）:
  *   { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 }
@@ -153,6 +154,29 @@ export function itemsFromLines(lines) {
     });
   }
   return rows;
+}
+
+/**
+ * 味ごとの内訳を短い文字列に（例: 「みたらし3・あんこ2」、商品が複数なら「団子 みたらし3・あんこ2／焼きマシュマロ チョコ2」）
+ * rows: [{ name: 商品名, flavor: 味（'' = 味の指定なし）, qty }]。味のない行は書かない。
+ */
+export function describeFlavors(rows) {
+  const by = new Map();
+  for (const r of rows || []) {
+    if (!r.flavor || !(r.qty > 0)) continue;
+    if (!by.has(r.name)) by.set(r.name, new Map());
+    const m = by.get(r.name);
+    m.set(r.flavor, (m.get(r.flavor) || 0) + r.qty);
+  }
+  const parts = [...by.entries()].map(([name, m]) => ({ name, text: [...m.entries()].map(([f, q]) => f + q).join('・') }));
+  if (parts.length === 1) return parts[0].text;
+  return parts.map((p) => p.name + ' ' + p.text).join('／');
+}
+
+/** 明細の文字列に味の内訳を付け足す（例: 「団子5本（5本セット×1）〔みたらし3・あんこ2〕」） */
+export function withFlavors(desc, rows) {
+  const f = describeFlavors(rows);
+  return f ? `${desc}〔${f}〕` : desc;
 }
 
 /** 会計の明細を短い文字列に（例: 「団子5本（5本セット×1）・焼きマシュマロ2本」「団子3本・焼きマシュマロ2本（5本セット×1）」） */
