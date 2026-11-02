@@ -206,6 +206,11 @@
   .pay { padding: 12px 4px; font-size: 17px; border-radius: 12px; }
   .net { padding: 5px 10px; margin-bottom: 6px; border-radius: 10px; }
 
+  /* 営業終了中：入力と支払を止める */
+  .closed-box { background: #2b2420; color: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; font-size: 15px; font-weight: 700; line-height: 1.5; }
+  .closed-box .sub { display: block; font-size: 12px; font-weight: 400; opacity: .8; }
+  #app.is-closed #products, #app.is-closed section:has(#cart), #app.is-closed section:has(.pays) { opacity: .4; pointer-events: none; }
+
   /* 通信状態と未送信（オフライン対応） */
   .net { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; font-size: 13px;
          background: #eef6e8; border: 1px solid #cfe3bf; color: #2f5a17; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
@@ -255,6 +260,7 @@
 
   <div id="net" class="net"><span class="dot"></span><span id="netText">確認中…</span><span class="sp"></span><span id="qInfo"></span><button id="syncBtn" class="hidden">送信</button></div>
   <div id="failedBox" class="failed hidden"><details><summary id="failedSum"></summary><div id="failedList"></div></details></div>
+  <div id="closedBox" class="closed-box hidden">🌙 営業は終了しました。新しい会計は記録できません。<span class="sub">（取消は「最近の会計」「すべての会計を見る」からできます）</span></div>
   <div id="updateBox" class="update hidden">新しい版のレジがあります。会計の合間に切り替えてください。<button id="reloadBtn">再読み込み</button></div>
 
   <section class="card">
@@ -606,6 +612,10 @@
     if (!d.cachedAt) { checkEpoch(d.epoch); saveCachedData(d); }
     lastData = d;
     $('staffLabel').textContent = '担当: ' + d.me.staff + (d.cachedAt ? '（オフライン表示）' : '');
+    // 営業終了中
+    $('closedBox').classList.toggle('hidden', !d.closed);
+    $('app').classList.toggle('is-closed', !!d.closed);
+    if (d.closed && !$('modal').classList.contains('hidden')) closePay();
     $('mTotal').textContent = yen(d.total);
     const done = d.total >= d.target;
     $('mRemain').textContent = done ? yen(d.total - d.target) : yen(d.remaining);
@@ -797,6 +807,7 @@
   function openPay(method) {
     const total = cartTotal();
     if (busy || !total) return;
+    if (lastData && lastData.closed) { toast('営業は終了しました。会計は記録できません', true); return; }
     pending = { method, total, received: null };
     $('modal').classList.remove('hidden');
     if (method === '現金') showRecv(); else showConfirm();

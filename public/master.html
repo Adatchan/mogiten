@@ -140,6 +140,12 @@
     <div class="note" id="rulePreview"></div>
   </section>
 
+  <section class="card" id="closedCard">
+    <h2>営業の状態 <span class="badge" id="closedState"></span></h2>
+    <button class="btn danger" id="closeBtn">営業終了（レジの会計を止める）</button>
+    <div class="note">営業終了にすると、レジでは新しい会計を記録できなくなり、ダッシュボードは自動更新を止めて終了時点の集計を表示します。終了前に電波がなくて送れていなかった会計は、あとから届いても記録されます。取消はそのままできます。もう一度押すと営業を再開できます。</div>
+  </section>
+
   <section class="card">
     <h2>目標金額</h2>
     <div class="row">
@@ -321,7 +327,9 @@
     $('login').classList.remove('hidden');
   }
 
+  let lastClosed = null;
   function render(d) {
+    lastClosed = d.closed || null;
     $('login').classList.add('hidden');
     $('app').classList.remove('hidden');
     $('mTotal').textContent = yen(d.total);
@@ -347,6 +355,14 @@
     $('lockState').className = 'badge ' + (d.locked.length ? 'warn' : 'ok');
 
     $('resetInfo').textContent = '現在の会計：' + d.allSales.n + ' 件（うち取消 ' + d.allSales.cancelled + ' 件）・売上 ' + yen(d.total);
+    if (d.closed) {
+      const t = new Date(d.closed.at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      $('closedState').textContent = '営業終了（' + t + '）'; $('closedState').className = 'badge warn';
+      $('closeBtn').textContent = '営業を再開する'; $('closeBtn').className = 'btn';
+    } else {
+      $('closedState').textContent = '営業中'; $('closedState').className = 'badge ok';
+      $('closeBtn').textContent = '営業終了（レジの会計を止める）'; $('closeBtn').className = 'btn danger';
+    }
     renderProducts(d.allProducts);
     renderRule(d.rule);
 
@@ -525,6 +541,11 @@
     if (!(v > 0)) return toast('目標金額を入力してください', true);
     if (!confirm('目標金額を ' + yen(v) + ' に変更しますか？')) return;
     run(() => api('target', { target: v }), '目標金額を変更しました');
+  };
+  $('closeBtn').onclick = () => {
+    const closing = !lastClosed;
+    if (!confirm(closing ? '営業終了にしますか？\nレジで新しい会計を記録できなくなります。' : '営業を再開しますか？\nレジで会計を記録できるようになります。')) return;
+    run(() => api('closed', { closed: closing }), closing ? '営業終了にしました' : '営業を再開しました');
   };
   $('resetBtn').onclick = () => {
     if ($('resetConfirm').value.trim() !== 'リセット') return toast('確認のため「リセット」と入力してください', true);
