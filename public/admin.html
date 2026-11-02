@@ -206,6 +206,25 @@
   .pay { padding: 12px 4px; font-size: 17px; border-radius: 12px; }
   .net { padding: 5px 10px; margin-bottom: 6px; border-radius: 10px; }
 
+  /* 味ごとの入力（タップで 1 つ増える・右上の − で減らす） */
+  .flvs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .flv { position: relative; }
+  .flv .fadd { width: 100%; min-height: 64px; background: #fff4f6; border: 2px solid var(--pink); border-radius: 12px; padding: 6px 4px; color: var(--ink);
+               display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .flv .fadd:active { transform: scale(.97); background: #ffe3ea; }
+  .flv .fadd .fn { font-size: 15px; font-weight: 700; line-height: 1.2; word-break: break-all; }
+  .flv .fadd .fc { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--sub); }
+  .flv.on .fadd { background: var(--pink); color: #fff; }
+  .flv.on .fadd .fc { color: #fff; }
+  .flv .fsub { position: absolute; bottom: 5px; left: 5px; width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 2px solid var(--pink);
+               color: var(--pink); font-size: 20px; font-weight: 700; line-height: 1; display: none; }
+  .flv.on .fsub { display: block; }
+  .prod-head .ptotal { font-size: 15px; color: var(--sub); white-space: nowrap; }
+  .prod-head .ptotal b { font-size: 26px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .cart-flv { font-size: 13px; color: #b5566e; font-weight: 700; padding: 0 0 4px 1em; }
+  .sum-line.sum-flv { color: #b5566e; font-weight: 700; }
+  .hist-line .k { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #e3f0d8; color: #3d6b1f; margin-left: 4px; white-space: nowrap; }
+
   /* 営業終了中：入力と支払を止める */
   .closed-box { background: #2b2420; color: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; font-size: 15px; font-weight: 700; line-height: 1.5; }
   .closed-box .sub { display: block; font-size: 12px; font-weight: 400; opacity: .8; }
@@ -318,6 +337,7 @@
   <section class="card">
     <div class="label">管理（マスター）</div>
     <a class="csv-btn" href="/master" target="_blank">🔐 管理画面を開く ↗</a>
+    <a class="csv-btn" href="/kitchen" target="_blank" style="margin-left:6px">🍳 キッチン画面 ↗</a>
     <div class="note">商品・価格の変更、目標金額の変更、レジのパスワード変更、端末の締め出しは管理画面から行います（マスターパスワードが必要）。</div>
   </section>
 
@@ -397,6 +417,7 @@
     <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="184" loading="lazy" alt="商品ごとの本数の入力欄。団子はマイナス、本数、プラスのボタンと、1本、3本、5本のボタン。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
     <p>商品ごとに本数を入れます。団子は「1本」「3本」「5本」のボタンを押すと、その本数になります（足し算ではありません）。それ以外の本数は「＋」「−」で増減するか、数字をタップして直接入力します。焼きマシュマロのようにセットのない商品は「＋」「−」で入れます。</p>
     <p>セットの組み方は自動です。たとえば団子4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。</p>
+    <p><b>味のある商品</b>（管理画面で味を登録した商品）は、数の入れ方が変わります。お客さんの言う味のボタンを、その本数だけタップしてください（「みたらし2本、あんこ1本」なら みたらし を2回、あんこ を1回）。押しすぎたら、そのボタンの右上の「−」で減らします。合計の本数でセットが自動で組まれるので、味の組み合わせは自由です。入れた味はキッチン画面に注文として届きます。</p>
     <p>焼きマシュマロは<b>団子と合わせてセット</b>になります。たとえば団子3本＋焼きマシュマロ2本なら、合わせて5本で「5本セット500円」です。容器代は団子の本数だけで計算します。</p>
   </details>
 
@@ -501,7 +522,7 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel, describeItems, itemsFromLines } from '/pricing.js';
+  import { DEFAULT_RULE, MAX_QTY, priceCart, upsell, packLabel, describeItems, itemsFromLines, withFlavors, describeFlavors } from '/pricing.js';
   // 1 行の名前（混ぜたセットは「団子3本・焼きマシュマロ2本」）
   const lineName = l => l.members.map(m => esc(m.product.name) + (l.members.length > 1 || m.product !== l.product ? m.qty + esc(m.product.unit) : '')).join('・');
   const lineQtyText = l => l.members.map(m => esc(m.product.name) + m.qty + esc(m.product.unit)).join('・');
@@ -516,7 +537,8 @@
   let products = [];      // 販売中の商品（サーバーから）
   let rule = { ...DEFAULT_RULE };
   let productsSig = '';
-  let cart = {};          // { 商品ID: 個数 }
+  let cart = {};          // { 商品ID: 個数 }（味のある商品は、味ごとの数の合計）
+  let flv = {};           // 味のある商品の内訳 { 商品ID: { 味: 個数 } }
   let manualFee = null;   // null = 自動計算、数値 = 手動で修正した容器代
   let busy = false;
 
@@ -649,6 +671,7 @@
     })).concat(d.recent.filter(r => !r.client_id || !localIds.has(r.client_id)).map(r => ({
       key: r.client_id ? 'c:' + r.client_id : 'i:' + r.id, clientId: r.client_id, id: r.id, created_at: r.created_at, desc: r.desc,
       container: r.container, container_auto: r.container_auto, payment: r.payment, staff: r.staff, amount: r.amount, cancelled: r.cancelled, state: 'server',
+      done: !!r.kitchen_done_at,
     })));
     // まだ送っていない取消／戻すを表示に反映
     for (const o of q) {
@@ -660,9 +683,10 @@
     $('hist').innerHTML = rows.length ? rows.slice(0, 5).map(r => {
       const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
       const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
-      const tag = r.state === 'pending' ? '<span class="q">未送信</span>' : r.cancelPending ? '<span class="q">取消は未送信</span>' : '';
+      const tag = (r.state === 'pending' ? '<span class="q">未送信</span>' : r.cancelPending ? '<span class="q">取消は未送信</span>' : '') +
+        (r.done && !r.cancelled ? '<span class="k">✓できた</span>' : '');
       return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
-        '<span class="t">' + time + '</span>' +
+        '<span class="t">' + (r.id ? '#' + r.id + ' ' : '') + time + '</span>' +
         '<span class="d">' + esc(r.desc) + ' ' + fee + '　' + r.payment + (r.staff ? '（' + esc(r.staff) + '）' : '') + tag + '</span>' +
         '<span class="a">' + yen(r.amount) + '</span>' +
         '<button data-cancel="' + esc(r.key) + '" data-to="' + (r.cancelled ? 0 : 1) + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
@@ -689,7 +713,17 @@
     products = list;
     rule = r;
     const before = JSON.stringify(cart);
-    for (const id of Object.keys(cart)) if (!products.some(p => String(p.id) === id)) delete cart[id];
+    for (const id of Object.keys(cart)) {
+      const p = products.find(p => String(p.id) === id);
+      if (!p) { delete cart[id]; delete flv[id]; continue; }
+      if (hasFlv(p)) {
+        // 味の一覧から消えた味は外す（味のなかった商品に味ができたら、数を入れ直してもらう）
+        const f = flv[id] || {};
+        for (const k of Object.keys(f)) if (!p.flavors.includes(k)) delete f[k];
+        const n = Object.values(f).reduce((a, b) => a + b, 0);
+        if (n) { flv[id] = f; cart[id] = n; } else { delete flv[id]; delete cart[id]; }
+      } else delete flv[id];
+    }
     renderProducts();
     renderCart();
     if (!first) toast(JSON.stringify(cart) !== before ? '商品が変更されたため、お会計を一部消しました' : '商品・価格が更新されました', JSON.stringify(cart) !== before);
@@ -701,8 +735,26 @@
     return l ? '<small>' + esc(l.name) + 'と合わせてセット</small>' : '';
   }
 
+  const hasFlv = p => !!(p && p.flavors && p.flavors.length);
+  const setsHint = p => p.sets.map(s => (s.qty === 1 ? '1' + esc(p.unit) : s.qty + esc(p.unit)) + s.price + '円').join('・');
+
+  // 味のある商品：味のボタンをタップした回数がその味の数（右上の − で減らす）。セットは合計の数で自動で組む
+  function flavorCard(p) {
+    return '<section class="card prod" data-prod="' + p.id + '">' +
+      '<div class="prod-head">' +
+        '<div class="pn">' + esc(p.name) + (bundleNote(p) || '<small>' + setsHint(p) + '</small>') + '</div>' +
+        '<div class="ptotal">計 <b data-ptotal="' + p.id + '">0</b>' + esc(p.unit) + '</div>' +
+      '</div>' +
+      '<div class="flvs">' + p.flavors.map((f, i) =>
+        '<div class="flv" data-pid="' + p.id + '" data-fi="' + i + '">' +
+          '<button class="fadd" data-pid="' + p.id + '" data-fadd="' + i + '"><span class="fn">' + esc(f) + '</span><span class="fc">0</span></button>' +
+          '<button class="fsub" data-pid="' + p.id + '" data-fsub="' + i + '" aria-label="' + esc(f) + 'を1' + esc(p.unit) + '減らす">−</button>' +
+        '</div>').join('') +
+      '</div></section>';
+  }
+
   function renderProducts() {
-    $('products').innerHTML = products.map(p =>
+    $('products').innerHTML = products.map(p => hasFlv(p) ? flavorCard(p) :
       // 1 行目：商品名と −［数］＋　2 行目：セットのボタン（セットが 1 種類だけの商品は省略）
       '<section class="card prod" data-prod="' + p.id + '">' +
         '<div class="prod-head">' +
@@ -723,6 +775,29 @@
   }
 
   const qtyOf = pid => cart[pid] || 0;
+  const flvOf = (pid, f) => (flv[pid] && flv[pid][f]) || 0;
+  function setFlavor(pid, f, n) {
+    const others = qtyOf(pid) - flvOf(pid, f);
+    n = Math.max(0, Math.min(MAX_QTY - others, Math.floor(Number(n) || 0)));
+    if (n === flvOf(pid, f)) return;
+    manualFee = null;
+    const m = { ...(flv[pid] || {}) };
+    if (n) m[f] = n; else delete m[f];
+    const total = Object.values(m).reduce((a, b) => a + b, 0);
+    if (total) { flv[pid] = m; cart[pid] = total; } else { delete flv[pid]; delete cart[pid]; }
+    renderCart();
+  }
+  /** 味の内訳（[{ name, flavor, qty }]、味の一覧の順） */
+  function flavorRows(onlyPid) {
+    const rows = [];
+    for (const p of products) {
+      if (onlyPid != null && String(p.id) !== String(onlyPid)) continue;
+      const m = flv[p.id];
+      if (!m) continue;
+      for (const f of p.flavors || []) if (m[f]) rows.push({ name: p.name, flavor: f, qty: m[f] });
+    }
+    return rows;
+  }
   function setQty(pid, n) {
     n = Math.max(0, Math.min(MAX_QTY, Math.floor(Number(n) || 0)));
     if (n !== qtyOf(pid)) manualFee = null;   // 個数が変わったら容器代は自動計算に戻す
@@ -733,6 +808,13 @@
   function renderCart() {
     document.querySelectorAll('.qty-input').forEach(inp => { if (document.activeElement !== inp) inp.value = qtyOf(inp.dataset.pid); });
     document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', Number(b.dataset.preset) === qtyOf(b.dataset.pid)));
+    document.querySelectorAll('.flv').forEach(el => {
+      const p = products.find(x => String(x.id) === el.dataset.pid);
+      const n = p ? flvOf(p.id, p.flavors[Number(el.dataset.fi)]) : 0;
+      el.classList.toggle('on', n > 0);
+      el.querySelector('.fc').textContent = n;
+    });
+    document.querySelectorAll('[data-ptotal]').forEach(el => el.textContent = qtyOf(el.dataset.ptotal));
     const pr = priced();
 
     // 商品ごとに 1 行（セットの組み方はかっこ書き）
@@ -741,7 +823,11 @@
       const detail = l.packs.length > 1 || l.packs[0].qty > 1
         ? '<small class="packs">（' + l.packs.map(k => packLabel(k, u) + (k.count > 1 ? '×' + k.count : '')).join('＋') + '）</small>' : '';
       const name = l.members.length > 1 ? lineName(l) : esc(l.members[0].product.name) + ' ' + l.qty + u;
-      return '<div class="cart-line"><span>' + name + detail + '</span><span class="sub">' + yen(l.subtotal) + '</span></div>';
+      // 味の内訳（混ぜたセットなら商品ごとに）
+      const fl = l.members.filter(m => flv[m.product.id]).map(m =>
+        (l.members.length > 1 ? esc(m.product.name) + ' ' : '') + esc(describeFlavors(flavorRows(m.product.id)))).join('／');
+      return '<div class="cart-line"><span>' + name + detail + '</span><span class="sub">' + yen(l.subtotal) + '</span></div>' +
+        (fl ? '<div class="cart-flv">' + fl + '</div>' : '');
     }).join('') : '<div class="empty">商品の数を選んでください</div>';
 
     $('upsell').innerHTML = pr.lines.map(l => {
@@ -752,7 +838,10 @@
       if (!up) return '';
       const u = esc(l.product.unit);
       const who = l.members.length > 1 ? '合わせて' : (pr.lines.length > 1 ? esc(target.name) : '');
-      return '<div class="upsell"><span>💡 ' + who + 'あと' + (up.qty - leaderQty) + u + 'で' + (up.save > 0 ? yen(up.save) + 'お得' : '同じ金額') + '</span>' +
+      const msg = '💡 ' + who + 'あと' + (up.qty - leaderQty) + u + 'で' + (up.save > 0 ? yen(up.save) + 'お得' : '同じ金額');
+      // 味のある商品は、どの味を足すかをお客さんに聞いて味のボタンで足す
+      if (hasFlv(target)) return '<div class="upsell"><span>' + msg + '（味を聞いて追加）</span></div>';
+      return '<div class="upsell"><span>' + msg + '</span>' +
         '<button data-pid="' + target.id + '" data-setqty="' + up.qty + '">' + (l.members.length > 1 ? esc(target.name) + 'を' : '') + up.qty + u + 'にする</button></div>';
     }).join('');
 
@@ -786,6 +875,11 @@
     if (d.preset) setQty(d.pid, d.preset);
     if (d.step) setQty(d.pid, qtyOf(d.pid) + Number(d.step));
     if (d.setqty) setQty(d.pid, d.setqty);
+    if (d.fadd != null || d.fsub != null) {
+      const p = products.find(x => String(x.id) === d.pid);
+      const f = p && p.flavors[Number(d.fadd ?? d.fsub)];
+      if (f != null) setFlavor(p.id, f, flvOf(p.id, f) + (d.fadd != null ? 1 : -1));
+    }
     if (d.fee) { manualFee = Math.max(0, currentFee() + Number(d.fee)); renderCart(); }
     if (d.feereset) { manualFee = null; renderCart(); }
     if (d.pay) openPay(d.pay);
@@ -796,6 +890,7 @@
   function resetCart() {
     manualFee = null;
     cart = {};
+    flv = {};
     renderCart();
   }
 
@@ -854,7 +949,8 @@
       '<div class="sum-line"><span>' + (l.members.length > 1 ? '' : esc(l.members[0].product.name) + ' ') + packLabel(k, esc(l.product.unit)) + '（' + k.price + '円）× ' + k.count + '</span><span class="sub">' + yen(k.price * k.count) + '</span></div>'
     ).join('')).join('') +
       (fee ? '<div class="sum-line fee"><span>容器代' + (manualFee != null && manualFee !== autoFee() ? '（手動）' : '') + '</span><span class="sub">' + yen(fee) + '</span></div>' : '') +
-      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(lineQtyText).join('・') + '</span></div>';
+      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(lineQtyText).join('・') + '</span></div>' +
+      (flavorRows().length ? '<div class="sum-line sum-flv"><span>味</span><span>' + esc(describeFlavors(flavorRows())) + '</span></div>' : '');
     $('cfTotal').textContent = yen(p.total);
     const isCash = p.method === '現金';
     $('cfCash').classList.toggle('hidden', !isCash);
@@ -889,6 +985,7 @@
       clientId: newId(),
       createdAt: new Date().toISOString(),
       items: { ...cart },
+      flavors: JSON.parse(JSON.stringify(flv)),
       lines: pr.lines.map(l => ({ productId: l.product.id, name: l.product.name, unit: l.product.unit, packs: l.packs,
         members: l.members.map(m => ({ productId: m.product.id, name: m.product.name, unit: m.product.unit, qty: m.qty })) })),
       goods: pr.goods,
@@ -897,7 +994,7 @@
       amount: pr.goods + currentFee(),
       payment: p.method,
       staff: lastData && lastData.me ? lastData.me.staff : '',
-      desc: describeItems(itemsFromLines(pr.lines)),
+      desc: withFlavors(describeItems(itemsFromLines(pr.lines)), flavorRows()),
     });
     closePay();
     toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (p.method === '現金' ? ' おつり ' + yen(p.received - p.total) : '') + (netOk ? '' : '・未送信'));
@@ -984,7 +1081,7 @@
         try {
           if (op.kind === 'sale') {
             await api('sales', {
-              lite: true, epoch: op.epoch, clientId: op.clientId, createdAt: op.createdAt, items: op.items, lines: op.lines,
+              lite: true, epoch: op.epoch, clientId: op.clientId, createdAt: op.createdAt, items: op.items, flavors: op.flavors, lines: op.lines,
               container: op.container, containerAuto: op.containerAuto, payment: op.payment,
             });
             const sent = loadSent().filter(s => s.clientId !== op.clientId);

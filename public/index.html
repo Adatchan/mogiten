@@ -114,6 +114,8 @@
   .prod .ph .stat { font-size: 34px; }
   .prod .rows { margin-top: 4px; }
   .prod .row { font-size: 14px; padding: 5px 0; }
+  .prod .flv-rows { margin-top: 8px; }
+  .prod .flv-h { font-size: 12px; color: var(--sub); font-weight: 700; }
   .row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 16px; }
   .row:first-child { border-top: none; }
   .row .v { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -492,6 +494,9 @@
         (showPacks ? '<div class="rows">' + packs.map(k =>
           '<div class="row"><span>' + packLabel(k, esc(g.unit)) + '（' + k.price + '円）</span><span class="v">' + k.count + ' 個</span></div>').join('') +
           (g.mixedQty ? '<div class="row"><span>ほかの商品と合わせたセット</span><span class="v">' + g.mixedQty + ' ' + esc(g.unit) + '</span></div>' : '') + '</div>' : '') +
+        // 味ごとの数
+        ((g.flavors || []).length ? '<div class="rows flv-rows"><div class="flv-h">味ごと</div>' + g.flavors.map(f =>
+          '<div class="row"><span>' + (f.flavor ? esc(f.flavor) : '味の指定なし') + '</span><span class="v">' + f.qty.toLocaleString('ja-JP') + ' ' + esc(g.unit) + '</span></div>').join('') + '</div>' : '') +
         '</div>';
     }).join('') || '<div class="hint">商品がありません</div>';
 
