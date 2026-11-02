@@ -3,6 +3,8 @@
 レジ（`/admin`）と管理画面（`/master`）からダウンロードできる売上の CSV の仕様です。
 デジタル庁「[機械判読可能なデータの表記方法の統一ルール](https://github.com/digital-go-jp/machine_readability_rule)」に沿って作っています。
 
+> Excel で開いて人が集計するときは、手集計用の `sales_ja.csv`（[csv-tally-spec.md](csv-tally-spec.md)）が便利です。このページの 3 ファイルは、プログラムでの分析・ほかのデータとの結合に向けた形式です。
+
 ## ファイルの一覧
 
 | ファイル | URL | 1 行の単位 | 主な用途 |
@@ -48,9 +50,9 @@
 | `payment_method` | 支払方法 | 文字列（コード） | — | なし | 下の「支払方法のコード表」の値のどれか |
 | `item_quantity` | 販売数 | 整数 | 商品の単位（本など） | なし | この会計の商品の数の合計（すべての商品を足した数） |
 | `goods_amount_yen` | 商品代 | 整数 | 円 | なし | セットを組んだあとの商品の代金（容器代を除く） |
-| `container_fee_yen` | 容器代 | 整数 | 円 | なし | 実際に受け取った容器代（レジで手動で直した場合はその値） |
-| `container_fee_auto_yen` | 容器代（自動計算） | 整数 | 円 | なし | ルールで自動計算した容器代。`container_fee_yen` と違えば手動で直した会計 |
-| `total_amount_yen` | 合計金額 | 整数 | 円 | なし | お客さんから受け取った金額。`goods_amount_yen + container_fee_yen` |
+| `container_fee_charged_yen` | 容器代（受け取った額） | 整数 | 円 | なし | 実際に受け取った容器代（レジで手動で直した場合はその値） |
+| `container_fee_auto_yen` | 容器代（自動計算） | 整数 | 円 | なし | ルールで自動計算した容器代。`container_fee_charged_yen` と違えば手動で直した会計 |
+| `total_amount_yen` | 合計金額 | 整数 | 円 | なし | お客さんから受け取った金額。`goods_amount_yen + container_fee_charged_yen` |
 | `staff_name` | 担当者名 | 文字列 | — | まれに空 | レジにログインしていた担当者の名前（最大 30 文字） |
 | `kitchen_done_at` | 調理完了日時 | 日時 | — | あり | キッチン画面で「できた」にした日時。**空欄 = まだ「できた」になっていない**（またはキッチン画面を使っていない） |
 
@@ -130,6 +132,7 @@ items.groupby(['product_name', 'flavor'])['quantity'].sum()
 
 | 日付 | 内容 |
 |---|---|
+| 2026-11-02 | `container_fee_yen` を `container_fee_charged_yen`（受け取った容器代）に名前を変更。手集計用の `sales_ja.csv` を追加 |
 | 2026-11-02 | 機械判読しやすい形式に変更。それまでの 1 ファイル（日本語の項目名、商品ごとの数量の列が商品の数だけ並ぶ横持ち、「内容」「味」の列に複数の値を「・」でつないで入れる形式、日時はタイムゾーンなし）を、項目名が英数字の 3 ファイル（会計・明細・セットの内訳）に分けた。日時を ISO 8601（+09:00）に、金額の項目名に単位 `_yen` を付けた。調理完了日時（`kitchen_done_at`）と営業日（`business_date`）を追加 |
 
 ## 統一ルールとの対応

@@ -74,7 +74,8 @@
 - 最近の会計（最新5件）から「取消」できます（「戻す」で元に戻せます）
 - それより前の会計は「すべての会計を見る」から **会計の一覧ページ**（`/history`）へ。日付ごとの一覧、50件ずつ読み込み、取消／戻すも可
 - **売上の CSV ダウンロード**（デジタル庁「[機械判読可能なデータの表記方法の統一ルール](https://github.com/digital-go-jp/machine_readability_rule)」に準拠。項目の定義は **[docs/csv-spec.md](docs/csv-spec.md)**）
-  - 3 ファイルに分けて出力し、`sale_id`（会計番号）でつながる
+  - **手集計用**（`sales_ja.csv`）：Excel で開いて人が集計する向け。1 行 = 1 会計、日本語の見出し、`団子 みたらし(本)` のように味ごとの本数を 1 列ずつ並べるので、列の合計だけで集計できる。要件と項目は **[docs/csv-tally-spec.md](docs/csv-tally-spec.md)**
+  - **データ分析用**（機械判読用）：3 ファイルに分けて出力し、`sale_id`（会計番号）でつながる
 
     | ファイル | 1 行の単位 | 主な項目 |
     |---|---|---|
@@ -172,7 +173,8 @@ public/help.css     ヘルプ（使い方）ダイアログの共通スタイル
 public/help.js      ヘルプダイアログの開閉
 public/help/        ヘルプに載せているスクリーンショット
 src/index.js        API（Cloudflare Worker）
-docs/csv-spec.md    売上 CSV の項目定義（データ定義書）
+docs/csv-spec.md    売上 CSV（データ分析用）の項目定義（データ定義書）
+docs/csv-tally-spec.md 手集計用 CSV の要件定義・項目定義
 wrangler.toml       Cloudflare の設定
 ```
 

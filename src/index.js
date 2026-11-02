@@ -1177,17 +1177,19 @@ function isoJst(iso) {
 //   sales.csv       会計（1 行 = 1 会計）
 //   sale_items.csv  明細（1 行 = 1 会計 × 1 商品 × 1 味。縦持ち）
 //   sale_packs.csv  セットの内訳（1 行 = 1 会計 × 1 商品 × 1 セットの種類）
+//   sales_ja.csv    手集計用（Excel 向け。日本語の項目名、味ごとの本数を列に。定義は docs/csv-tally-spec.md）
 // 共通: 1 行目が項目名（英数字の物理名）、2 行目からデータ。UTF-8（BOM 付き。?bom=0 で BOM なし）、改行 CRLF。
 //       金額は円の整数、日時は ISO 8601（+09:00）。取り消した会計は含めない。
 const CSV_FILES = {
   'sales.csv': salesCsvRows,
   'sale_items.csv': saleItemsCsvRows,
   'sale_packs.csv': salePacksCsvRows,
+  'sales_ja.csv': salesJaCsvRows,
 };
 
 async function csvResponse(db, name, params) {
   const sales = await attachItems(db, (await db.prepare('SELECT * FROM sales WHERE cancelled = 0 ORDER BY id').all()).results);
-  const rows = CSV_FILES[name](sales);
+  const rows = CSV_FILES[name](sales, { products: await getProducts(db, { all: true }) });
   const body = rows.map((cols) => cols.map(csvCell).join(',')).join('\r\n') + '\r\n';
   const stamp = isoJst(new Date().toISOString()).slice(0, 16).replace(/[-:T]/g, '');
   const bom = params.get('bom') === '0' ? '' : '﻿';   // Excel で文字化けしないよう既定は BOM 付き
@@ -1213,29 +1215,32 @@ const businessDate = (iso) => isoJst(iso).slice(0, 10);
 
 function salesCsvRows(sales) {
   const header = ['sale_id', 'sold_at', 'business_date', 'payment_method', 'item_quantity',
-    'goods_amount_yen', 'container_fee_yen', 'container_fee_auto_yen', 'total_amount_yen', 'staff_name', 'kitchen_done_at'];
+    'goods_amount_yen', 'container_fee_charged_yen', 'container_fee_auto_yen', 'total_amount_yen', 'staff_name', 'kitchen_done_at'];
   return [header].concat(sales.map((r) => [
     r.id, isoJst(r.created_at), businessDate(r.created_at), r.payment, r.sticks,
     r.goods, r.container, r.container_auto, r.amount, r.staff, r.kitchen_done_at ? isoJst(r.kitchen_done_at) : null,
   ]));
 }
 
+/** 会計の商品・味ごとの数（[{ product_id, name, unit, flavor, qty }]） */
+function saleLines(r) {
+  const lines = r.flavors.map((f) => ({ product_id: f.product_id, name: f.name, unit: f.unit, flavor: f.flavor, qty: f.qty }));
+  if (lines.length) return lines;
+  // 味の記録がない古い会計：セットの明細から商品ごとの数を出す（味は空）
+  const by = new Map();
+  for (const it of r.items) {
+    const g = by.get(it.product_id + '\u0000' + it.name) || { product_id: it.product_id, name: it.name, unit: it.unit, flavor: '', qty: 0 };
+    g.qty += it.set_qty * it.count;
+    by.set(it.product_id + '\u0000' + it.name, g);
+  }
+  return [...by.values()];
+}
+
 function saleItemsCsvRows(sales) {
   const header = ['sale_id', 'sold_at', 'business_date', 'product_id', 'product_name', 'flavor', 'quantity', 'unit_name'];
   const rows = [header];
   for (const r of sales) {
-    let lines = r.flavors.map((f) => ({ product_id: f.product_id, name: f.name, unit: f.unit, flavor: f.flavor, qty: f.qty }));
-    if (!lines.length) {
-      // 味の記録がない古い会計：セットの明細から商品ごとの数を出す（味は空）
-      const by = new Map();
-      for (const it of r.items) {
-        const g = by.get(it.product_id + '\u0000' + it.name) || { product_id: it.product_id, name: it.name, unit: it.unit, flavor: '', qty: 0 };
-        g.qty += it.set_qty * it.count;
-        by.set(it.product_id + '\u0000' + it.name, g);
-      }
-      lines = [...by.values()];
-    }
-    for (const l of lines) rows.push([r.id, isoJst(r.created_at), businessDate(r.created_at), l.product_id || null, l.name, l.flavor || null, l.qty, l.unit]);
+    for (const l of saleLines(r)) rows.push([r.id, isoJst(r.created_at), businessDate(r.created_at), l.product_id || null, l.name, l.flavor || null, l.qty, l.unit]);
   }
   return rows;
 }
@@ -1250,4 +1255,53 @@ function salePacksCsvRows(sales) {
     }
   }
   return rows;
+}
+
+/**
+ * 手集計用（Excel 向け）：1 行 = 1 会計。日本語の項目名、商品・味ごとの本数を 1 列ずつ（横持ち）。
+ * 要件と項目の定義は docs/csv-tally-spec.md
+ */
+function salesJaCsvRows(sales, { products }) {
+  const linesOf = new Map(sales.map((r) => [r.id, saleLines(r)]));
+  // 商品のまとまり（商品 ID ごと。ID のない古い記録は名前ごと）
+  const keyOf = (l) => (l.product_id ? 'id:' + l.product_id : 'name:' + l.name);
+  const groups = new Map();
+  const groupFor = (key, name, unit, flavors) => {
+    if (!groups.has(key)) groups.set(key, { name, unit, flavors: [...flavors], hasBlank: false, hasFlavor: flavors.length > 0, used: false });
+    return groups.get(key);
+  };
+  // 今の商品の並び順・味の並び順（販売停止で売れていない商品は出さない）
+  for (const p of products) groupFor('id:' + p.id, p.name, p.unit, p.flavors || []).active = p.active;
+  for (const ls of linesOf.values()) {
+    for (const l of ls) {
+      const g = groupFor(keyOf(l), l.name, l.unit, []);
+      g.used = true;
+      if (l.flavor) { g.hasFlavor = true; if (!g.flavors.includes(l.flavor)) g.flavors.push(l.flavor); } else g.hasBlank = true;
+    }
+  }
+  const shown = [...groups.entries()].filter(([, g]) => g.used || g.active);
+  // 列の定義: { title, get(会計の lines) }
+  const cols = [];
+  for (const [key, g] of shown) {
+    const mine = (ls) => ls.filter((l) => keyOf(l) === key);
+    const sum = (ls) => ls.reduce((a, l) => a + l.qty, 0);
+    if (g.hasFlavor) {
+      for (const f of g.flavors) cols.push({ title: `${g.name} ${f}(${g.unit})`, get: (ls) => sum(mine(ls).filter((l) => l.flavor === f)) });
+      if (g.hasBlank) cols.push({ title: `${g.name} 味の指定なし(${g.unit})`, get: (ls) => sum(mine(ls).filter((l) => !l.flavor)) });
+      cols.push({ title: `${g.name} 計(${g.unit})`, get: (ls) => sum(mine(ls)) });
+    } else {
+      cols.push({ title: `${g.name}(${g.unit})`, get: (ls) => sum(mine(ls)) });
+    }
+  }
+  const units = new Set(shown.map(([, g]) => g.unit));
+  const unitAll = units.size === 1 ? [...units][0] : '点';
+  const header = ['会計番号', '日付', '時刻', '支払方法', '担当者', ...cols.map((c) => c.title),
+    `販売数(${unitAll})`, '商品代(円)', '容器代(円)', '容器代の自動計算(円)', '容器代の手直し', '合計(円)', 'キッチンでできた時刻', '内容（参考）'];
+  return [header].concat(sales.map((r) => {
+    const ls = linesOf.get(r.id);
+    const t = isoJst(r.created_at);
+    return [r.id, t.slice(0, 10).replace(/-/g, '/'), t.slice(11, 19), r.payment, r.staff, ...cols.map((c) => c.get(ls)),
+      r.sticks, r.goods, r.container, r.container_auto, r.container !== r.container_auto ? 'あり' : 'なし', r.amount,
+      r.kitchen_done_at ? isoJst(r.kitchen_done_at).slice(11, 19) : null, r.desc];
+  }));
 }
