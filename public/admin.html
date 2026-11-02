@@ -151,6 +151,8 @@
 
   .csv-btn { background: var(--brown); color: #fff; border-radius: 8px; padding: 10px 16px; font-size: 15px; }
   .csv-btn { display: inline-block; text-decoration: none; }
+  .csv-btn.sub { background: #f1ebe2; color: var(--brown); font-weight: 700; }
+  .csv-list { display: flex; flex-wrap: wrap; gap: 8px; }
   .note { color: var(--sub); font-size: 12px; margin-top: 6px; }
   details summary { cursor: pointer; font-size: 13px; color: var(--sub); font-weight: 700; }
   .log { font-size: 13px; margin-top: 8px; }
@@ -322,9 +324,13 @@
   </section>
 
   <section class="card">
-    <div class="label">売上明細</div>
-    <a class="csv-btn" href="/api/admin/sales.csv" download>⬇ CSVをダウンロード</a>
-    <div class="note">取り消した会計は含みません</div>
+    <div class="label">売上明細（CSV）</div>
+    <div class="csv-list">
+      <a class="csv-btn" href="/api/admin/sales.csv" download>⬇ 会計（1行＝1会計）</a>
+      <a class="csv-btn sub" href="/api/admin/sale_items.csv" download>⬇ 明細（商品・味ごと）</a>
+      <a class="csv-btn sub" href="/api/admin/sale_packs.csv" download>⬇ セットの内訳</a>
+    </div>
+    <div class="note">3つのファイルは「sale_id」（会計番号）でつながります。取り消した会計は含みません。項目の意味は「?」の「売上の明細や操作の記録は？」を見てください。</div>
   </section>
 
   <section class="card">
@@ -527,7 +533,14 @@
 
   <details>
     <summary>売上の明細や操作の記録は？</summary>
-    <p>「売上明細」の「CSVをダウンロード」で、会計ごとの明細（担当者名つき）を Excel で開けるファイルとして保存できます。取り消した会計は含まれません。「操作の記録」を開くと、取消やログインなどを誰がいつしたかを確認できます。</p>
+    <p>「売上明細（CSV）」から、Excel やプログラムでそのまま読めるファイルを3種類保存できます。取り消した会計は含まれません。</p>
+    <ul>
+      <li><b>会計</b>（sales.csv）：1行が1回の会計。日時、支払方法、本数、商品代・容器代・合計（円）、担当者、キッチンでできた時刻</li>
+      <li><b>明細</b>（sale_items.csv）：1行が「1回の会計の、1つの商品の、1つの味」。味ごとの本数を数えるときはこちら（例：みたらしは全部で何本？）</li>
+      <li><b>セットの内訳</b>（sale_packs.csv）：どのセットが何個売れたか、商品ごとの金額</li>
+    </ul>
+    <p>3つは「sale_id」（会計番号、キッチンの#と同じ）でつながります。1行目の項目名は英数字です（例：total_amount_yen＝合計金額・円）。日時は「2026-11-02T11:48:26+09:00」（日本時間）の形です。項目の一覧は README からリンクしている「CSV の項目定義」にあります。</p>
+    <p>「操作の記録」を開くと、取消やログインなどを誰がいつしたかを確認できます。</p>
   </details>
 
   <details>

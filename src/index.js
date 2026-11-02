@@ -20,7 +20,7 @@
  * あとで価格を変えても過去の記録は変わらない。
  */
 
-import { DEFAULT_RULE, DEFAULT_PRODUCTS, MAX_QTY, priceCart, describeItems, itemsFromLines, withFlavors, describeFlavors } from '../public/pricing.js';
+import { DEFAULT_RULE, DEFAULT_PRODUCTS, MAX_QTY, priceCart, describeItems, itemsFromLines, withFlavors } from '../public/pricing.js';
 
 const DEFAULT_TARGET = 30000;
 
@@ -80,7 +80,8 @@ async function registerApi(request, env, url, route) {
   const sess = await requireSession(request, db, role);
 
   if (route === 'GET /api/admin/data') return json(await registerData(db, sess));
-  if (route === 'GET /api/admin/sales.csv') return csv(db);
+  const csvName = request.method === 'GET' && url.pathname.match(/^\/api\/(?:admin|master)\/([a-z_]+\.csv)$/);
+  if (csvName && CSV_FILES[csvName[1]]) return csvResponse(db, csvName[1], url.searchParams);
   if (route === 'GET /api/admin/sales') return json(await salesPage(db, url.searchParams));
   // キッチンの注文キュー（今日の注文。変化がなければ rev だけ返す）
   if (route === 'GET /api/admin/kitchen') return json(await kitchenData(db, url.searchParams));
@@ -151,7 +152,8 @@ async function masterApi(request, env, url, route) {
   const sess = await requireSession(request, db, role);
 
   if (route === 'GET /api/master/data') return json(await masterData(db, sess));
-  if (route === 'GET /api/master/sales.csv') return csv(db);
+  const csvName = request.method === 'GET' && url.pathname.match(/^\/api\/(?:admin|master)\/([a-z_]+\.csv)$/);
+  if (csvName && CSV_FILES[csvName[1]]) return csvResponse(db, csvName[1], url.searchParams);
 
   if (route === 'POST /api/master/target') {
     const before = await getTarget(db);
@@ -1165,34 +1167,87 @@ function json(data, status = 200, headers = {}) {
   });
 }
 
-function toJst(iso) {
+/** 日本時間の ISO 8601（例: 2026-11-02T11:48:26+09:00） */
+function isoJst(iso) {
   const d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
-  return d.toISOString().replace('T', ' ').slice(0, 19);
+  return d.toISOString().slice(0, 19) + '+09:00';
 }
 
-/** 売上明細 CSV（取り消した会計は含めない） */
-async function csv(db) {
+// ===== CSV（機械判読に配慮した形式。定義は docs/csv-spec.md） =====
+//   sales.csv       会計（1 行 = 1 会計）
+//   sale_items.csv  明細（1 行 = 1 会計 × 1 商品 × 1 味。縦持ち）
+//   sale_packs.csv  セットの内訳（1 行 = 1 会計 × 1 商品 × 1 セットの種類）
+// 共通: 1 行目が項目名（英数字の物理名）、2 行目からデータ。UTF-8（BOM 付き。?bom=0 で BOM なし）、改行 CRLF。
+//       金額は円の整数、日時は ISO 8601（+09:00）。取り消した会計は含めない。
+const CSV_FILES = {
+  'sales.csv': salesCsvRows,
+  'sale_items.csv': saleItemsCsvRows,
+  'sale_packs.csv': salePacksCsvRows,
+};
+
+async function csvResponse(db, name, params) {
   const sales = await attachItems(db, (await db.prepare('SELECT * FROM sales WHERE cancelled = 0 ORDER BY id').all()).results);
-  // 商品ごとの数量の列（今の商品の並び＋過去にだけある商品名）
-  const names = (await getProducts(db, { all: true })).map((p) => p.name);
-  for (const x of sales) for (const it of x.items) if (!names.includes(it.name)) names.push(it.name);
-  const qtyOf = (x, name) => x.items.filter((i) => i.name === name).reduce((a, i) => a + i.set_qty * i.count, 0);
-  const header = ['ID', '日時', ...names.map((n) => n + '(数量)'), '内容', '味', '商品代', '容器代', '容器代(自動計算)', '合計', '支払方法', '担当者'];
-  const lines = [header].concat(sales.map((r) => [
-    r.id, toJst(r.created_at), ...names.map((n) => qtyOf(r, n)), describeItems(r.items), describeFlavors(r.flavors), r.goods, r.container, r.container_auto, r.amount, r.payment, r.staff,
-  ]));
-  const body = lines.map((cols) => cols.map((c) => {
-    let s = String(c);
-    if (/^[=+\-@]/.test(s) && typeof c === 'string') s = "'" + s; // Excel の数式として解釈させない
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-  }).join(',')).join('\r\n');
-  const stamp = toJst(new Date().toISOString()).replace(/[-: ]/g, '').slice(0, 12);
-  // 先頭に BOM を付けて Excel でも文字化けしないようにする
-  return new Response('﻿' + body + '\r\n', {
+  const rows = CSV_FILES[name](sales);
+  const body = rows.map((cols) => cols.map(csvCell).join(',')).join('\r\n') + '\r\n';
+  const stamp = isoJst(new Date().toISOString()).slice(0, 16).replace(/[-:T]/g, '');
+  const bom = params.get('bom') === '0' ? '' : '﻿';   // Excel で文字化けしないよう既定は BOM 付き
+  return new Response(bom + body, {
     headers: {
-      'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': `attachment; filename="dango_sales_${stamp}.csv"`,
+      'content-type': 'text/csv; charset=utf-8; header=present',
+      'content-disposition': `attachment; filename="mogiten_${name.replace('.csv', '')}_${stamp}.csv"`,
       'cache-control': 'no-store',
     },
   });
+}
+
+/** 1 つの値を CSV のセルに（RFC 4180。カンマ・ダブルクォート・改行を含むときだけ囲む） */
+function csvCell(c) {
+  if (c == null) return '';
+  let s = String(c);
+  // 文字列が = + - @ で始まると Excel が数式として実行するので、先頭に ' を付ける（数値は対象外）
+  if (typeof c === 'string' && /^[=+\-@]/.test(s)) s = "'" + s;
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+const businessDate = (iso) => isoJst(iso).slice(0, 10);
+
+function salesCsvRows(sales) {
+  const header = ['sale_id', 'sold_at', 'business_date', 'payment_method', 'item_quantity',
+    'goods_amount_yen', 'container_fee_yen', 'container_fee_auto_yen', 'total_amount_yen', 'staff_name', 'kitchen_done_at'];
+  return [header].concat(sales.map((r) => [
+    r.id, isoJst(r.created_at), businessDate(r.created_at), r.payment, r.sticks,
+    r.goods, r.container, r.container_auto, r.amount, r.staff, r.kitchen_done_at ? isoJst(r.kitchen_done_at) : null,
+  ]));
+}
+
+function saleItemsCsvRows(sales) {
+  const header = ['sale_id', 'sold_at', 'business_date', 'product_id', 'product_name', 'flavor', 'quantity', 'unit_name'];
+  const rows = [header];
+  for (const r of sales) {
+    let lines = r.flavors.map((f) => ({ product_id: f.product_id, name: f.name, unit: f.unit, flavor: f.flavor, qty: f.qty }));
+    if (!lines.length) {
+      // 味の記録がない古い会計：セットの明細から商品ごとの数を出す（味は空）
+      const by = new Map();
+      for (const it of r.items) {
+        const g = by.get(it.product_id + '\u0000' + it.name) || { product_id: it.product_id, name: it.name, unit: it.unit, flavor: '', qty: 0 };
+        g.qty += it.set_qty * it.count;
+        by.set(it.product_id + '\u0000' + it.name, g);
+      }
+      lines = [...by.values()];
+    }
+    for (const l of lines) rows.push([r.id, isoJst(r.created_at), businessDate(r.created_at), l.product_id || null, l.name, l.flavor || null, l.qty, l.unit]);
+  }
+  return rows;
+}
+
+function salePacksCsvRows(sales) {
+  const header = ['sale_id', 'sold_at', 'business_date', 'product_id', 'product_name', 'pack_size', 'pack_price_yen', 'pack_count', 'amount_yen', 'unit_name', 'is_mixed_pack', 'mixed_pack_label'];
+  const rows = [header];
+  for (const r of sales) {
+    for (const it of r.items) {
+      rows.push([r.id, isoJst(r.created_at), businessDate(r.created_at), it.product_id || null, it.name, it.set_qty, it.set_price, it.count,
+        it.set_price * it.count, it.unit, it.pack_label ? 1 : 0, it.pack_label || null]);
+    }
+  }
+  return rows;
 }

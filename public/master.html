@@ -116,7 +116,12 @@
       <div><div class="v" id="mSticks">—</div><div class="k">販売数</div></div>
     </div>
     <div class="note" id="mRate" style="text-align:center"></div>
-    <div style="margin-top:12px"><a class="btn sub" href="/api/master/sales.csv" download>⬇ 売上明細CSV（取消分を除く）</a></div>
+    <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+      <a class="btn sub" href="/api/master/sales.csv" download>⬇ 会計CSV</a>
+      <a class="btn sub" href="/api/master/sale_items.csv" download>⬇ 明細CSV（商品・味ごと）</a>
+      <a class="btn sub" href="/api/master/sale_packs.csv" download>⬇ セットの内訳CSV</a>
+    </div>
+    <div class="note">取り消した会計は含みません。3つは sale_id（会計番号）でつながります。</div>
   </section>
 
   <section class="card">
@@ -289,7 +294,7 @@
 
   <details>
     <summary>売上明細と操作の記録</summary>
-    <p>いちばん上の「売上明細CSV」で、会計ごとの明細（担当者名つき、取り消した会計を除く）を保存できます。Excel で開いても文字化けしません。「操作の記録」には、取消、目標の変更、ログインなどを誰がいつしたかが並びます。</p>
+    <p>いちばん上の CSV のボタンで、売上の記録を保存できます（取り消した会計を除く）。「会計CSV」は1行が1回の会計、「明細CSV」は1行が1回の会計の1つの商品の1つの味（味ごとの集計用）、「セットの内訳CSV」はセットごとの個数と金額です。3つは sale_id（会計番号）でつながります。1行目の項目名は英数字、金額は円の整数、日時は日本時間の ISO 8601 形式です。Excel で開いても文字化けしません（UTF-8・BOM 付き）。項目の定義は README の「CSV の項目定義」にあります。「操作の記録」には、取消、目標の変更、ログインなどを誰がいつしたかが並びます。</p>
   </details>
 </dialog>
 
