@@ -401,6 +401,7 @@
       <li>3本以上: 10円（何本でも容器1個分）</li>
     </ul>
     <p>容器を2個以上渡すときや、容器がいらないお客さんなど、変える必要があるときは、容器代の「−」「＋」で10円ずつ直せます。直すと「手動」と表示され、「自動に戻す」で元に戻せます。本数を変えたときも自動に戻ります。</p>
+      <p>容器代を取らない催し（管理画面で「容器代を取らない」にした催し）では、お会計に容器代の行は出ず、容器代はいつも0円です。</p>
   </details>
 
   <details>
@@ -695,7 +696,8 @@
     catch { return { lines: [], goods: 0, fee: 0, total: 0, units: 0, containerUnits: 0 }; }
   }
   const autoFee = () => priced().fee;
-  const currentFee = () => manualFee == null ? autoFee() : manualFee;
+  const feeOn = () => rule.enabled !== false;   // この催しで容器代を取るか
+  const currentFee = () => !feeOn() ? 0 : manualFee == null ? autoFee() : manualFee;
   const cartTotal = () => { const p = priced(); return p.goods ? p.goods + currentFee() : 0; };
 
   /** サーバーの商品一覧が変わったら作り直す（カートは残せる分だけ残す） */
@@ -839,7 +841,7 @@
         '<button data-pid="' + target.id + '" data-setqty="' + up.qty + '">' + (l.members.length > 1 ? esc(target.name) + 'を' : '') + up.qty + u + 'にする</button></div>';
     }).join('');
 
-    if (pr.lines.length) {
+    if (pr.lines.length && feeOn()) {   // 容器代を取らない催しでは容器代の行を出さない
       const fee = currentFee();
       const isManual = manualFee != null && manualFee !== autoFee();
       $('containerRow').innerHTML =

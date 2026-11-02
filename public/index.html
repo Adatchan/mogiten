@@ -436,7 +436,9 @@
     }
     document.getElementById('total').textContent = yen(d.total);
     document.getElementById('target').textContent = yen(d.target);
-    document.getElementById('breakdown').textContent = '（商品 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）';
+    // 容器代を取らない催し（で容器代の売上もない）なら、内訳に容器代を出さない
+    const feeShown = (d.rule && d.rule.enabled !== false) || d.container > 0;
+    document.getElementById('breakdown').textContent = feeShown ? '（商品 ' + yen(d.goods) + ' ＋ 容器代 ' + yen(d.container) + '）' : '';
     const pct = Math.round(d.rate * 1000) / 10;
     document.getElementById('barFill').style.width = Math.min(100, pct) + '%';
     document.getElementById('rate').textContent = pct + '%';
@@ -455,8 +457,9 @@
       const p = d.products[0];
       if (p) {
         const big = p.sets[p.sets.length - 1];
-        const per = big.price + (p.container ? containerFee(d.rule, big.qty) : 0);
-        hint.textContent = p.name + 'の' + packLabel(big, p.unit) + '（' + (p.container ? '容器代込み' : '') + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
+        const withFee = p.container && d.rule.enabled !== false;
+        const per = big.price + (withFee ? containerFee(d.rule, big.qty) : 0);
+        hint.textContent = p.name + 'の' + packLabel(big, p.unit) + '（' + (withFee ? '容器代込み' : '') + per + '円）ならあと ' + Math.ceil(d.remaining / per) + ' セット';
       } else hint.textContent = '';
     }
 

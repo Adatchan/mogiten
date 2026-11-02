@@ -7,19 +7,20 @@
  *     bundleWith: null または 商品ID（その商品のセットに含めて、本数を合わせてセットを組む）,
  *     flavors: ['みたらし', 'あんこ', ...]（味。空なら味を選ばずに数だけ入れる。料金には関係しない） }
  *
- * 容器代のルール（rule）:
+ * 容器代のルール（rule）: enabled = false なら容器代を取らない（いつも 0 円）
  *   { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 }
  *   → 容器代の対象の合計が freeUpTo 以下なら 0円、それより多ければ per 個ごとに 1 個（fee 円）。
  *     容器の数は maxCount 個まで（0 = 上限なし）
  *     （初期値: 1〜2本 0円 / 3本以上は何本でも 1 個 10円）
  */
 
-export const DEFAULT_RULE = { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 };
+export const DEFAULT_RULE = { enabled: true, freeUpTo: 2, per: 4, fee: 10, maxCount: 1 };
 
 
 export const MAX_QTY = 200;   // 1会計・1商品あたりの上限
 
 export function containerFee(rule, n) {
+  if (rule.enabled === false) return 0;   // この催しでは容器代を取らない
   if (!(n > 0) || n <= rule.freeUpTo) return 0;
   let count = Math.ceil(n / rule.per);
   if (rule.maxCount > 0) count = Math.min(count, rule.maxCount);   // 容器の数の上限

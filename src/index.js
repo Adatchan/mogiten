@@ -161,7 +161,7 @@ async function masterApi(request, env, url, route) {
     const body = await readJson(request);
     const made = await createProject(db, body);
     const what = made.src ? `（「${made.src.name}」から複製：${[made.copy.products && `商品 ${made.copied} 件`, made.copy.rule && '容器代のルール', made.copy.target && '目標金額'].filter(Boolean).join('・') || 'なし'}）` : '';
-    await audit(db, 'マスター', role, '催しを作成', made.name + what);
+    await audit(db, 'マスター', role, '催しを作成', made.name + (made.containerEnabled ? '' : '（容器代なし）') + what);
     if (body.activate) await setActiveProject(db, made.id);
     return json({ ...(await projectsData(db)), created: made.id });
   }
@@ -735,7 +735,7 @@ async function projectList(db) {
       (SELECT COUNT(*) FROM products x WHERE x.project_id = p.id) AS products
     FROM projects p ORDER BY p.start_date DESC, p.id DESC`).all()).results;
   const active = await activeProjectId(db);
-  return rows.map((r) => ({ ...projectInfo(rowToProject(r)), target: r.target, orders: r.orders, total: r.total, products: r.products, active: r.id === active }));
+  return rows.map((r) => ({ ...projectInfo(rowToProject(r)), containerEnabled: rowToProject(r).rule.enabled !== false, target: r.target, orders: r.orders, total: r.total, products: r.products, active: r.id === active }));
 }
 
 /**
@@ -748,7 +748,10 @@ async function createProject(db, body) {
   const src = body.copyFrom ? await getProject(db, body.copyFrom) : null;
   if (body.copyFrom && !src) throw httpError('複製元の催しが見つかりません', 400);
   if (src && copy.target && body.target == null) f.target = src.target;
-  const rule = src && copy.rule ? JSON.stringify(src.rule) : null;
+  // 容器代のルール：複製するなら複製元のルール、しないなら初期値。取る／取らないは入力（なければ複製元に合わせる）
+  const baseRule = src && copy.rule ? src.rule : { ...DEFAULT_RULE };
+  const containerEnabled = body.containerEnabled != null ? !!body.containerEnabled : baseRule.enabled !== false;
+  const rule = JSON.stringify({ ...baseRule, enabled: containerEnabled });
   const res = await db.prepare(`INSERT INTO projects (name, shop_name, start_date, end_date, open_hour, close_hour, target, container_rule, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(f.name, f.shopName, f.startDate, f.endDate, f.openHour, f.closeHour, f.target, rule, new Date().toISOString()).run();
@@ -767,7 +770,7 @@ async function createProject(db, body) {
     if (links.length) await db.batch(links.map((r) => db.prepare('UPDATE products SET bundle_with = ? WHERE id = ?').bind(map.get(r.bundle_with), map.get(r.id))));
     copied = rows.length;
   }
-  return { id, name: f.name, src, copied, copy };
+  return { id, name: f.name, src, copied, copy, containerEnabled };
 }
 
 // ===== 商品・容器代 =====
@@ -793,6 +796,7 @@ function intIn(v, min, max, label) {
 
 async function saveRule(db, P, body) {
   const rule = {
+    enabled: body.enabled !== false,   // false = この催しでは容器代を取らない
     freeUpTo: intIn(body.freeUpTo, 0, 999, '無料になる数'),
     per: intIn(body.per, 1, 999, '何個ごとか'),
     fee: intIn(body.fee, 0, 10000, '容器代の金額'),
@@ -802,7 +806,7 @@ async function saveRule(db, P, body) {
   return rule;
 }
 
-const ruleText = (r) => `${r.freeUpTo}個まで無料・${r.per}個ごとに${r.fee}円` + (r.maxCount > 0 ? `・最大${r.maxCount}個（${r.maxCount * r.fee}円）まで` : '・上限なし');
+const ruleText = (r) => (r.enabled === false ? '容器代なし' : '') || `${r.freeUpTo}個まで無料・${r.per}個ごとに${r.fee}円` + (r.maxCount > 0 ? `・最大${r.maxCount}個（${r.maxCount * r.fee}円）まで` : '・上限なし');
 const productText = (p) => `${p.name}：` + p.sets.map((s) => `${s.qty}${p.unit}${s.price}円`).join('・') +
   ((p.flavors || []).length ? `（味：${p.flavors.join('・')}）` : '') + (p.container ? '（容器代対象）' : '') + (p.bundleWith ? `（${p.bundleName || '別の商品'}のセットに含める）` : '') + (p.active ? '' : '（販売停止）');
 function productDiff(a, b) {
@@ -1251,10 +1255,11 @@ async function recordSale(db, body, staff) {
     mismatch = true;
   }
 
-  // 容器代は手動修正も可（未指定なら自動計算）
-  const container = body.container == null || body.container === ''
-    ? auto
-    : Math.max(0, Math.floor(Number(body.container) || 0));
+  // 容器代は手動修正も可（未指定なら自動計算）。容器代を取らない催しでは 0（端末の金額で記録する会計を除く）
+  const container = P.rule.enabled === false && !mismatch ? 0
+    : body.container == null || body.container === ''
+      ? auto
+      : Math.max(0, Math.floor(Number(body.container) || 0));
 
   // 会計の時刻: 端末で会計した時刻（オフライン中の会計を正しい時刻で残す）。不自然な値ならサーバーの時刻
   const now = Date.now();
