@@ -85,6 +85,8 @@
   .recv-quick button { background: var(--mg-surface-sub); border-radius: var(--mg-radius-md); padding: 14px 4px; font-size: 17px; font-weight: 700; color: var(--mg-text); }
   .recv-quick button.exact { background: var(--mg-success-bg-strong); color: var(--mg-success-text); }
   .recv-input { width: 100%; padding: 14px; font-size: 26px; text-align: right; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); font-variant-numeric: tabular-nums; }
+  .recv-input { -moz-appearance: textfield; }
+  .recv-input::-webkit-outer-spin-button, .recv-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }   /* 数字の上下ボタンは出さない（金額はボタンか入力で） */
   .recv-msg { min-height: 1.6em; margin-top: 8px; font-size: 18px; text-align: right; }
   .recv-msg.short { color: var(--mg-error); font-weight: 700; }
   .modal-btns { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; margin-top: 16px; }
@@ -354,7 +356,7 @@
 
   <details>
     <summary>ログインのしかたは？</summary>
-    <figure class="narrow"><img src="/help/reg-login.webp" width="380" height="450" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-login.webp" width="380" height="483" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
     <p>自分の名前（担当者名）と、レジ用のパスワードを入れて「ログイン」を押します。パスワードは店の責任者に聞いてください。名前は会計ごとに記録されるので、本人の名前を入れてください。</p>
     <p>ログインは<b>3日間</b>有効なので、同じスマホなら翌日もそのまま使えます。パスワードはスマホに保存されません。</p>
   </details>
@@ -369,7 +371,7 @@
 
   <details>
     <summary>本数の入れ方は？（味ごとの入力）</summary>
-    <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="205" loading="lazy" alt="商品ごとの入力欄。団子は、みたらし2、あんこ1、きなこ1の味のボタンと、計4本の表示。各ボタンの左下にマイナス。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="209" loading="lazy" alt="商品ごとの入力欄。団子は、みたらし2、あんこ1、きなこ1の味のボタンと、計4本の表示。各ボタンの左下にマイナス。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
     <p><b>団子のように味のある商品</b>は、お客さんの言う味のボタンを、その本数だけタップします。「みたらし2本と、あんこ・きなこ1本ずつ」なら、「みたらし」を2回、「あんこ」と「きなこ」を1回ずつ押します。ボタンに本数が出て、右上の「計 ○本」が合計です。</p>
     <p>押しすぎたら、そのボタンの左下の「−」で1本ずつ減らします（「−」は1本以上入っている味にだけ出ます）。全部やり直すときは「お会計」の「クリア」を押します。</p>
     <p>セットの組み方は<b>味に関係なく合計の本数</b>で自動で決まります。たとえば団子4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。味の組み合わせは自由です。</p>
@@ -379,7 +381,7 @@
 
   <details>
     <summary>「あと1本で〜お得」と出たら？</summary>
-    <figure class="narrow"><img src="/help/reg-cart.webp" width="370" height="201" loading="lazy" alt="お会計欄。団子4本（3本セットと1本）550円、その下に味の内訳みたらし2・あんこ1・きなこ1、容器代10円、あと1本で50円お得（味を聞いて追加）という提案、合計560円"></figure>
+    <figure class="narrow"><img src="/help/reg-cart.webp" width="370" height="240" loading="lazy" alt="お会計欄。団子4本（3本セットと1本）550円、その下に味の内訳みたらし2・あんこ1・きなこ1、容器代10円、あと1本で50円お得（味を聞いて追加）という提案、合計560円"></figure>
     <p>本数を少し足したほうが合計が安くなるときに出る提案です。上の例では、団子4本だと560円ですが、5本にすると510円で50円安くなります。</p>
     <p>お客さんに「あと1本足すとお得になりますよ」と声をかけて、希望されたら<b>何味にするか聞いて</b>、その味のボタンを押してください。そのままでよければ、何もせず会計に進んでかまいません。</p>
     <p>味のない商品だけのときは、提案の横に黄色の「○本にする」ボタンが出るので、それを押せば足せます。</p>
@@ -398,7 +400,7 @@
 
   <details>
     <summary>支払方法のボタンを押したあとは？</summary>
-    <figure class="narrow"><img src="/help/reg-pay.webp" width="370" height="63" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
+    <figure class="narrow"><img src="/help/reg-pay.webp" width="370" height="68" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
     <p>お客さんの支払方法のボタンを押すと、記録の前に確認の画面が出ます。ボタンを押しただけでは、まだ記録されません。</p>
     <p>キャッシュレス（PayPay、d払いなど現金以外）のときは、お客さんの支払いが済んだのを確かめてから、確認画面の「はい（記録する）」を押してください。</p>
       <p>出てくる支払方法は、管理画面で催しごとに選んだものです（現金を扱わない催しでは「現金」が出ません）。お預かり金額とおつりを入れるのは「現金」のときだけです。</p>
@@ -406,13 +408,13 @@
 
   <details>
     <summary>現金のとき（お預かりとおつり）は？</summary>
-    <figure class="narrow"><img src="/help/reg-recv.webp" width="358" height="389" loading="lazy" alt="お預かり金額の入力画面。合計510円、ちょうどや1,000円などのボタン、入力欄、おつり490円の表示"></figure>
+    <figure class="narrow"><img src="/help/reg-recv.webp" width="390" height="503" loading="lazy" alt="お預かり金額の入力画面。合計510円、ちょうどや1,000円などのボタン、入力欄、おつり490円の表示"></figure>
     <p>現金では、先に<b>お預かり金額</b>を入れます。「ちょうど」や「¥1,000」などのボタンを押すか、下の欄に金額を入力してください。入れるとおつりが表示されます。合計より少ない金額では「次へ」が押せません。</p>
   </details>
 
   <details>
     <summary>確認画面では何を見ればいい？</summary>
-    <figure class="narrow"><img src="/help/reg-confirm.webp" width="390" height="520" loading="lazy" alt="確認画面。現金の表示、団子5本セット500円、容器代10円、数量 団子5本、味 みたらし2・あんこ2・きなこ1、合計510円、お預かり1,000円、おつり490円、いいえとはいのボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-confirm.webp" width="390" height="641" loading="lazy" alt="確認画面。現金の表示、団子5本セット500円、容器代10円、数量 団子5本、味 みたらし2・あんこ2・きなこ1、合計510円、お預かり1,000円、おつり490円、いいえとはいのボタン"></figure>
     <p>いちばん上の色つきの帯が支払方法です（ボタンと同じ色。現金は緑）。本数、<b>味</b>（ピンクの行）、合計金額、現金ならおつりを確かめて、よければ「はい（記録する）」を押します。味は、お客さんに読み上げて確かめると間違いが減ります。</p>
     <p>間違いに気づいたら「いいえ」を押すと、入力したお会計はそのままで前の画面に戻ります。現金で、お預かり金額だけを直したいときは「← お預かり金額を入力し直す」を押してください。</p>
   </details>
@@ -421,7 +423,7 @@
 
   <details>
     <summary>記録した会計を間違えた</summary>
-    <figure class="narrow"><img src="/help/reg-hist.webp" width="370" height="382" loading="lazy" alt="最近の会計の一覧。各行に会計番号と時刻、内容と味、金額、取消ボタン。キッチンで作り終わった会計には「できた」の印。取消済みの行は取り消し線が引かれ、戻すボタンになっている"></figure>
+    <figure class="narrow"><img src="/help/reg-hist.webp" width="370" height="509" loading="lazy" alt="最近の会計の一覧。各行に会計番号と時刻、内容と味、金額、取消ボタン。キッチンで作り終わった会計には「できた」の印。取消済みの行は取り消し線が引かれ、戻すボタンになっている"></figure>
     <p>「最近の会計」の一覧で、その会計の「取消」を押します。取り消した会計には取り消し線が引かれ、売上と本数から外れます。キッチン画面でも赤い線で「取消」と表示されるので、作らずに済みます。正しい内容（正しい味）で、もう一度会計し直してください。</p>
     <p>取り消しを間違えたときは、同じ行の「戻す」で元に戻せます。取消と戻すは、誰がいつしたかが記録されます。電波がないときも取り消せます（あとで自動で送信されます）。</p>
     <p>ここに出るのは最新の5件です。それより前の会計は、下の「すべての会計を見る」から探して取り消してください（こちらは電波が必要です）。</p>
@@ -440,7 +442,7 @@
 
   <details>
     <summary>電波がないとき（オフライン）は？</summary>
-    <figure class="narrow"><img src="/help/reg-offline.webp" width="370" height="40" loading="lazy" alt="画面上部の赤い帯。オフライン、未送信2件"></figure>
+    <figure class="narrow"><img src="/help/reg-offline.webp" width="370" height="46" loading="lazy" alt="画面上部の赤い帯。オフライン、未送信2件"></figure>
     <p>そのまま会計を続けてください。電波がないと画面の上の帯が<b>赤い「オフライン（端末に保存）」</b>になり、会計と取消は<b>スマホの中に保存</b>されます。保存した件数と金額は「未送信 ○件」に出ます。最近の会計にも「未送信」と付いて表示されます。</p>
     <p>電波が戻ると、古い順に<b>自動で送信</b>され、「未送信 0 件」になります。すぐ送りたいときは帯の右の「送信」を押してください。同じ会計が二重に記録されることはありません。</p>
     <p>電波がない状態で画面を開き直しても、レジは開けます（一度でも電波のある場所で開いていれば）。ダッシュボードの数字には、送信されてから反映されます。</p>
