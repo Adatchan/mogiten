@@ -163,6 +163,33 @@ describe('移行：催しを入れる前のデータ', () => {
     const [{ n }] = await w.query('SELECT COUNT(*) AS n FROM sales');
     assert.equal(n, 6);   // 4（移行前）＋ #5 ＋ 今の世代の 1 件
   });
+
+  test('ダッシュボード：ほかの日の 1 時間ごとの売上（取消を除く・日本時間で区切る）と、選べる日', async () => {
+    const hour = (d, h) => d.buckets.find((b) => b.hour === h);
+    const d1 = (await w.api('/api/hourly?date=2026-11-01')).body;
+    assert.equal(d1.date, '2026-11-01');
+    assert.equal(d1.today, false);
+    assert.equal(d1.nowHour, null);                       // 今日でなければ「集計中」の時間帯はない
+    assert.deepEqual([d1.open, d1.close], [9, 19]);
+    assert.deepEqual(hour(d1, 10), { hour: 10, amount: 560, orders: 1 });   // 01:00Z = 10時
+    assert.deepEqual(hour(d1, 11), { hour: 11, amount: 510, orders: 1 });
+    const d2 = (await w.api('/api/hourly?date=2026-11-02')).body;
+    assert.equal(hour(d2, 12).orders, 0);                 // 12時の会計は取消済み
+    assert.deepEqual(hour(d2, 13), { hour: 13, amount: 410, orders: 1 });
+    assert.equal((await w.api('/api/hourly?date=2026-10-31')).body.buckets.every((b) => b.orders === 0), true);
+
+    for (const bad of ['', '2026-11', '2026-02-30', 'x', '2026-11-01T00:00']) {
+      assert.equal((await w.api('/api/hourly?date=' + encodeURIComponent(bad))).status, 400, bad);
+    }
+
+    const s = (await w.api('/api/summary')).body;
+    const today = s.hourly.date;
+    assert.equal(s.hourly.today, true);
+    assert.equal(typeof s.hourly.nowHour, 'number');
+    assert.deepEqual(s.hourlyDays.slice(0, 2), ['2026-11-01', '2026-11-02']);   // 催しの期間・会計のある日（古い順）
+    assert.equal(s.hourlyDays.at(-1), today);                                  // 今日はいつも入る
+    assert.equal(new Set(s.hourlyDays).size, s.hourlyDays.length);
+  });
 });
 
 describe('新しく作った環境', () => {
