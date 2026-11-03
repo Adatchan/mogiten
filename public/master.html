@@ -33,6 +33,9 @@
   th { color: var(--mg-text-sub); font-weight: 700; font-size: var(--mg-text-xs); border-top: none; }
   td.t { color: var(--mg-text-sub); white-space: nowrap; }
   .scroll { max-height: 420px; overflow: auto; }
+  #sessions { overflow-x: auto; }   /* 狭い画面では表を横にずらして見る（文字を 1 文字ずつ縦に折り返さない） */
+  table.sessions td, table.sessions th { white-space: nowrap; }
+  table.sessions td:nth-child(3) { white-space: normal; min-width: 7em; }
 
   /* 商品の編集 */
   .pcard { border: 1px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 12px; margin-bottom: 10px; background: var(--mg-surface-alt); }
@@ -114,12 +117,12 @@
 </head>
 <body>
 
-<div id="login" class="card login-card hidden">
+<div id="login" class="card login-card hidden" role="main">
   <span class="app-mark" aria-hidden="true"></span>
   <div class="login-system">岡大グリー模擬店システム</div>
   <h2>管理画面</h2>
   <p class="login-lead">店の責任者用の画面です。<br>マスターパスワードを入力してください</p>
-  <input id="pw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+  <input id="pw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
   <button class="btn big block login-go" id="loginBtn">ログイン</button>
   <div class="login-note">ログインは12時間有効です</div>
   <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
@@ -173,7 +176,7 @@
   <button class="btn sub" id="logoutBtn2">ログアウト</button>
 </div>
 
-<div id="app" class="wrap hidden">
+<div id="app" class="wrap hidden" role="main">
   <header class="app-header">
     <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>管理画面</h1><span class="app-sub" id="projSub"></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav>
@@ -241,9 +244,9 @@
     <div class="note" id="feeOffNote">この催しでは容器代を取りません。レジに容器代の行は出ず、容器代はいつも0円です。</div>
     <div id="ruleBody">
     <div class="rule">
-      容器代の対象が <input id="ruleFree" type="number" inputmode="numeric" min="0"> 個までは無料、それより多いときは
-      <input id="rulePer" type="number" inputmode="numeric" min="1"> 個ごとに <input id="ruleFee" type="number" inputmode="numeric" min="0"> 円。
-      容器は最大 <input id="ruleMax" type="number" inputmode="numeric" min="0"> 個まで（0 = 上限なし）
+      容器代の対象が <input id="ruleFree" aria-label="無料の個数" type="number" inputmode="numeric" min="0"> 個までは無料、それより多いときは
+      <input id="rulePer" aria-label="何個ごとに" type="number" inputmode="numeric" min="1"> 個ごとに <input id="ruleFee" aria-label="容器代（円）" type="number" inputmode="numeric" min="0"> 円。
+      容器は最大 <input id="ruleMax" aria-label="容器の上限の個数" type="number" inputmode="numeric" min="0"> 個まで（0 = 上限なし）
       <button class="btn" id="ruleBtn">変更する</button>
     </div>
     <div class="note" id="rulePreview"></div>
@@ -255,7 +258,7 @@
     <div class="note" style="margin:0 0 8px">この催しのレジに出す支払方法を選んで「保存」を押します（1〜8種類）。「現金」を選ぶと、レジでお預かり金額とおつりを入れます。現金を扱わない催しでは「現金」を外します。</div>
     <div class="pay-opts" id="payOpts"></div>
     <div class="row" style="margin:8px 0">
-      <input id="payNew" type="text" maxlength="20" placeholder="ほかの支払方法を追加（例: Airペイ）" class="field" style="flex:1;min-width:0">
+      <input id="payNew" type="text" maxlength="20" aria-label="ほかの支払方法を追加" placeholder="ほかの支払方法を追加（例: Airペイ）" class="field" style="flex:1;min-width:0">
       <button class="btn sub" id="payAdd" type="button">追加</button>
     </div>
     <button class="btn" id="paySave">保存</button>
@@ -271,7 +274,7 @@
   <section class="card">
     <h2>目標金額</h2>
     <div class="row">
-      <input id="targetInput" type="number" inputmode="numeric" min="1" class="field" style="flex:1;min-width:0">
+      <input id="targetInput" aria-label="目標金額（円）" type="number" inputmode="numeric" min="1" class="field" style="flex:1;min-width:0">
       <button class="btn" id="targetBtn">変更する</button>
     </div>
     <div class="note">ダッシュボードとレジの「目標まで」に反映されます。</div>
@@ -295,8 +298,8 @@
 
   <section class="card form">
     <h2>レジのパスワードを変更 <span class="badge" id="regPwState"></span></h2>
-    <input id="regNew" type="password" autocomplete="new-password" placeholder="新しいレジ用パスワード（8文字以上）">
-    <input id="regNew2" type="password" autocomplete="new-password" placeholder="新しいレジ用パスワード（確認）">
+    <input id="regNew" type="password" autocomplete="new-password" aria-label="新しいレジ用パスワード" placeholder="新しいレジ用パスワード（8文字以上）">
+    <input id="regNew2" type="password" autocomplete="new-password" aria-label="新しいレジ用パスワード" placeholder="新しいレジ用パスワード（確認）">
     <label><input type="checkbox" id="regRevoke"> 同時にレジ端末をすべて締め出す</label>
     <button class="btn" id="regBtn">変更する</button>
     <div class="note">今のパスワードを知らなくても変更できます（マスターだけの操作）。</div>
@@ -304,9 +307,9 @@
 
   <section class="card form">
     <h2>マスターパスワードを変更 <span class="badge" id="masterPwState"></span></h2>
-    <input id="mCur" type="password" autocomplete="current-password" placeholder="今のマスターパスワード">
-    <input id="mNew" type="password" autocomplete="new-password" placeholder="新しいマスターパスワード（8文字以上）">
-    <input id="mNew2" type="password" autocomplete="new-password" placeholder="新しいマスターパスワード（確認）">
+    <input id="mCur" type="password" autocomplete="current-password" aria-label="今のマスターパスワード" placeholder="今のマスターパスワード">
+    <input id="mNew" type="password" autocomplete="new-password" aria-label="新しいマスターパスワード" placeholder="新しいマスターパスワード（8文字以上）">
+    <input id="mNew2" type="password" autocomplete="new-password" aria-label="新しいマスターパスワード" placeholder="新しいマスターパスワード（確認）">
     <button class="btn" id="mBtn">変更する</button>
     <div class="note">変更すると、この端末以外のマスターログインは解除されます。</div>
   </section>
@@ -314,8 +317,8 @@
   <section class="card form danger-zone">
     <h2>この催しの売上記録を全リセット（テスト用）</h2>
     <div class="note" id="resetInfo"></div>
-    <input id="resetConfirm" type="text" autocomplete="off" placeholder="確認のため「リセット」と入力" class="field" style="margin:8px 0">
-    <input id="resetPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+    <input id="resetConfirm" type="text" autocomplete="off" aria-label="「リセット」の確認" placeholder="確認のため「リセット」と入力" class="field" style="margin:8px 0">
+    <input id="resetPw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
     <button class="btn danger" id="resetBtn">すべての会計を削除する</button>
     <div class="note">
       ・<b>この催しの</b>、取消済みも含めたすべての会計と明細を削除し、会計番号を #1 に戻します（ほかの催しの会計はそのまま）。<strong>元に戻せません。</strong><br>
@@ -329,8 +332,8 @@
     <h2>この催しを削除</h2>
     <div class="note" id="pjDeleteInfo"></div>
     <div id="pjDeleteInputs">
-      <input id="pjDelName" type="text" autocomplete="off" placeholder="確認のため催し名を入力" class="field" style="margin:8px 0">
-      <input id="pjDelPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+      <input id="pjDelName" type="text" autocomplete="off" aria-label="削除する催し名の確認" placeholder="確認のため催し名を入力" class="field" style="margin:8px 0">
+      <input id="pjDelPw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
     </div>
     <button class="btn danger" id="pjDelBtn">この催しを削除する</button>
     <div class="note">
@@ -342,7 +345,7 @@
 
   <section class="card">
     <h2>操作の記録</h2>
-    <div class="scroll" id="audit"></div>
+    <div class="scroll" id="audit" tabindex="0" role="region" aria-label="操作の記録"></div>
   </section>
 
   <button class="btn sub" id="logoutBtn">ログアウト</button>
@@ -531,7 +534,7 @@
       (d.total >= d.target ? '　🎉 達成！' + yen(d.total - d.target) + 'の黒字（見込）' : '');
     if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
 
-    $('sessions').innerHTML = d.sessions.length ? '<table><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th></th></tr>' +
+    $('sessions').innerHTML = d.sessions.length ? '<table class="sessions"><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th><span class="visually-hidden">操作</span></th></tr>' +
       d.sessions.map(s => '<tr><td>' + ROLE[s.role] + '</td><td>' + esc(s.staff) + '</td><td>' + esc(s.device) + '</td>' +
         '<td class="t">' + fmt(s.created_at) + '</td><td class="t">' + fmt(s.last_seen) + '</td>' +
         '<td>' + (s.current ? '<span class="badge ok">この端末</span>' : '<button class="btn danger small" data-revoke="' + s.id + '">締め出す</button>') + '</td></tr>'
@@ -585,8 +588,8 @@
   function productCard(p) {
     const u = esc(p.unit || '本');
     return '<div class="pcard' + (p.active === false ? ' off' : '') + '" data-id="' + (p.id || '') + '">' +
-      '<div class="head"><input type="text" class="pname" maxlength="20" placeholder="商品名" value="' + esc(p.name || '') + '">' +
-      '単位 <input type="text" class="punit" maxlength="4" value="' + u + '">' +
+      '<div class="head"><input type="text" class="pname" maxlength="20" aria-label="商品名" placeholder="商品名" value="' + esc(p.name || '') + '">' +
+      '単位 <input type="text" class="punit" maxlength="4" aria-label="単位" value="' + u + '">' +
       (p.id ? '' : '<span class="dirty-badge">新しい商品</span>') + '</div>' +
       '<div class="sets">' + (p.sets || [{ qty: 1, price: '' }]).map(setRow).join('') + '</div>' +
       '<button class="btn sub small" data-act="addset">＋ セットを追加</button>' +
@@ -605,8 +608,8 @@
       '</div></div>';
   }
   function setRow(s) {
-    return '<div class="set-row"><input type="number" class="sq" inputmode="numeric" min="1" value="' + (s.qty ?? '') + '"><span class="su"></span>' +
-      '<input type="number" class="sp" inputmode="numeric" min="0" value="' + (s.price ?? '') + '">円' +
+    return '<div class="set-row"><input type="number" class="sq" inputmode="numeric" min="1" aria-label="セットの数" value="' + (s.qty ?? '') + '"><span class="su"></span>' +
+      '<input type="number" class="sp" inputmode="numeric" min="0" aria-label="セットの価格（円）" value="' + (s.price ?? '') + '">円' +
       '<button class="x" data-act="delset" aria-label="このセットを消す">×</button></div>';
   }
   function refreshUnits(card) {

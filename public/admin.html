@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>レジ｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -205,13 +205,13 @@
 </head>
 <body>
 
-<div id="login" class="card login-card hidden">
+<div id="login" class="card login-card hidden" role="main">
   <span class="app-mark" aria-hidden="true"></span>
   <div class="login-system">岡大グリー模擬店システム</div>
   <h2>レジ</h2>
   <p class="login-lead">担当者名とレジ用パスワードを入力してください</p>
-  <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="担当者名（例: 学祭太郎）">
-  <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード">
+  <input id="staffName" type="text" autocomplete="name" maxlength="30" aria-label="担当者名" placeholder="担当者名（例: 学祭太郎）">
+  <input id="pw" type="password" autocomplete="current-password" aria-label="パスワード" placeholder="パスワード">
   <button class="btn big block login-go" id="loginBtn">ログイン</button>
   <div class="login-off hidden" id="loginOff">オフラインのためログインできません。電波のある場所でログインしてください。</div>
   <div class="login-off hidden" id="loginQueue"></div>
@@ -219,7 +219,7 @@
   <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
-<div id="app" class="wrap hidden">
+<div id="app" class="wrap hidden" role="main">
   <header class="app-header">
     <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>レジ</h1><span class="app-sub" id="staffLabel"></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>

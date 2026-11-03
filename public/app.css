@@ -99,6 +99,7 @@
   --mg-accent-bg-active: var(--mg-pink-100);
   --mg-accent-border: var(--mg-pink-200);
   --mg-accent-text: var(--mg-pink-700);      /* ピンクで文字を書くとき（白地で 4.5:1 以上） */
+  --mg-accent-glow: rgba(232, 135, 159, .7); /* キッチンに新しい注文が来たときの光（--mg-pink-500 を半透明に） */
 
   /* 状態 */
   --mg-success: var(--mg-green-600);         /* できた・オンライン */

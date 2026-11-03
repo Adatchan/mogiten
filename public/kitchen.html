@@ -43,7 +43,7 @@
            touch-action: pan-y; user-select: none; -webkit-user-select: none; transition: transform .2s, opacity .2s, border-color .2s; }
   .order.dragging { transition: none; }
   .order.new { animation: arrive 1.2s ease-out 2; border-color: var(--mg-accent); }
-  @keyframes arrive { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mg-accent) 70%, transparent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+  @keyframes arrive { 0% { box-shadow: 0 0 0 0 var(--mg-accent-glow); } 100% { box-shadow: 0 0 0 14px transparent; } }
   .order.late { border-color: var(--mg-warning); }
   .order.very-late { border-color: var(--mg-error); }
   .oh { display: flex; align-items: baseline; gap: 8px; }
@@ -86,19 +86,19 @@
 </head>
 <body>
 
-<div id="login" class="card login-card hidden">
+<div id="login" class="card login-card hidden" role="main">
   <span class="app-mark" aria-hidden="true"></span>
   <div class="login-system">岡大グリー模擬店システム</div>
   <h2>キッチン</h2>
   <p class="login-lead">レジと同じパスワードでログインします</p>
-  <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="名前（例: キッチン）">
-  <input id="pw" type="password" autocomplete="current-password" placeholder="レジ用パスワード">
+  <input id="staffName" type="text" autocomplete="name" maxlength="30" aria-label="名前" placeholder="名前（例: キッチン）">
+  <input id="pw" type="password" autocomplete="current-password" aria-label="レジ用パスワード" placeholder="レジ用パスワード">
   <button class="btn big block login-go" id="loginBtn">ログイン</button>
   <div class="login-note">ログインは3日間有効です</div>
   <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
-<div id="app" class="hidden">
+<div id="app" class="hidden" role="main">
   <div class="bar">
     <!-- 1 行目：見出し（全画面共通）。件数は見出しの下 -->
     <header class="app-header">

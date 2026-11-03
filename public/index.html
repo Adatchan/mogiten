@@ -104,7 +104,7 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" role="main">
   <header class="app-header">
     <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>ダッシュボード</h1><span class="app-sub" id="shopSub"></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
@@ -129,7 +129,7 @@
       <div class="pie-box">
         <svg id="pie" viewBox="0 0 200 200" role="img" aria-labelledby="pieTitle"><title id="pieTitle">目標に対する商品別の売上</title></svg>
         <div class="pie-center"><div class="pc-v" id="pieRate">—</div><div class="pc-k" id="pieRateK">達成率</div></div>
-        <div class="pie-tip" id="pieTip" role="tooltip"></div>
+        <div class="pie-tip" id="pieTip" aria-hidden="true"></div>
       </div>
       <table class="pie-legend" id="pieLegend"></table>
     </div>
@@ -139,7 +139,7 @@
     <div class="label" id="hourTitle">今日の1時間ごとの売上</div>
     <div class="hour-box">
       <svg id="hourChart" role="img" aria-labelledby="hourChartTitle"><title id="hourChartTitle">今日の1時間ごとの売上</title></svg>
-      <div class="hour-tip" id="hourTip" role="tooltip"></div>
+      <div class="hour-tip" id="hourTip" aria-hidden="true"></div>
     </div>
     <div class="hint" id="hourNote"></div>
   </section>

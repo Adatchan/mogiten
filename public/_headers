@@ -1,0 +1,9 @@
+# 画面（public/ の静的ファイル）に付けるレスポンスヘッダー（Cloudflare Workers の静的アセット機能が読む）
+#   X-Frame-Options / frame-ancestors: ほかのサイトの枠（iframe）の中に表示させない（管理画面のボタンを重ねて押させる攻撃を防ぐ）
+#   X-Content-Type-Options: ファイルの種類を推測させない
+#   Referrer-Policy: ほかのサイトへ移るときに URL のパスを渡さない
+/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
