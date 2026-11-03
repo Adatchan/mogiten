@@ -54,6 +54,14 @@ export default {
       }
 
       if (route === 'GET /api/summary') return json(await summary(env.DB, await getActiveProject(env.DB)));
+      // ダッシュボード：ほかの日の 1 時間ごとの売上（?date=YYYY-MM-DD。集計だけなので認証なし）
+      if (route === 'GET /api/hourly') {
+        const date = url.searchParams.get('date') || '';
+        const t = Date.parse(date + 'T00:00:00Z');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(t) || new Date(t).toISOString().slice(0, 10) !== date) return json({ error: '日付は YYYY-MM-DD で指定してください' }, 400);
+        const P = await getActiveProject(env.DB);
+        return json(await hourlySales(env.DB, P, date));
+      }
       if (url.pathname.startsWith('/api/admin/')) return await registerApi(request, env, url, route);
       if (url.pathname.startsWith('/api/master/')) return await masterApi(request, env, url, route);
       return json({ error: 'Not Found' }, 404);
@@ -1051,12 +1059,16 @@ function jstDay() {
   };
 }
 
-/** 今日（日本時間）の 1 時間ごとの売上（取消を除く）。営業時間外の会計はまとめて outside に入れる */
-async function hourlySales(db, P) {
+/**
+ * 1 日（日本時間）の 1 時間ごとの売上（取消を除く）。営業時間外の会計はまとめて outside に入れる。
+ * date（YYYY-MM-DD）を省くと今日。今日なら nowHour（今の時間帯）を入れ、ほかの日は null
+ */
+async function hourlySales(db, P, date) {
   const JST = 9 * 3600000;
-  const nowJst = new Date(Date.now() + JST);
-  const y = nowJst.getUTCFullYear(), m = nowJst.getUTCMonth(), d = nowJst.getUTCDate();
-  const start = new Date(Date.UTC(y, m, d) - JST);
+  const today = jstDay().date;
+  const day = date || today;
+  const [y, m, d] = day.split('-').map(Number);
+  const start = new Date(Date.UTC(y, m - 1, d) - JST);
   const end = new Date(start.getTime() + 86400000);
   const rows = (await db.prepare('SELECT created_at, amount FROM sales WHERE project_id = ? AND cancelled = 0 AND created_at >= ? AND created_at < ?')
     .bind(P.id, start.toISOString(), end.toISOString()).all()).results;
@@ -1070,11 +1082,31 @@ async function hourlySales(db, P) {
     b.orders += 1;
   }
   return {
-    date: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+    date: day,
+    today: day === today,
     open: P.openHour, close: P.closeHour,
-    nowHour: nowJst.getUTCHours(),
+    nowHour: day === today ? new Date(Date.now() + JST).getUTCHours() : null,
     buckets, outside,
   };
+}
+
+/**
+ * ダッシュボードの「1時間ごとの売上」で選べる日（古い順）。
+ * 催しの期間のうち今日までの日と、会計（取消を除く）がある日。今日はいつも入れる（未来の日は入れない）
+ */
+const MAX_HOURLY_DAYS = 60;
+async function hourlyDays(db, P) {
+  const today = jstDay().date;
+  const days = new Set([today]);
+  for (let t = Date.parse(P.startDate + 'T00:00:00Z'), n = 0; n < MAX_HOURLY_DAYS; t += 86400000, n++) {
+    const d = new Date(t).toISOString().slice(0, 10);
+    if (d > P.endDate || d > today) break;
+    days.add(d);
+  }
+  const rows = (await db.prepare(`SELECT DISTINCT substr(datetime(created_at, '+9 hours'), 1, 10) AS d FROM sales
+      WHERE project_id = ? AND cancelled = 0 ORDER BY d DESC LIMIT ?`).bind(P.id, MAX_HOURLY_DAYS).all()).results;
+  for (const r of rows) if (r.d && r.d <= today) days.add(r.d);
+  return [...days].sort().slice(-MAX_HOURLY_DAYS);
 }
 
 /** 催しの集計（ダッシュボード・レジ・管理画面で共通） */
@@ -1153,6 +1185,7 @@ async function summary(db, P) {
     avgPerOrder: t.orders > 0 ? Math.round(t.total / t.orders) : 0,   // 客単価（取消を除く）
     closed: closedOf(P),   // 営業終了中なら { at }
     hourly: await hourlySales(db, P),
+    hourlyDays: await hourlyDays(db, P),   // 1時間ごとの売上で選べる日
     updatedAt: new Date().toISOString(),
   };
 }

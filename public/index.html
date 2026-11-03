@@ -46,6 +46,12 @@
 
   /* 1時間ごとの売上（棒グラフ） */
   .hour-box { position: relative; margin-top: 8px; }
+  /* 表示する日の切り替え（前の日／次の日） */
+  .day-nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; margin-top: 8px; }
+  .day-nav .btn { min-width: 6.5em; }
+  .day-nav .day { text-align: center; line-height: var(--mg-leading-tight); }
+  .day-nav .day b { display: block; font-size: var(--mg-text-md); font-variant-numeric: tabular-nums; }
+  .day-nav .to-today { margin-top: 2px; background: none; padding: 2px 4px; color: var(--mg-primary); font-size: var(--mg-text-xs); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
   #hourChart { width: 100%; height: 220px; display: block; overflow: visible; }
   #hourChart .bar-hit { fill: transparent; cursor: pointer; }
   #hourChart .bar-hit:hover + .bar-mark, #hourChart .bar-mark.on { opacity: .8; }
@@ -137,6 +143,11 @@
 
   <section class="card">
     <div class="label" id="hourTitle">今日の1時間ごとの売上</div>
+    <div class="day-nav hidden" id="dayNav" role="group" aria-label="表示する日">
+      <button type="button" class="btn sub small" id="dayPrev">‹ 前の日</button>
+      <div class="day"><b id="dayLabel" aria-live="polite"></b><button type="button" class="to-today" id="dayToday" style="visibility:hidden" tabindex="-1" aria-hidden="true">今日に戻る</button></div>
+      <button type="button" class="btn sub small" id="dayNext">次の日 ›</button>
+    </div>
     <div class="hour-box">
       <svg id="hourChart" role="img" aria-labelledby="hourChartTitle"><title id="hourChartTitle">今日の1時間ごとの売上</title></svg>
       <div class="hour-tip" id="hourTip" aria-hidden="true"></div>
@@ -202,10 +213,11 @@
   </details>
 
   <details>
-    <summary>「今日の1時間ごとの売上」の棒グラフ</summary>
+    <summary>「1時間ごとの売上」の棒グラフ（前の日も見られます）</summary>
     <p>今日の営業時間（管理画面で催しごとに決めた時間。例：9:00〜19:00）の売上を、1時間ごとの棒で表します。いちばん売れた時間帯には金額が出ます。棒に触れると、その時間帯の売上、会計件数、客単価が出ます。今の時間帯は「集計中」です。</p>
     <p>赤い点線は、目標を達成するのに必要な<b>1時間あたりの目安</b>です。棒が線を超えていれば、その時間帯はペースどおりです。</p>
     <p>営業時間の外に記録された会計は、グラフの下に件数と金額だけ出ます。取り消した会計は含みません。日付が変わると、その日の分に切り替わります。</p>
+    <p><b>ほかの日を見る</b>：グラフの上の「‹ 前の日」「次の日 ›」で、前の日の1時間ごとの売上を見られます（催しの期間の日と、会計がある日）。「今日に戻る」で今日に戻ります。前の日には目安の点線は出ません。ほかの数字（現在の売上・売れた数など）は、いつも催し全体の合計です。</p>
   </details>
 
   <details>
@@ -346,22 +358,22 @@
   // ---------- 1時間ごとの売上（棒グラフ・1系列なので凡例なし） ----------
   const BAR = tok('mg-chart-bar');   // 店のキーカラー（茶）
   let hourData = null;
-  function renderHourly(d) {
-    const h = d.hourly;
+  const dayText = ds => { const [, mo, da] = ds.split('-'); return Number(mo) + '/' + Number(da) + '（' + '日月火水木金土'[new Date(ds + 'T00:00:00Z').getUTCDay()] + '）'; };
+  function renderHourly(h) {
     hourData = h;
-    const [, mo, da] = h.date.split('-');
-    document.getElementById('hourTitle').textContent = '今日（' + Number(mo) + '/' + Number(da) + '）の1時間ごとの売上（' + h.open + ':00〜' + h.close + ':00）';
+    const pace = h.today ? currentPace : 0;   // 目安の線は今日だけ
+    document.getElementById('hourTitle').textContent = (h.today ? '今日' : dayText(h.date)) + 'の1時間ごとの売上（' + h.open + ':00〜' + h.close + ':00）';
     const svg = document.getElementById('hourChart');
     const W = Math.max(300, svg.clientWidth || 600), H = 220;
     const L = 46, R = 6, T = 22, B = 26;   // 余白（左は金額の目盛り）
     const n = h.buckets.length, cw = (W - L - R) / n, bw = Math.min(36, cw * 0.62);
     const max = Math.max(...h.buckets.map(b => b.amount));
-    const scaleMax = Math.max(max, currentPace);   // 目安の線も入るように
+    const scaleMax = Math.max(max, pace);   // 目安の線も入るように
     // 目盛り：きりのいい刻み
     const step = (() => { if (!scaleMax) return 1000; const raw = scaleMax / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(k => k * p).find(k => k >= raw); })();
     const top = Math.max(step, Math.ceil(scaleMax / step) * step);
     const y = v => T + (H - T - B) * (1 - v / top);
-    let s = '<title>今日の1時間ごとの売上</title>';
+    let s = '<title>' + (h.today ? '今日' : dayText(h.date)) + 'の1時間ごとの売上</title>';
     for (let v = 0; v <= top + 0.001; v += step) {
       s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + (v === 0 ? C.axis : C.grid) + '" stroke-width="1"/>' +
         '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="12" fill="' + C.sub + '">' + (v >= 10000 ? (v / 10000) + '万' : v.toLocaleString('ja-JP')) + '</text>';
@@ -385,15 +397,15 @@
       s += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" fill="' + (now ? C.text : C.sub) + '" font-weight="' + (now ? 700 : 400) + '">' + b.hour + (cw >= 36 || i === 0 ? '時' : '') + '</text>';
     });
     // 目標達成に必要な1時間あたりの目安（点線）
-    if (currentPace > 0) {
-      const py = y(currentPace);
+    if (pace > 0) {
+      const py = y(pace);
       s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + py + '" y2="' + py + '" stroke="' + C.pace + '" stroke-width="1.5" stroke-dasharray="5 4"/>' +
-        '<text x="' + (W - R) + '" y="' + (py - 5) + '" text-anchor="end" font-size="12" font-weight="700" fill="' + C.pace + '">目安 ' + yen(currentPace) + '/時</text>';
+        '<text x="' + (W - R) + '" y="' + (py - 5) + '" text-anchor="end" font-size="12" font-weight="700" fill="' + C.pace + '">目安 ' + yen(pace) + '/時</text>';
     }
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     svg.innerHTML = s;
     const total = h.buckets.reduce((a, b) => a + b.amount, 0), orders = h.buckets.reduce((a, b) => a + b.orders, 0);
-    let note = '今日の営業時間内：' + yen(total) + '（' + orders + '件）';
+    let note = (h.today ? '今日' : 'この日') + 'の営業時間内：' + yen(total) + '（' + orders + '件）';
     if (h.outside.orders) note += '　営業時間外の会計：' + h.outside.orders + '件 ' + yen(h.outside.amount);
     document.getElementById('hourNote').textContent = note;
   }
@@ -412,7 +424,61 @@
   }
   document.getElementById('hourChart').addEventListener('pointerover', e => { const t = e.target.closest('[data-i]'); hourFocus(t ? Number(t.dataset.i) : null, e); });
   document.getElementById('hourChart').addEventListener('pointerleave', () => hourFocus(null));
-  window.addEventListener('resize', () => { if (hourData && lastData) renderHourly(lastData); });
+  window.addEventListener('resize', () => { if (hourData) renderHourly(hourData); });
+
+  // ---------- 表示する日の切り替え（前の日／次の日） ----------
+  // 選べる日はサーバーが返す（催しの期間のうち今日までの日と、会計がある日）。今日以外の日は /api/hourly で取る
+  let hourDays = [];       // 選べる日（古い順）
+  let hourSel = null;      // 見ている日（null なら今日。今日は 1 分ごとの自動更新で新しくなる）
+  let hourBusy = false;
+  function renderDayNav() {
+    const nav = document.getElementById('dayNav');
+    const today = lastData ? lastData.hourly.date : null;
+    nav.classList.toggle('hidden', hourDays.length <= 1);
+    const cur = hourSel || today, i = hourDays.indexOf(cur);
+    document.getElementById('dayLabel').textContent = cur ? (cur === today ? '今日 ' : '') + dayText(cur) : '';
+    // 「今日に戻る」は場所を空けたまま出し入れする（グラフが上下に動かないように）
+    const back = document.getElementById('dayToday');
+    back.style.visibility = hourSel ? 'visible' : 'hidden';
+    back.tabIndex = hourSel ? 0 : -1;
+    back.setAttribute('aria-hidden', String(!hourSel));
+    // disabled ではなく aria-disabled（押した直後もフォーカスが外れず、続けてキーボードで操作できる）
+    document.getElementById('dayPrev').setAttribute('aria-disabled', String(i <= 0));
+    document.getElementById('dayNext').setAttribute('aria-disabled', String(i < 0 || i >= hourDays.length - 1));
+  }
+  async function fetchDay(date) {
+    const res = await fetch('/api/hourly?date=' + encodeURIComponent(date), { cache: 'no-store' });
+    const h = await res.json();
+    if (!res.ok) throw new Error(h.error || res.status);
+    return h;
+  }
+  async function showDay(date) {
+    if (!lastData) return;
+    if (!date || date === lastData.hourly.date) {   // 今日に戻る
+      hourSel = null;
+      renderHourly(lastData.hourly);
+      renderDayNav();
+      return;
+    }
+    hourBusy = true; renderDayNav();
+    try {
+      const h = await fetchDay(date);
+      hourSel = date;
+      renderHourly(h);
+    } catch (e) {
+      document.getElementById('hourNote').textContent = 'この日の売上を読み込めませんでした: ' + e.message;
+    } finally {
+      hourBusy = false; renderDayNav();
+    }
+  }
+  const stepDay = k => {
+    if (hourBusy) return;
+    const cur = hourSel || (lastData && lastData.hourly.date), i = hourDays.indexOf(cur);
+    if (i >= 0 && hourDays[i + k]) showDay(hourDays[i + k]);
+  };
+  document.getElementById('dayPrev').addEventListener('click', () => stepDay(-1));
+  document.getElementById('dayNext').addEventListener('click', () => stepDay(1));
+  document.getElementById('dayToday').addEventListener('click', () => showDay(null));
 
   // 催しの名前（模擬店の名前があれば一緒に）
   const mdShort = s => { const [, m, dd] = s.split('-'); return Number(m) + '/' + Number(dd); };
@@ -490,7 +556,11 @@
 
     document.getElementById('orders').textContent = d.orders;
     document.getElementById('avg').textContent = d.orders ? yen(d.avgPerOrder) : '—';
-    renderHourly(d);
+    hourDays = d.hourlyDays || [d.hourly.date];
+    if (hourSel && (hourSel === d.hourly.date || !hourDays.includes(hourSel))) hourSel = null;   // 日付が変わった・催しが変わった
+    if (hourSel) fetchDay(hourSel).then(h => { if (hourSel === h.date) renderHourly(h); }).catch(() => {});   // 見ている日も取り直す（取消・あとから届いた会計）
+    else renderHourly(d.hourly);
+    renderDayNav();
     document.getElementById('pays').innerHTML = d.payments.map(p => {
       const v = d.byPayment[p];
       const w = d.total > 0 ? (v.amount / d.total * 100) : 0;
