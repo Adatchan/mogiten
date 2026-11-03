@@ -6,7 +6,8 @@
 <title>ダッシュボード｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
 <style>
@@ -16,21 +17,21 @@
   .label { font-size: 14px; margin-bottom: 0; }
   .hero { text-align: center; }
   .hero .total { font-size: 56px; font-weight: 700; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
-  .hero .target { color: var(--sub); font-size: 16px; }
-  .bar { position: relative; height: 26px; background: #f1ebe2; border-radius: 13px; overflow: hidden; margin: 18px 0 8px; }
-  .bar > div { height: 100%; width: 0; border-radius: 13px; background: linear-gradient(90deg, var(--pink), #f2b6a0, var(--green)); transition: width .8s ease; }
+  .hero .target { color: var(--mg-text-sub); font-size: 16px; }
+  .bar { position: relative; height: 26px; background: var(--mg-surface-sub); border-radius: var(--mg-radius-full); overflow: hidden; margin: 18px 0 8px; }
+  .bar > div { height: 100%; width: 0; border-radius: var(--mg-radius-full); background: linear-gradient(90deg, var(--mg-accent), var(--mg-success-accent)); transition: width .8s ease; }
   .bar span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
   .remain { font-size: 22px; font-weight: 700; margin-top: 10px; }
-  .remain b { color: var(--pink); font-size: 30px; font-variant-numeric: tabular-nums; }
-  .remain.done b { color: var(--green); }
-  .hint { color: var(--sub); font-size: 13px; margin-top: 4px; }
+  .remain b { color: var(--mg-accent-text); font-size: 30px; font-variant-numeric: tabular-nums; }
+  .remain.done b { color: var(--mg-success-accent); }
+  .hint { color: var(--mg-text-sub); font-size: 13px; margin-top: 4px; }
   .closed-note { text-align: center; }
   /* 目標達成のための1時間あたりの目安 */
-  .pace { margin: 12px auto 2px; max-width: 460px; background: #fdf3f5; border: 1px solid #f3cdd6; border-radius: 12px; padding: 8px 12px; font-size: 14px; line-height: 1.6; }
-  .pace b { font-size: 22px; color: #c2566f; font-variant-numeric: tabular-nums; }
-  .pace .sub { color: var(--sub); font-size: 12px; }
-  .pace .ok { color: #3d6b1f; font-weight: 700; white-space: nowrap; }
-  .pace .ng { color: #b0413e; font-weight: 700; white-space: nowrap; }
+  .pace { margin: 12px auto 2px; max-width: 460px; background: var(--mg-accent-bg); border: 1px solid var(--mg-accent-border); border-radius: var(--mg-radius-lg); padding: 8px 12px; font-size: 14px; line-height: 1.6; }
+  .pace b { font-size: 22px; color: var(--mg-accent-text); font-variant-numeric: tabular-nums; }
+  .pace .sub { color: var(--mg-text-sub); font-size: 12px; }
+  .pace .ok { color: var(--mg-success-text); font-weight: 700; white-space: nowrap; }
+  .pace .ng { color: var(--mg-error); font-weight: 700; white-space: nowrap; }
 
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .grid .card { margin-bottom: 0; }
@@ -39,8 +40,8 @@
   .rows { margin-top: 10px; }
 
   /* 客単価 */
-  .avg { display: flex; align-items: baseline; justify-content: space-between; margin-top: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-  .avg-k { font-size: 14px; color: var(--sub); }
+  .avg { display: flex; align-items: baseline; justify-content: space-between; margin-top: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--mg-border); }
+  .avg-k { font-size: 14px; color: var(--mg-text-sub); }
   .avg .stat { font-size: 32px; }
 
   /* 1時間ごとの売上（棒グラフ） */
@@ -49,7 +50,7 @@
   #hourChart .bar-hit { fill: transparent; cursor: pointer; }
   #hourChart .bar-hit:hover + .bar-mark, #hourChart .bar-mark.on { opacity: .8; }
   #hourChart text { font-family: inherit; font-variant-numeric: tabular-nums; }
-  .hour-tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 13px; line-height: 1.5; padding: 6px 10px; border-radius: 8px;
+  .hour-tip { position: absolute; pointer-events: none; background: var(--mg-text); color: var(--mg-text-on-fill); font-size: 13px; line-height: 1.5; padding: 6px 10px; border-radius: var(--mg-radius-md);
               white-space: nowrap; transform: translate(-50%, calc(-100% - 8px)); opacity: 0; transition: opacity .1s; z-index: 2; }
   .hour-tip.show { opacity: 1; }
 
@@ -61,41 +62,41 @@
   #pie.hovering path:not(.on) { opacity: .45; }
   .pie-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
   .pc-v { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .pc-k { font-size: 12px; color: var(--sub); margin-top: 2px; }
-  .pie-tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 13px; line-height: 1.5; padding: 6px 10px; border-radius: 8px;
+  .pc-k { font-size: 12px; color: var(--mg-text-sub); margin-top: 2px; }
+  .pie-tip { position: absolute; pointer-events: none; background: var(--mg-text); color: var(--mg-text-on-fill); font-size: 13px; line-height: 1.5; padding: 6px 10px; border-radius: var(--mg-radius-md);
              white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .1s; z-index: 2; }
   .pie-tip.show { opacity: 1; }
   .pie-legend { flex: 1; min-width: 240px; border-collapse: collapse; font-size: 15px; }
-  .pie-legend td { padding: 7px 4px; border-top: 1px dashed var(--line); }
+  .pie-legend td { padding: 7px 4px; border-top: 1px dashed var(--mg-border); }
   .pie-legend tr:first-child td { border-top: none; }
-  .pie-legend .sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; vertical-align: -2px; margin-right: 8px; }
-  .pie-legend .sw.gap { background: #e4e0d9; }
+  .pie-legend .sw { width: 14px; height: 14px; border-radius: var(--mg-radius-xs); display: inline-block; vertical-align: -2px; margin-right: 8px; }
+  .pie-legend .sw.gap { background: var(--mg-chart-rest); }
   .pie-legend .num { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .pie-legend .pct { text-align: right; color: var(--sub); font-variant-numeric: tabular-nums; white-space: nowrap; width: 3.5em; }
-  .pie-legend tr.rest td { color: var(--sub); }
+  .pie-legend .pct { text-align: right; color: var(--mg-text-sub); font-variant-numeric: tabular-nums; white-space: nowrap; width: 3.5em; }
+  .pie-legend tr.rest td { color: var(--mg-text-sub); }
   .pie-legend tr.rest .num { font-weight: 400; }
-  .pie-legend tr.on td { background: #faf6ef; }
-  .prod + .prod { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); }
+  .pie-legend tr.on td { background: var(--mg-surface-hover); }
+  .prod + .prod { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--mg-border); }
   .prod .ph { display: flex; justify-content: space-between; align-items: baseline; }
   .prod .ph .n { font-size: 17px; font-weight: 700; }
   .prod .ph .stat { font-size: 34px; }
   .prod .rows { margin-top: 4px; }
   .prod .row { font-size: 14px; padding: 5px 0; }
   .prod .flv-rows { margin-top: 8px; }
-  .prod .flv-h { font-size: 12px; color: var(--sub); font-weight: 700; }
-  .row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 16px; }
+  .prod .flv-h { font-size: 12px; color: var(--mg-text-sub); font-weight: 700; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px dashed var(--mg-border); font-size: 16px; }
   .row:first-child { border-top: none; }
   .row .v { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .pay-bar { height: 8px; border-radius: 4px; background: #f1ebe2; margin-top: 4px; overflow: hidden; }
-  .pay-bar div { height: 100%; background: var(--brown); width: 0; transition: width .8s ease; }
-  .pay { padding: 8px 0; border-top: 1px dashed var(--line); }
+  .pay-bar { height: 8px; border-radius: var(--mg-radius-full); background: var(--mg-surface-sub); margin-top: 4px; overflow: hidden; }
+  .pay-bar div { height: 100%; background: var(--mg-primary); width: 0; transition: width .8s ease; }
+  .pay { padding: 8px 0; border-top: 1px dashed var(--mg-border); }
   .pay:first-child { border-top: none; }
   .pay .head { display: flex; justify-content: space-between; font-size: 16px; }
   .pay .head .v { font-weight: 700; font-variant-numeric: tabular-nums; }
 
-  .breakdown { color: var(--sub); font-size: 13px; margin-top: 2px; }
-  footer { text-align: center; color: var(--sub); font-size: 12px; margin-top: 10px; }
-  .error { color: #c0392b; }
+  .breakdown { color: var(--mg-text-sub); font-size: 13px; margin-top: 2px; }
+  footer { text-align: center; color: var(--mg-text-sub); font-size: 12px; margin-top: 10px; }
+  .error { color: var(--mg-error); }
   @media (max-width: 480px) {
     .grid { grid-template-columns: 1fr; }
     .hero .total { font-size: 46px; }
@@ -231,9 +232,12 @@
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
 
+  // グラフの色は app.css のトークン（--mg-chart-*）から読む。SVG の属性には var() が書けないため
+  const tok = name => getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
   // 商品の色（固定の順番。色覚の違いでも見分けられる組み合わせを検証済み）
-  const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
-  const REST = '#e4e0d9';   // 未達（グレー）
+  const SERIES = [1, 2, 3, 4, 5, 6, 7, 8].map(i => tok('mg-chart-' + i));
+  const REST = tok('mg-chart-rest');   // 未達
+  const C = { grid: tok('mg-chart-grid'), axis: tok('mg-border-strong'), text: tok('mg-text'), sub: tok('mg-text-sub'), pace: tok('mg-chart-pace') };
   let pieSegs = [];
 
   /** 円グラフ：円全体 = 目標金額（目標を超えたら売上合計）。商品ごと＋容器代、残りは「未達」 */
@@ -340,7 +344,7 @@
   }
 
   // ---------- 1時間ごとの売上（棒グラフ・1系列なので凡例なし） ----------
-  const BAR = '#8a5a3b';   // 店のテーマ色（茶）
+  const BAR = tok('mg-chart-bar');   // 店のキーカラー（茶）
   let hourData = null;
   function renderHourly(d) {
     const h = d.hourly;
@@ -359,8 +363,8 @@
     const y = v => T + (H - T - B) * (1 - v / top);
     let s = '<title>今日の1時間ごとの売上</title>';
     for (let v = 0; v <= top + 0.001; v += step) {
-      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + (v === 0 ? '#cfc6ba' : '#eee8df') + '" stroke-width="1"/>' +
-        '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="#7a6f66">' + (v >= 10000 ? (v / 10000) + '万' : v.toLocaleString('ja-JP')) + '</text>';
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + (v === 0 ? C.axis : C.grid) + '" stroke-width="1"/>' +
+        '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="12" fill="' + C.sub + '">' + (v >= 10000 ? (v / 10000) + '万' : v.toLocaleString('ja-JP')) + '</text>';
     }
     const peak = max > 0 ? h.buckets.findIndex(b => b.amount === max) : -1;
     h.buckets.forEach((b, i) => {
@@ -377,14 +381,14 @@
         s += '<rect class="bar-hit" data-i="' + i + '" x="' + (L + cw * i) + '" y="' + T + '" width="' + cw + '" height="' + (H - T - B) + '"/>';
       }
       // いちばん売れた時間帯だけ金額を表示（数字は全部には付けない）
-      if (i === peak) s += '<text x="' + cx + '" y="' + (yy - 6) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#2b2420">' + yen(b.amount) + '</text>';
-      s += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="' + (now ? '#2b2420' : '#7a6f66') + '" font-weight="' + (now ? 700 : 400) + '">' + b.hour + (cw >= 36 || i === 0 ? '時' : '') + '</text>';
+      if (i === peak) s += '<text x="' + cx + '" y="' + (yy - 6) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + C.text + '">' + yen(b.amount) + '</text>';
+      s += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" fill="' + (now ? C.text : C.sub) + '" font-weight="' + (now ? 700 : 400) + '">' + b.hour + (cw >= 36 || i === 0 ? '時' : '') + '</text>';
     });
     // 目標達成に必要な1時間あたりの目安（点線）
     if (currentPace > 0) {
       const py = y(currentPace);
-      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + py + '" y2="' + py + '" stroke="#c2566f" stroke-width="1.5" stroke-dasharray="5 4"/>' +
-        '<text x="' + (W - R) + '" y="' + (py - 5) + '" text-anchor="end" font-size="11" font-weight="700" fill="#c2566f">目安 ' + yen(currentPace) + '/時</text>';
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + py + '" y2="' + py + '" stroke="' + C.pace + '" stroke-width="1.5" stroke-dasharray="5 4"/>' +
+        '<text x="' + (W - R) + '" y="' + (py - 5) + '" text-anchor="end" font-size="12" font-weight="700" fill="' + C.pace + '">目安 ' + yen(currentPace) + '/時</text>';
     }
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     svg.innerHTML = s;

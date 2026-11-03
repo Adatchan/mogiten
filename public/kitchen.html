@@ -6,80 +6,81 @@
 <title>キッチン｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
 <style>
   /* 色・文字・見出し・ボタン・ログイン・トーストの共通部分は /app.css */
-  :root { --strike: var(--brown); }
+  :root { --strike: var(--mg-primary); }   /* できたときの打ち消し線 */
 
   /* 上の帯 */
-  .bar { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); padding: 8px 12px; }
+  .bar { position: sticky; top: 0; z-index: 10; background: var(--mg-bg); border-bottom: 1px solid var(--mg-border); padding: 8px 12px; }
   .bar .app-header { margin: 0; }
   .bar .app-sub { font-size: 13px; overflow: visible; }
-  .bar .app-sub b { font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .bar .app-sub b { font-size: 18px; color: var(--mg-text); font-variant-numeric: tabular-nums; }
   .bar-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
   .sp { flex: 1; }
-  .net { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--sub); white-space: nowrap; }
-  .net .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
-  .net.off .dot { background: var(--red); }
-  .net.off { color: var(--red); font-weight: 700; }
-  .tool { background: #fff; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; white-space: nowrap; }
-  .tool[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .net { display: inline-flex; align-items: center; gap: 5px; font-size: var(--mg-text-xs); color: var(--mg-text-sub); white-space: nowrap; }
+  .net .dot { width: 9px; height: 9px; border-radius: var(--mg-radius-full); background: var(--mg-success); }
+  .net.off .dot { background: var(--mg-error); }
+  .net.off { color: var(--mg-error); font-weight: 700; }
+  .tool { min-height: 32px; background: var(--mg-surface); border: 1px solid var(--mg-border-field); color: var(--mg-text); border-radius: var(--mg-radius-full); padding: 6px 12px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .tool[aria-pressed="true"] { background: var(--mg-text); color: var(--mg-text-on-fill); border-color: var(--mg-text); }
 
   /* まだ作っていない分の合計 */
   .todo { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .todo .chip { background: #fff4f6; border: 2px solid var(--pink); border-radius: 10px; padding: 4px 10px; font-size: 15px; font-weight: 700; white-space: nowrap; }
+  .todo .chip { background: var(--mg-accent-bg); border: 2px solid var(--mg-accent); border-radius: var(--mg-radius-md); padding: 4px 10px; font-size: 15px; font-weight: 700; white-space: nowrap; }
   .todo .chip b { font-size: 20px; font-variant-numeric: tabular-nums; margin-left: 4px; }
-  .todo .chip small { font-weight: 400; color: var(--sub); font-size: 12px; margin-right: 4px; }
-  .todo .none { color: var(--sub); font-size: 14px; padding: 4px 0; }
+  .todo .chip small { font-weight: 400; color: var(--mg-text-sub); font-size: var(--mg-text-xs); margin-right: 4px; }
+  .todo .none { color: var(--mg-text-sub); font-size: 14px; padding: 4px 0; }
 
-  .closed { background: #2b2420; color: #fff; border-radius: 10px; padding: 8px 12px; margin: 8px 12px 0; font-size: 14px; font-weight: 700; }
+  .closed { background: var(--mg-text); color: var(--mg-text-on-fill); border-radius: var(--mg-radius-md); padding: 8px 12px; margin: 8px 12px 0; font-size: 14px; font-weight: 700; }
 
   /* 注文 */
   .list { align-items: start; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; padding: 12px 12px 120px; }
-  .order { position: relative; background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px 8px;
+  .order { position: relative; background: var(--mg-surface); border: 2px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 10px 12px 8px;
            touch-action: pan-y; user-select: none; -webkit-user-select: none; transition: transform .2s, opacity .2s, border-color .2s; }
   .order.dragging { transition: none; }
-  .order.new { animation: arrive 1.2s ease-out 2; border-color: var(--pink); }
-  @keyframes arrive { 0% { box-shadow: 0 0 0 0 rgba(232, 135, 159, .7); } 100% { box-shadow: 0 0 0 14px rgba(232, 135, 159, 0); } }
-  .order.late { border-color: var(--amber); }
-  .order.very-late { border-color: var(--red); }
+  .order.new { animation: arrive 1.2s ease-out 2; border-color: var(--mg-accent); }
+  @keyframes arrive { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mg-accent) 70%, transparent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+  .order.late { border-color: var(--mg-warning); }
+  .order.very-late { border-color: var(--mg-error); }
   .oh { display: flex; align-items: baseline; gap: 8px; }
   .oh .no { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .oh .tm { font-size: 14px; color: var(--sub); font-variant-numeric: tabular-nums; }
-  .oh .age { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--sub); white-space: nowrap; }
-  .late .oh .age { color: var(--amber); }
-  .very-late .oh .age { color: var(--red); }
+  .oh .tm { font-size: 14px; color: var(--mg-text-sub); font-variant-numeric: tabular-nums; }
+  .oh .age { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--mg-text-sub); white-space: nowrap; }
+  .late .oh .age { color: var(--mg-warning); }
+  .very-late .oh .age { color: var(--mg-error); }
   .ol { list-style: none; margin: 6px 0 4px; padding: 0; }
   .ol li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 3px 0; font-size: 22px; font-weight: 700; }
-  .ol li small { display: block; font-size: 12px; font-weight: 400; color: var(--sub); }
+  .ol li small { display: block; font-size: var(--mg-text-xs); font-weight: 400; color: var(--mg-text-sub); }
   .ol .q { font-variant-numeric: tabular-nums; white-space: nowrap; }
   /* 打ち消し線：「できた」にすると左から引かれていく */
   .ol .t { background: linear-gradient(var(--strike), var(--strike)) no-repeat 0 52% / 0% 3px; transition: background-size .35s ease-out; }
   .done .ol .t { background-size: 100% 3px; }
-  .done { background: #f6f2ec; border-color: var(--line) !important; }
-  .done .ol li { color: var(--sub); }
-  .done .oh .no { color: var(--sub); }
-  .done .oh .age { color: var(--sub) !important; }
-  .ostate { font-size: 12px; color: var(--sub); border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 2px; }
-  .done .ostate { color: var(--ok); font-weight: 700; }
-  .cancelled { opacity: .55; background: #fdf3f2; border-color: #f2c2bc !important; }
-  .cancelled .ol .t { background-image: linear-gradient(var(--red), var(--red)); background-size: 100% 3px; }
-  .cancelled .ostate { color: var(--red); font-weight: 700; }
-  .order.syncing .ostate::after { content: '（送信中…）'; color: var(--sub); font-weight: 400; }
+  .done { background: var(--mg-surface-done); border-color: var(--mg-border) !important; }
+  .done .ol li { color: var(--mg-text-sub); }
+  .done .oh .no { color: var(--mg-text-sub); }
+  .done .oh .age { color: var(--mg-text-sub) !important; }
+  .ostate { font-size: var(--mg-text-xs); color: var(--mg-text-sub); border-top: 1px dashed var(--mg-border); padding-top: 6px; margin-top: 2px; }
+  .done .ostate { color: var(--mg-success); font-weight: 700; }
+  .cancelled { opacity: .55; background: var(--mg-error-bg); border-color: var(--mg-error-border) !important; }
+  .cancelled .ol .t { background-image: linear-gradient(var(--mg-error), var(--mg-error)); background-size: 100% 3px; }
+  .cancelled .ostate { color: var(--mg-error); font-weight: 700; }
+  .order.syncing .ostate::after { content: '（送信中…）'; color: var(--mg-text-sub); font-weight: 400; }
   /* スワイプ中のヒント */
   /* 線の手前までは薄く、指を離せば決まるところまで来たら不透明になる */
-  .order .hint { position: absolute; inset: 0; z-index: 2; border-radius: 12px; display: flex; align-items: center; justify-content: center;
-                 font-size: 26px; font-weight: 700; color: #fff; opacity: 0; pointer-events: none; }
-  .order .hint.ok { background: var(--ok); }
-  .order .hint.back { background: var(--sub); }
-  .empty { text-align: center; color: var(--sub); padding: 40px 12px; grid-column: 1 / -1; }
+  .order .hint { position: absolute; inset: 0; z-index: 2; border-radius: var(--mg-radius-md); display: flex; align-items: center; justify-content: center;
+                 font-size: 26px; font-weight: 700; color: var(--mg-text-on-fill); opacity: 0; pointer-events: none; }
+  .order .hint.ok { background: var(--mg-success); }
+  .order .hint.back { background: var(--mg-text-sub); }
+  .empty { text-align: center; color: var(--mg-text-sub); padding: 40px 12px; grid-column: 1 / -1; }
 
   /* トースト（「元に戻す」ボタンつき） */
   .toast { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 18px; }
   #toastMsg { white-space: nowrap; }
-  .toast button { background: #fff; color: var(--ink); border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .toast button { background: var(--mg-surface); color: var(--mg-text); border-radius: var(--mg-radius-sm); padding: 8px 12px; font-size: 14px; font-weight: 700; white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) { .ol .t, .order { transition: none; } .order.new { animation: none; } }
 </style>
 </head>
@@ -128,7 +129,7 @@
 
   <details open>
     <summary>この画面は？</summary>
-    <figure class="narrow"><img src="/help/kitchen-phone.webp" width="390" height="844" style="max-width:220px;border:1px solid var(--line);border-radius:12px" loading="lazy" alt="キッチン画面の全体。上にまだ4件と味ごとの合計、下に注文が番号順に並び、できた注文には打ち消し線"></figure>
+    <figure class="narrow"><img src="/help/kitchen-phone.webp" width="390" height="844" style="max-width:220px" loading="lazy" alt="キッチン画面の全体。上にまだ4件と味ごとの合計、下に注文が番号順に並び、できた注文には打ち消し線"></figure>
     <p>レジで記録した注文が、<b>届いた順に</b>並ぶ画面です。これまで大学ノートに書いていた注文の代わりに、ここを見て作ってください。3秒ごとに自動で更新されるので、操作しなくても新しい注文が下に増えていきます。</p>
     <p>作り終わった注文には打ち消し線を引きます（ノートの注文を線で消していたのと同じです）。</p>
   </details>

@@ -7,7 +7,8 @@
 <title>管理画面｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
 <style>
@@ -18,95 +19,96 @@
   .mini { display: flex; gap: 8px; text-align: center; }
   .mini > div { flex: 1; }
   .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .mini .k { font-size: 11px; color: var(--sub); }
+  .mini .k { font-size: var(--mg-text-xs); color: var(--mg-text-sub); }
 
   .row { display: flex; flex-wrap: wrap; gap: 8px; }
-  .form input[type=password] { width: 100%; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; }
+  .form input[type=password] { display: block; width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); margin-bottom: 8px; }
   .form label { display: flex; gap: 6px; align-items: center; font-size: 14px; margin-bottom: 8px; }
-  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 10px; background: var(--soft); color: var(--sub); vertical-align: middle; }
-  .badge.ok { background: var(--ok-soft); color: #3d6b1f; }
-  .badge.warn { background: var(--amber-soft); color: #9a5b00; }
+  .badge { display: inline-block; font-size: var(--mg-text-xs); padding: 1px 7px; border-radius: var(--mg-radius-xs); background: var(--mg-surface-sub); color: var(--mg-text-sub); vertical-align: middle; }
+  .badge.ok { background: var(--mg-success-bg-strong); color: var(--mg-success-text); }
+  .badge.warn { background: var(--mg-warning-bg-strong); color: var(--mg-warning-text); }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
-  th { color: var(--sub); font-weight: 700; font-size: 12px; border-top: none; }
-  td.t { color: var(--sub); white-space: nowrap; }
+  th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--mg-border); vertical-align: middle; }
+  th { color: var(--mg-text-sub); font-weight: 700; font-size: var(--mg-text-xs); border-top: none; }
+  td.t { color: var(--mg-text-sub); white-space: nowrap; }
   .scroll { max-height: 420px; overflow: auto; }
 
   /* 商品の編集 */
-  .pcard { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fdfbf8; }
-  .pcard.dirty { border-color: #e0a400; background: #fffaf0; }
+  .pcard { border: 1px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 12px; margin-bottom: 10px; background: var(--mg-surface-alt); }
+  .pcard.dirty { border-color: var(--mg-caution); background: var(--mg-warning-bg); }
   .pcard.off { opacity: .7; }
   .pcard .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .pcard input[type=text], .pcard input[type=number], .rule input { padding: 8px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; }
+  .pcard input[type=text], .pcard input[type=number], .rule input { padding: 8px; font-size: 16px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); }
   .pcard .pname { flex: 1; min-width: 8em; font-weight: 700; }
   .pcard .punit { width: 4em; }
   .sets { margin: 10px 0 6px; }
   .set-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 14px; }
   .set-row input { width: 5.5em; }
-  .set-row .x { background: none; color: var(--sub); font-size: 18px; padding: 0 6px; }
+  .set-row .su { white-space: nowrap; letter-spacing: 0; }
+  .set-row .x { background: none; color: var(--mg-text-sub); font-size: 18px; padding: 0 6px; }
   .checks { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; margin: 8px 0; }
-  .flv-edit { display: block; font-size: 13px; color: var(--sub); margin: 10px 0 4px; }
-  .flv-edit input { display: block; width: 100%; margin-top: 4px; color: var(--ink); }
+  .flv-edit { display: block; font-size: 13px; color: var(--mg-text-sub); margin: 10px 0 4px; }
+  .flv-edit input { display: block; width: 100%; margin-top: 4px; color: var(--mg-text); }
   .checks label { display: flex; gap: 6px; align-items: center; }
-  .checks select { padding: 6px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; max-width: 100%; }
+  .checks select { padding: 6px; font-size: 14px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); max-width: 100%; }
   .checks label.bundle { width: 100%; min-width: 0; }
   .checks label.bundle select { flex: 1; min-width: 0; width: 100%; }
   .pactions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pactions .sp { flex: 1; }
-  .dirty-badge { font-size: 11px; color: #9a5b00; background: #fde7c8; padding: 2px 7px; border-radius: 10px; }
+  .dirty-badge { font-size: var(--mg-text-xs); color: var(--mg-warning-text); background: var(--mg-warning-bg-strong); padding: 1px 7px; border-radius: var(--mg-radius-xs); }
   .rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
   .rule input { width: 5em; }
-  .danger-zone { border-color: #f2c2bc; background: #fffaf9; }
+  .danger-zone { border-color: var(--mg-error-border); }
 
   /* 催し */
-  .pj-item { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .pj-item.active { border-color: var(--ok); background: #f6faf2; }
+  .pj-item { border: 1px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pj-item.active { border-color: var(--mg-success); background: var(--mg-success-bg); }
   .pj-item .info { flex: 1; min-width: 12em; }
   .pj-item .nm { font-weight: 700; font-size: 16px; }
-  .pj-item .meta { font-size: 12px; color: var(--sub); }
+  .pj-item .meta { font-size: var(--mg-text-xs); color: var(--mg-text-sub); }
   .pj-item .acts { display: flex; gap: 6px; flex-wrap: wrap; }
   .pj-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 10px; margin: 6px 0 8px; }
   .pj-grid > label { min-width: 0; }
-  .pj-grid label, .pj-line { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--sub); font-weight: 700; }
+  .pj-grid label, .pj-line { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--mg-text-sub); font-weight: 700; }
   .pj-line { margin-bottom: 8px; }
   .pj-wide { grid-column: 1 / -1; }
-  .pj-grid input, .pj-grid select, .pj-line input, .pj-line select { padding: 9px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; font-weight: 400; width: 100%; min-width: 0; }
-  .req { font-size: 10px; color: var(--red); font-weight: 700; }
+  .pj-grid input, .pj-grid select, .pj-line input, .pj-line select { padding: 9px; font-size: 16px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); color: var(--mg-text); background: var(--mg-surface); font-weight: 400; width: 100%; min-width: 0; }
+  .req { font-size: var(--mg-text-xs); color: var(--mg-error); font-weight: 700; }
   /* 支払方法 */
   .pay-opts { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pay-opts label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; background: #fff; }
-  .pay-opts label:has(input:checked) { border-color: var(--brown); background: var(--soft); font-weight: 700; }
-  .pay-opts .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .pay-opts input { accent-color: var(--brown); }
+  .pay-opts label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-full); padding: 6px 12px; font-size: 14px; cursor: pointer; background: var(--mg-surface); }
+  .pay-opts label:has(input:checked) { border-color: var(--mg-primary); background: var(--mg-primary-bg); font-weight: 700; }
+  .pay-opts .dot { width: 10px; height: 10px; border-radius: var(--mg-radius-full); flex-shrink: 0; }
+  .pay-opts input { accent-color: var(--mg-primary); }
 
   /* 容器代を取る／取らない */
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
-  .seg label { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--sub); }
-  .seg label + label { border-left: 1px solid var(--line); }
-  .seg input { accent-color: var(--brown); }
-  .seg label:has(input:checked) { background: var(--soft); color: var(--brown); }
+  .seg { display: inline-flex; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); overflow: hidden; margin-bottom: 8px; }
+  .seg label { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--mg-text-sub); }
+  .seg label + label { border-left: 1px solid var(--mg-border-field); }
+  .seg input { accent-color: var(--mg-primary); }
+  .seg label:has(input:checked) { background: var(--mg-primary-bg); color: var(--mg-primary); }
   #app.no-container .pcont-label { display: none; }   /* 容器代を取らない催しでは「容器代の対象」を出さない */
-  .pj-add { border: 1.5px dashed var(--line); border-radius: 12px; margin-bottom: 10px; }
-  .pj-add.open { border-style: solid; border-color: var(--brown); }
-  .pj-add-row { display: flex; align-items: center; gap: 8px; width: 100%; background: none; padding: 14px 12px; font-size: 16px; font-weight: 700; color: var(--brown); text-align: left; }
-  .pj-add-row .plus { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--soft); font-size: 16px; }
+  .pj-add { border: 1.5px dashed var(--mg-border-strong); border-radius: var(--mg-radius-lg); margin-bottom: 10px; }
+  .pj-add.open { border-style: solid; border-color: var(--mg-primary); }
+  .pj-add-row { display: flex; align-items: center; gap: 8px; width: 100%; background: none; padding: 14px 12px; font-size: 16px; font-weight: 700; color: var(--mg-primary); text-align: left; }
+  .pj-add-row .plus { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: var(--mg-radius-full); background: var(--mg-primary-bg); font-size: 16px; }
   .pj-add-row .chev { margin-left: auto; width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .2s; }
   .pj-add.open .pj-add-row .chev { transform: rotate(-135deg); }
   .pj-add-form { padding: 0 12px 12px; }
   .pj-grid input[type=date] { padding: 9px 6px; font-size: 15px; }   /* スマホでも年まで見えるように */
   .pj-add-btns { display: flex; gap: 8px; }
-  .pj-copy { background: var(--bg); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+  .pj-copy { background: var(--mg-bg); border-radius: var(--mg-radius-md); padding: 10px; margin-bottom: 8px; }
   .pj-copy .pj-line { margin-bottom: 0; }
   .pj-check { display: flex; gap: 6px; align-items: center; font-size: 14px; margin: 4px 0 10px; }
   .pj-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
   .pj-bar .pj-title { font-weight: 700; font-size: 16px; }
   #pjSettings summary { list-style: none; }
   #pjSettings summary::-webkit-details-marker { display: none; }
-  #pjSettings summary::before { content: '▸ '; color: var(--sub); }
+  #pjSettings summary::before { content: '▸ '; color: var(--mg-text-sub); }
   #pjSettings[open] summary::before { content: '▾ '; }
   #pjSettings summary .note { display: inline; }
-  .danger-zone h2 { color: var(--red); }
+  .danger-zone h2 { color: var(--mg-error); }
 
 </style>
 </head>
@@ -253,7 +255,7 @@
     <div class="note" style="margin:0 0 8px">この催しのレジに出す支払方法を選んで「保存」を押します（1〜8種類）。「現金」を選ぶと、レジでお預かり金額とおつりを入れます。現金を扱わない催しでは「現金」を外します。</div>
     <div class="pay-opts" id="payOpts"></div>
     <div class="row" style="margin:8px 0">
-      <input id="payNew" type="text" maxlength="20" placeholder="ほかの支払方法を追加（例: Airペイ）" style="flex:1;min-width:0;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px">
+      <input id="payNew" type="text" maxlength="20" placeholder="ほかの支払方法を追加（例: Airペイ）" class="field" style="flex:1;min-width:0">
       <button class="btn sub" id="payAdd" type="button">追加</button>
     </div>
     <button class="btn" id="paySave">保存</button>
@@ -269,7 +271,7 @@
   <section class="card">
     <h2>目標金額</h2>
     <div class="row">
-      <input id="targetInput" type="number" inputmode="numeric" min="1" style="flex:1;min-width:0;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px">
+      <input id="targetInput" type="number" inputmode="numeric" min="1" class="field" style="flex:1;min-width:0">
       <button class="btn" id="targetBtn">変更する</button>
     </div>
     <div class="note">ダッシュボードとレジの「目標まで」に反映されます。</div>
@@ -312,7 +314,7 @@
   <section class="card form danger-zone">
     <h2>この催しの売上記録を全リセット（テスト用）</h2>
     <div class="note" id="resetInfo"></div>
-    <input id="resetConfirm" type="text" autocomplete="off" placeholder="確認のため「リセット」と入力" style="width:100%;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
+    <input id="resetConfirm" type="text" autocomplete="off" placeholder="確認のため「リセット」と入力" class="field" style="margin:8px 0">
     <input id="resetPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
     <button class="btn danger" id="resetBtn">すべての会計を削除する</button>
     <div class="note">
@@ -327,7 +329,7 @@
     <h2>この催しを削除</h2>
     <div class="note" id="pjDeleteInfo"></div>
     <div id="pjDeleteInputs">
-      <input id="pjDelName" type="text" autocomplete="off" placeholder="確認のため催し名を入力" style="width:100%;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
+      <input id="pjDelName" type="text" autocomplete="off" placeholder="確認のため催し名を入力" class="field" style="margin:8px 0">
       <input id="pjDelPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
     </div>
     <button class="btn danger" id="pjDelBtn">この催しを削除する</button>

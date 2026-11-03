@@ -1,15 +1,15 @@
 /**
  * レジ画面のオフライン対応（Service Worker）
  *
- * - レジ画面（/admin）と料金計算（/pricing.js）、共通のデザイン（/app.css）、レジのヘルプ（help.css / help.js / 画像）だけをキャッシュする。
+ * - レジ画面（/admin）と料金計算（/pricing.js）、共通のデザイン（/tokens.css・/app.css）、レジのヘルプ（help.css / help.js / 画像）だけをキャッシュする。
  *   ダッシュボード・管理画面・会計一覧・API には手を出さない（そのまま通信する）。
  * - ネットワーク優先：つながれば最新を表示してキャッシュも更新、つながらない（または遅い）ときだけキャッシュを使う。
  * - アプリを更新したら VERSION を変える。新しい版が入ると古いキャッシュは消える。
  */
-const VERSION = '2026-11-03-3';
+const VERSION = '2026-11-03-4';
 const CACHE = 'mogiten-register-' + VERSION;
 const FONT_CACHE = 'mogiten-fonts-v1';      // Web フォント（版をまたいで使い回す）
-const SHELL = ['/admin', '/pricing.js', '/app.css', '/help.css', '/help.js'];
+const SHELL = ['/admin', '/pricing.js', '/tokens.css', '/app.css', '/help.css', '/help.js'];
 const NETWORK_TIMEOUT = 4000;               // これ以上待ったらキャッシュを表示（テザリングが不安定なとき用）
 
 self.addEventListener('install', (event) => {

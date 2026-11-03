@@ -5,9 +5,9 @@
  *   https://github.com/digital-go-jp/design-system-example-components-html
  *   MIT License, Copyright (c) 2025 デジタル庁
  *
- * ここは DADS の値をそのまま写したもの（プリミティブカラー・セマンティックカラー・キーカラー・エレベーション）。
- * このファイルは書き換えない。模擬店システム用の意味づけ（--mg-*）は /app.css で、ここの変数を参照して決める。
- * フォントは DADS では Noto Sans JP だが、このシステムでは BIZ UDPゴシックを使う（/app.css の --mg-font）。
+ * ここは DADS の値をそのまま写したもの（プリミティブカラー・セマンティックカラー・キーカラー・フォント・エレベーション）。
+ * このファイルは書き換えない。模擬店システムの色（現行の茶・ピンク・クリーム）と意味づけ（--mg-*）は /app.css で決める。
+ * このシステムが DADS の色をそのまま使うのは、フォーカスの表示（黒の枠＋黄色）と使えないボタンのグレーだけ。
  */
 :root {
   --color-primitive-blue-50: #e8f1fe;
@@ -166,6 +166,9 @@
   --color-neutral-opacity-gray-700: rgba(0, 0, 0, 0.7);
   --color-neutral-opacity-gray-800: rgba(0, 0, 0, 0.8);
   --color-neutral-opacity-gray-900: rgba(0, 0, 0, 0.9);
+  --font-family-sans:
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-mono: "Noto Sans Mono", monospace;
   --elevation-1:
     0 2px 8px 1px rgba(0, 0, 0, 0.1), 0 1px 5px 0 rgba(0, 0, 0, 0.3);
   --elevation-2:

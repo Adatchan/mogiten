@@ -1,4 +1,4 @@
-/* ヘルプ（使い方・FAQ）。3画面で共通。色は各画面の :root の変数を使う */
+/* ヘルプ（使い方・FAQ）。全画面で共通。色・角丸・影は /app.css の --mg-* を使う（DADS のモーダルダイアログに合わせた形） */
 
 /* ── ヘルプボタン ───────────────────────────────────── */
 .btn-help {
@@ -7,10 +7,10 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px 6px 7px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--ink);
+  border: 1px solid var(--mg-border-field);
+  border-radius: var(--mg-radius-full);
+  background: var(--mg-surface);
+  color: var(--mg-text);
   font-family: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -19,17 +19,16 @@
   white-space: nowrap;
   touch-action: manipulation;
 }
-.btn-help:hover { background: #f7f2ea; }
+@media (hover: hover) { .btn-help:hover { background: var(--mg-surface-hover); text-decoration: underline; text-underline-offset: 3px; } }
 .btn-help:active { transform: scale(.97); }
-.btn-help:focus-visible { outline: 2px solid var(--brown); outline-offset: 2px; }
 .help-badge {
   display: grid;
   place-items: center;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--brown);
-  color: #fff;
+  background: var(--mg-primary);
+  color: var(--mg-text-on-fill);
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
@@ -42,14 +41,15 @@
   max-height: 86vh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  border: 1px solid var(--mg-text);
+  border-radius: var(--mg-radius-md);
   padding: 0 18px 20px;
-  background: #fff;
-  color: var(--ink);
+  background: var(--mg-surface);
+  color: var(--mg-text);
   font-family: inherit;
+  box-shadow: var(--mg-shadow-md);
 }
-#help-dialog::backdrop { background: rgba(43, 36, 32, .5); }
+#help-dialog::backdrop { background: var(--mg-overlay); }
 
 /* 開閉アニメーション。閉じるときは JS が .closing を付け、animationend 後に close() する */
 #help-dialog[open] { animation: help-in .18s cubic-bezier(.2, .8, .3, 1); }
@@ -76,17 +76,19 @@
   gap: 12px;
   margin: 0 -18px;
   padding: 14px 18px 10px;
-  background: #fff;
-  border-bottom: 1px solid var(--line);
+  background: var(--mg-surface);
+  border-bottom: 1px solid var(--mg-border);
 }
-#help-dialog .help-head h2 { margin: 0; font-size: 17px; }
+#help-dialog .help-head h2 { margin: 0; font-size: var(--mg-text-xl); line-height: var(--mg-leading-tight); }
+@media (hover: hover) { #help-dialog .help-close:hover { background: var(--mg-primary-bg); text-decoration: underline; text-underline-offset: 3px; } }
 #help-dialog .help-close {
   flex: none;
-  border: none;
-  border-radius: 10px;
-  padding: 9px 16px;
-  background: #f1ebe2;
-  color: var(--ink);
+  min-height: 40px;
+  border: 1px solid currentColor;
+  border-radius: var(--mg-radius-md);
+  padding: 6px 16px;
+  background: var(--mg-surface);
+  color: var(--mg-primary);
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
@@ -96,32 +98,31 @@
 /* グループ見出し（はじめに／会計のしかた 等） */
 #help-dialog .help-group {
   margin: 20px 0 2px;
-  font-size: 13px;
+  font-size: var(--mg-text-sm);
   font-weight: 700;
-  letter-spacing: .04em;
-  color: var(--brown);
+  color: var(--mg-primary);
 }
 #help-dialog .help-group:first-of-type { margin-top: 14px; }
 
-#help-dialog details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+#help-dialog details { border-bottom: 1px solid var(--mg-border); padding: 10px 0; }
 #help-dialog summary {
   cursor: pointer;
   font-size: 15px;
   font-weight: 700;
-  color: var(--ink);
+  color: var(--mg-text);
   line-height: 1.5;
 }
 #help-dialog details p,
 #help-dialog details li {
-  font-size: 14px;
-  line-height: 1.8;
-  color: var(--ink);
+  font-size: var(--mg-text-md);
+  line-height: var(--mg-leading-loose);
+  color: var(--mg-text);
 }
 #help-dialog details p { margin: 8px 0 4px; }
 #help-dialog details ul,
 #help-dialog details ol { margin: 6px 0 4px; padding-left: 1.4em; }
-#help-dialog b { color: var(--brown); }
-#help-dialog a { color: var(--brown); }
+#help-dialog b { color: var(--mg-primary); }
+#help-dialog a { color: var(--mg-primary); }
 
 /* スクリーンショット */
 #help-dialog figure { margin: 10px 0 6px; }
@@ -130,15 +131,15 @@
   max-width: 100%;
   height: auto;
   margin: 0 auto;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(43, 36, 32, .08);
+  border: 1px solid var(--mg-border);
+  border-radius: var(--mg-radius-lg);
+  box-shadow: var(--mg-shadow-sm);
 }
 #help-dialog figure.narrow img { max-width: 360px; width: 100%; }
 #help-dialog figcaption {
   margin-top: 6px;
   text-align: center;
-  font-size: 12px;
-  color: var(--sub);
+  font-size: var(--mg-text-xs);
+  color: var(--mg-text-sub);
 }
 
