@@ -2,11 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>レジ｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
 <style>
@@ -17,106 +18,108 @@
   .mini { display: flex; gap: 8px; text-align: center; }
   .mini > div { flex: 1; }
   .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .mini .k { font-size: 11px; color: var(--sub); }
-  .minibar { height: 6px; background: #f1ebe2; border-radius: 3px; margin-top: 10px; overflow: hidden; }
-  .minibar div { height: 100%; background: linear-gradient(90deg, var(--pink), var(--green)); width: 0; transition: width .5s; }
+  .mini .k { font-size: var(--mg-text-xs); color: var(--mg-text-sub); }
+  .minibar { height: 6px; background: var(--mg-surface-sub); border-radius: var(--mg-radius-full); margin-top: 10px; overflow: hidden; }
+  .minibar div { height: 100%; background: linear-gradient(90deg, var(--mg-accent), var(--mg-success-accent)); width: 0; transition: width .5s; }
 
   /* 商品ボタン */
   .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .prod-name { font-size: 18px; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; }
-  .prod-name small { font-size: 12px; color: var(--sub); font-weight: 400; }
-  .cart-group { font-size: 13px; color: var(--sub); font-weight: 700; margin-top: 6px; }
-  .item.on { background: var(--pink); color: #fff; }
+  .prod-name small { font-size: 12px; color: var(--mg-text-sub); font-weight: 400; }
+  .cart-group { font-size: 13px; color: var(--mg-text-sub); font-weight: 700; margin-top: 6px; }
+  .item.on { background: var(--mg-accent); color: var(--mg-text-on-fill); }
   .stepper { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
-  .stepper button { width: 64px; height: 64px; border-radius: 50%; background: #f1ebe2; font-size: 32px; color: var(--ink); flex-shrink: 0; }
+  .stepper button { width: 64px; height: 64px; border-radius: var(--mg-radius-full); background: var(--mg-surface-sub); font-size: 32px; color: var(--mg-text); flex-shrink: 0; }
   .stepper .qty-box { display: flex; align-items: baseline; gap: 4px; }
-  .stepper input { width: 3.2em; font-size: 44px; font-weight: 700; text-align: center; border: 2px solid var(--line); border-radius: 12px; padding: 4px 0;
-                   font-family: inherit; font-variant-numeric: tabular-nums; color: var(--ink); -moz-appearance: textfield; }
+  .stepper input { width: 3.2em; font-size: 44px; font-weight: 700; text-align: center; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); padding: 4px 0; background: var(--mg-surface);
+                   font-family: inherit; font-variant-numeric: tabular-nums; color: var(--mg-text); -moz-appearance: textfield; }
   .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .stepper input:focus { outline: none; border-color: var(--pink); }
   .stepper .unit { font-size: 20px; font-weight: 700; }
-  .qty-note { text-align: center; color: var(--sub); font-size: 12px; margin-top: 6px; }
-  .cart-line .auto { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #fff4f6; color: #b5566e; margin-left: 4px; vertical-align: middle; }
-  .upsell { margin-top: 8px; background: #fff8e6; border: 1px solid #f3d27a; border-radius: 10px; padding: 8px 10px; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .upsell button { background: #e0a400; color: #fff; border-radius: 8px; padding: 8px 10px; font-size: 14px; font-weight: 700; white-space: nowrap; }
-  .item { background: #fff4f6; border: 2px solid var(--pink); border-radius: 14px; padding: 16px 4px; color: var(--ink); }
-  .item:active { transform: scale(.97); background: #ffe3ea; }
+  .qty-note { text-align: center; color: var(--mg-text-sub); font-size: 12px; margin-top: 6px; }
+  .cart-line .auto { font-size: var(--mg-text-xs); padding: 1px 6px; border-radius: var(--mg-radius-xs); margin-left: 4px; vertical-align: middle; white-space: nowrap; background: var(--mg-accent-bg); color: var(--mg-accent-text); }
+  .upsell { margin-top: 8px; background: var(--mg-warning-bg); border: 1px solid var(--mg-warning-border); border-radius: var(--mg-radius-md); padding: 8px 10px; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .upsell button { background: var(--mg-warning-text); color: var(--mg-text-on-fill); border-radius: var(--mg-radius-sm); padding: 8px 10px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .item { background: var(--mg-accent-bg); border: 2px solid var(--mg-accent); border-radius: var(--mg-radius-lg); padding: 16px 4px; color: var(--mg-text); }
+  .item:active { transform: scale(.97); background: var(--mg-accent-bg-active); }
   .item .n { font-size: 30px; font-weight: 700; }
   .item .p { font-size: 16px; margin-top: 2px; }
 
   /* カート */
-  .cart-line { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 17px; }
+  .cart-line { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px dashed var(--mg-border); font-size: 17px; }
   .cart-line:first-child { border-top: none; }
   .cart-line .ctrl { display: flex; align-items: center; gap: 8px; }
-  .cart-line .ctrl button { width: 36px; height: 36px; border-radius: 50%; background: #f1ebe2; font-size: 20px; color: var(--ink); }
+  .cart-line .ctrl button { width: 36px; height: 36px; border-radius: var(--mg-radius-full); background: var(--mg-surface-sub); font-size: 20px; color: var(--mg-text); }
   .cart-line .qty { min-width: 2.2em; text-align: center; font-weight: 700; }
   .cart-line .sub { min-width: 5em; text-align: right; font-variant-numeric: tabular-nums; }
-  .cart-line.fee { color: var(--brown); }
-  .cart-line.fee .tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #f1ebe2; color: var(--sub); margin-left: 4px; vertical-align: middle; }
-  .cart-line.fee .tag.manual { background: #fde7c8; color: #9a5b00; }
-  .reset-fee { background: none; color: var(--brown); font-size: 12px; text-decoration: underline; padding: 0 0 0 6px; }
-  .hist-line .fee { color: var(--sub); font-size: 12px; }
-  .empty { color: var(--sub); text-align: center; padding: 10px 0; }
-  .total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding-top: 10px; border-top: 2px solid var(--ink); }
+  .cart-line.fee { color: var(--mg-primary); }
+  .cart-line.fee .tag { font-size: var(--mg-text-xs); padding: 1px 6px; border-radius: var(--mg-radius-xs); margin-left: 4px; vertical-align: middle; white-space: nowrap; background: var(--mg-surface-sub); color: var(--mg-text-sub); }
+  .cart-line.fee .tag.manual { background: var(--mg-warning-bg-strong); color: var(--mg-warning-text); }
+  .reset-fee { background: none; color: var(--mg-primary); font-size: 12px; text-decoration: underline; padding: 0 0 0 6px; }
+  .hist-line .fee { color: var(--mg-text-sub); font-size: 12px; }
+  .empty { color: var(--mg-text-sub); text-align: center; padding: 10px 0; }
+  .total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding-top: 10px; border-top: 2px solid var(--mg-text); }
   .total .v { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .total .s { color: var(--sub); font-size: 14px; }
-  .clear { background: none; color: var(--sub); font-size: 13px; text-decoration: underline; padding: 4px; }
+  .total .s { color: var(--mg-text-sub); font-size: 14px; }
+  .clear { background: none; color: var(--mg-text-sub); font-size: 13px; text-decoration: underline; padding: 4px; }
 
   /* おつり */
   /* 支払いのポップアップ */
-  .modal { position: fixed; inset: 0; background: rgba(43, 36, 32, .55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
-  .sheet { background: var(--card); width: 100%; max-width: 560px; max-height: 94vh; overflow: auto; border-radius: 20px 20px 0 0; padding: 18px 16px 22px; }
-  @media (min-height: 700px) and (min-width: 600px) { .modal { align-items: center; } .sheet { border-radius: 20px; } }
+  .modal { position: fixed; inset: 0; background: var(--mg-overlay); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+  .sheet { background: var(--mg-surface); width: 100%; max-width: 560px; max-height: 94vh; overflow: auto; border-radius: var(--mg-radius-xl) var(--mg-radius-xl) 0 0; padding: 18px 16px 22px; box-shadow: var(--mg-shadow-md); }
+  @media (min-height: 700px) and (min-width: 600px) { .modal { align-items: center; } .sheet { border-radius: var(--mg-radius-xl); } }
   .sheet h3 { margin: 0 0 12px; font-size: 18px; text-align: center; }
-  .pay-badge { display: block; text-align: center; color: #fff; font-size: 30px; font-weight: 700; border-radius: 14px; padding: 14px 8px; margin-bottom: 14px; letter-spacing: .05em; }
+  .pay-badge { display: block; text-align: center; color: var(--mg-text-on-fill); font-size: 30px; font-weight: 700; border-radius: var(--mg-radius-lg); padding: 14px 8px; margin-bottom: 14px; letter-spacing: .05em; }
   .sum-lines { font-size: 16px; }
-  .sum-line { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px dashed var(--line); }
+  .sum-line { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px dashed var(--mg-border); }
   .sum-line:first-child { border-top: none; }
   .sum-line .sub { font-variant-numeric: tabular-nums; }
-  .sum-line.fee { color: var(--brown); }
-  .big-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; padding-top: 10px; border-top: 2px solid var(--ink); }
-  .big-total .k { font-size: 15px; color: var(--sub); }
+  .sum-line.fee { color: var(--mg-primary); }
+  .big-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; padding-top: 10px; border-top: 2px solid var(--mg-text); }
+  .big-total .k { font-size: 15px; color: var(--mg-text-sub); }
   .big-total .v { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .cash-box { margin-top: 12px; background: #f4f9ef; border: 2px solid var(--cash); border-radius: 14px; padding: 10px 14px; }
+  .cash-box { margin-top: 12px; background: var(--mg-success-bg); border: 2px solid var(--mg-pay-cash); border-radius: var(--mg-radius-lg); padding: 10px 14px; }
   .cash-box .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 16px; padding: 3px 0; }
   .cash-box .row .v { font-variant-numeric: tabular-nums; font-weight: 700; }
-  .cash-box .change-v { font-size: 40px; color: var(--cash); }
+  .cash-box .change-v { font-size: 40px; color: var(--mg-pay-cash); }
   .recv-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
-  .recv-quick button { background: #f1ebe2; border-radius: 10px; padding: 14px 4px; font-size: 17px; font-weight: 700; color: var(--ink); }
-  .recv-quick button.exact { background: #e3f0d8; color: #3d6b1f; }
-  .recv-input { width: 100%; padding: 14px; font-size: 26px; text-align: right; border: 2px solid var(--line); border-radius: 12px; font-variant-numeric: tabular-nums; }
-  .recv-input:focus { outline: none; border-color: var(--cash); }
+  .recv-quick button { background: var(--mg-surface-sub); border-radius: var(--mg-radius-md); padding: 14px 4px; font-size: 17px; font-weight: 700; color: var(--mg-text); }
+  .recv-quick button.exact { background: var(--mg-success-bg-strong); color: var(--mg-success-text); }
+  .recv-input { width: 100%; padding: 14px; font-size: 26px; text-align: right; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); font-variant-numeric: tabular-nums; }
+  .recv-input { -moz-appearance: textfield; }
+  .recv-input::-webkit-outer-spin-button, .recv-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }   /* 数字の上下ボタンは出さない（金額はボタンか入力で） */
   .recv-msg { min-height: 1.6em; margin-top: 8px; font-size: 18px; text-align: right; }
-  .recv-msg.short { color: #c0392b; font-weight: 700; }
+  .recv-msg.short { color: var(--mg-error); font-weight: 700; }
   .modal-btns { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; margin-top: 16px; }
-  .modal-btns button { border-radius: 14px; padding: 18px 4px; font-size: 19px; font-weight: 700; }
-  .modal-btns .no { background: #f1ebe2; color: var(--ink); }
-  .modal-btns .yes { background: var(--brown); color: #fff; }
-  .back-link { display: block; margin: 10px auto 0; background: none; color: var(--brown); font-size: 14px; text-decoration: underline; }
+  .modal-btns button { border-radius: var(--mg-radius-lg); padding: 18px 4px; font-size: 19px; font-weight: 700; }
+  .modal-btns .no { background: var(--mg-surface); color: var(--mg-primary); border: 1px solid currentColor; }
+  .modal-btns .yes { background: var(--mg-primary); color: var(--mg-text-on-fill); }
+  .modal-btns .yes:active { background: var(--mg-primary-active); }
+  .back-link { display: block; margin: 10px auto 0; background: none; color: var(--mg-primary); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
 
   /* 支払ボタン */
   .pays { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .pay { color: #fff; border-radius: 14px; padding: 18px 4px; font-size: 19px; font-weight: 700; background: var(--pay-color, var(--brown)); line-height: 1.2; word-break: break-all; }
+  .pay { color: var(--mg-text-on-fill); border-radius: var(--mg-radius-lg); padding: 18px 4px; font-size: 19px; font-weight: 700; background: var(--pay-color, var(--mg-primary)); line-height: 1.2; word-break: break-all; }
   .pay:active { transform: scale(.97); }
 
   /* 履歴 */
   .hist { font-size: 14px; }
-  .hist-line { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px dashed var(--line); }
+  .hist-line { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px dashed var(--mg-border); }
   .hist-line:first-child { border-top: none; }
-  .hist-line .t { color: var(--sub); flex-shrink: 0; white-space: nowrap; }
+  .hist-line .t { color: var(--mg-text-sub); flex-shrink: 0; white-space: nowrap; }
   .hist-line .d { flex: 1; }
   .hist-line .a { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .hist-line.cancelled .d, .hist-line.cancelled .a { text-decoration: line-through; color: var(--sub); }
-  .more-link { display: block; text-align: center; margin-top: 10px; padding: 10px; border-radius: 10px; background: #f1ebe2; color: var(--brown); font-size: 14px; font-weight: 700; text-decoration: none; }
-  .hist-line button { background: #f1ebe2; border-radius: 6px; padding: 5px 8px; font-size: 12px; color: var(--ink); }
+  .hist-line.cancelled .d, .hist-line.cancelled .a { text-decoration: line-through; color: var(--mg-text-sub); }
+  .more-link { display: block; text-align: center; margin-top: 10px; padding: 10px; border-radius: var(--mg-radius-md); background: var(--mg-surface); border: 1px solid currentColor; color: var(--mg-primary); font-size: 14px; font-weight: 700; text-decoration: none; }
+  @media (hover: hover) { .more-link:hover { background: var(--mg-primary-bg); text-decoration: underline; text-decoration-thickness: 1px; } }
+  .hist-line button { background: var(--mg-surface-sub); border-radius: var(--mg-radius-sm); padding: 5px 8px; font-size: 12px; color: var(--mg-text); }
 
 
   .csv-list { display: flex; flex-wrap: wrap; gap: 8px; }
-  details summary { cursor: pointer; font-size: 13px; color: var(--sub); font-weight: 700; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--mg-text-sub); font-weight: 700; }
   .log { font-size: 13px; margin-top: 8px; }
-  .log-line { display: flex; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--line); }
+  .log-line { display: flex; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--mg-border); }
   .log-line:first-child { border-top: none; }
-  .log-line .t { color: var(--sub); white-space: nowrap; flex-shrink: 0; }
+  .log-line .t { color: var(--mg-text-sub); white-space: nowrap; flex-shrink: 0; }
   .log-line .who { font-weight: 700; white-space: nowrap; }
   .log-line .what { flex: 1; }
 
@@ -127,22 +130,22 @@
   .label { margin-bottom: 4px; }
   .app-header { margin-bottom: 8px; }
   .mini .v { font-size: 17px; }
-  .mini .k { font-size: 10px; }
+  .mini .k { font-size: var(--mg-text-xs); }
   .minibar { margin-top: 6px; height: 5px; }
   .prod-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .prod-head .pn { font-size: 17px; font-weight: 700; line-height: 1.25; min-width: 0; }
-  .prod-head .pn small { display: block; font-size: 12px; font-weight: 400; color: var(--sub); }
+  .prod-head .pn small { display: block; font-size: 12px; font-weight: 400; color: var(--mg-text-sub); }
   .prod .items { gap: 8px; margin-top: 8px; }
-  .item { padding: 6px 2px; border-radius: 10px; display: flex; align-items: baseline; justify-content: center; gap: 4px; flex-wrap: wrap; }
+  .item { padding: 6px 2px; border-radius: var(--mg-radius-md); display: flex; align-items: baseline; justify-content: center; gap: 4px; flex-wrap: wrap; }
   .item .n { font-size: 20px; font-weight: 700; }
   .item .p { font-size: 13px; margin-top: 0; }
   .stepper { margin-top: 0; gap: 6px; flex-shrink: 0; }
   .stepper button { width: 44px; height: 44px; font-size: 24px; }
   .stepper .qty-box { gap: 2px; }
-  .stepper input { width: 2.4em; font-size: 26px; padding: 2px 0; border-radius: 10px; }
+  .stepper input { width: 2.4em; font-size: 26px; padding: 2px 0; border-radius: var(--mg-radius-md); }
   .stepper .unit { font-size: 14px; }
   .cart-line { padding: 4px 0; font-size: 15px; }
-  .cart-line .packs { font-size: 12px; color: var(--sub); margin-left: 2px; }
+  .cart-line .packs { font-size: 12px; color: var(--mg-text-sub); margin-left: 2px; }
   .upsell span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cart-line .ctrl button { width: 30px; height: 30px; font-size: 18px; }
   .cart-group { margin-top: 2px; }
@@ -152,65 +155,65 @@
   .total .v { font-size: 30px; }
   .total .s { font-size: 12px; }
   .pays { gap: 8px; }
-  .pay { padding: 12px 4px; font-size: 17px; border-radius: 12px; }
-  .net { padding: 5px 10px; margin-bottom: 6px; border-radius: 10px; }
+  .pay { padding: 12px 4px; font-size: 17px; border-radius: var(--mg-radius-lg); }
+  .net { padding: 5px 10px; margin-bottom: 6px; border-radius: var(--mg-radius-md); }
 
   /* 味ごとの入力（タップで 1 つ増える・右上の − で減らす） */
   .flvs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
   .flv { position: relative; }
-  .flv .fadd { width: 100%; min-height: 64px; background: #fff4f6; border: 2px solid var(--pink); border-radius: 12px; padding: 6px 4px; color: var(--ink);
+  .flv .fadd { width: 100%; min-height: 64px; background: var(--mg-accent-bg); border: 2px solid var(--mg-accent); border-radius: var(--mg-radius-lg); padding: 6px 4px; color: var(--mg-text);
                display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-  .flv .fadd:active { transform: scale(.97); background: #ffe3ea; }
+  .flv .fadd:active { transform: scale(.97); background: var(--mg-accent-bg-active); }
   .flv .fadd .fn { font-size: 15px; font-weight: 700; line-height: 1.2; word-break: break-all; }
-  .flv .fadd .fc { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--sub); }
-  .flv.on .fadd { background: var(--pink); color: #fff; }
-  .flv.on .fadd .fc { color: #fff; }
-  .flv .fsub { position: absolute; bottom: 5px; left: 5px; width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 2px solid var(--pink);
-               color: var(--pink); font-size: 20px; font-weight: 700; line-height: 1; display: none; }
+  .flv .fadd .fc { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--mg-text-sub); }
+  .flv.on .fadd { background: var(--mg-accent); color: var(--mg-text-on-fill); }
+  .flv.on .fadd .fc { color: var(--mg-text-on-fill); }
+  .flv .fsub { position: absolute; bottom: 5px; left: 5px; width: 32px; height: 32px; border-radius: var(--mg-radius-full); background: var(--mg-surface); border: 2px solid var(--mg-accent);
+               color: var(--mg-accent-text); font-size: 20px; font-weight: 700; line-height: 1; display: none; }
   .flv.on .fsub { display: block; }
-  .prod-head .ptotal { font-size: 15px; color: var(--sub); white-space: nowrap; }
-  .prod-head .ptotal b { font-size: 26px; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .cart-flv { font-size: 13px; color: #b5566e; font-weight: 700; padding: 0 0 4px 1em; }
-  .sum-line.sum-flv { color: #b5566e; font-weight: 700; }
-  .hist-line .k { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #e3f0d8; color: #3d6b1f; margin-left: 4px; white-space: nowrap; }
+  .prod-head .ptotal { font-size: 15px; color: var(--mg-text-sub); white-space: nowrap; }
+  .prod-head .ptotal b { font-size: 26px; color: var(--mg-text); font-variant-numeric: tabular-nums; }
+  .cart-flv { font-size: 13px; color: var(--mg-accent-text); font-weight: 700; padding: 0 0 4px 1em; }
+  .sum-line.sum-flv { color: var(--mg-accent-text); font-weight: 700; }
+  .hist-line .k { font-size: var(--mg-text-xs); padding: 1px 6px; border-radius: var(--mg-radius-xs); margin-left: 4px; vertical-align: middle; white-space: nowrap; background: var(--mg-success-bg-strong); color: var(--mg-success-text); }
 
   /* 営業終了中：入力と支払を止める */
   #app.is-closed #products, #app.is-closed section:has(#cart), #app.is-closed section:has(.pays) { opacity: .4; pointer-events: none; }
 
   /* 通信状態と未送信（オフライン対応） */
   .net { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; font-size: 13px;
-         background: #eef6e8; border: 1px solid #cfe3bf; color: #2f5a17; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
-  .net.off { background: #fdecea; border-color: #f2c2bc; color: #8c2a1f; }
-  .net.wait { background: #fff6e0; border-color: #f0d79b; color: #7a5300; }
+         background: var(--mg-success-bg); border: 1px solid var(--mg-success-border); color: var(--mg-success-text); border-radius: var(--mg-radius-md); padding: 8px 12px; margin-bottom: 10px; }
+  .net.off { background: var(--mg-error-bg); border-color: var(--mg-error-border); color: var(--mg-error-text); }
+  .net.wait { background: var(--mg-warning-bg); border-color: var(--mg-warning-border); color: var(--mg-warning-text); }
   #netText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   #qInfo, .net button { flex-shrink: 0; }
-  .net .dot { width: 10px; height: 10px; border-radius: 50%; background: #5b9a2f; flex-shrink: 0; }
-  .net.off .dot { background: #c0392b; }
-  .net.wait .dot { background: #e0a400; }
+  .net .dot { width: 10px; height: 10px; border-radius: var(--mg-radius-full); background: var(--mg-success); flex-shrink: 0; }
+  .net.off .dot { background: var(--mg-error); }
+  .net.wait .dot { background: var(--mg-caution); }
   .net b { font-variant-numeric: tabular-nums; }
   .net .sp { flex: 1; }
-  .net button { background: #fff; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
-  .failed { background: #fdecea; border: 1px solid #f2c2bc; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; color: #8c2a1f; }
+  .net button { background: var(--mg-surface); border: 1px solid currentColor; color: inherit; border-radius: var(--mg-radius-sm); padding: 4px 10px; font-size: 12px; font-weight: 700; }
+  .failed { background: var(--mg-error-bg); border: 1px solid var(--mg-error-border); border-radius: var(--mg-radius-md); padding: 8px 12px; margin-bottom: 10px; font-size: 13px; color: var(--mg-error-text); }
   .failed summary { cursor: pointer; font-weight: 700; }
-  .failed .fl { padding: 6px 0; border-top: 1px dashed #f2c2bc; display: flex; gap: 8px; align-items: center; }
+  .failed .fl { padding: 6px 0; border-top: 1px dashed var(--mg-error-border); display: flex; gap: 8px; align-items: center; }
   .failed .fl:first-child { border-top: none; }
   .failed .fl span { flex: 1; }
-  .failed .fl button { background: #fff; border: 1px solid #c0392b; color: #c0392b; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
-  .update { background: #e8f0fb; border: 1px solid #b9cdea; color: #1f4c86; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
-  .update button { margin-left: auto; background: #2a78d6; color: #fff; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 700; }
-  .hist-line .q { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #fff6e0; color: #7a5300; margin-left: 4px; white-space: nowrap; }
-  .login-off { margin-top: 10px; font-size: 13px; color: #8c2a1f; }
+  .failed .fl button { background: var(--mg-surface); border: 1px solid var(--mg-error); color: var(--mg-error); border-radius: var(--mg-radius-sm); padding: 4px 8px; font-size: 12px; }
+  .update { background: var(--mg-info-bg); border: 1px solid var(--mg-info-border); color: var(--mg-info-text); border-radius: var(--mg-radius-md); padding: 8px 12px; margin-bottom: 10px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .update button { margin-left: auto; background: var(--mg-info); color: var(--mg-text-on-fill); border-radius: var(--mg-radius-sm); padding: 6px 12px; font-size: 13px; font-weight: 700; }
+  .hist-line .q { font-size: var(--mg-text-xs); padding: 1px 6px; border-radius: var(--mg-radius-xs); margin-left: 4px; vertical-align: middle; white-space: nowrap; background: var(--mg-warning-bg); color: var(--mg-warning-text); }
+  .login-off { margin-top: 10px; font-size: 13px; color: var(--mg-error-text); }
 </style>
 </head>
 <body>
 
-<div id="login" class="card login-card hidden">
+<div id="login" class="card login-card hidden" role="main">
   <span class="app-mark" aria-hidden="true"></span>
   <div class="login-system">岡大グリー模擬店システム</div>
   <h2>レジ</h2>
   <p class="login-lead">担当者名とレジ用パスワードを入力してください</p>
-  <input id="staffName" type="text" autocomplete="name" maxlength="30" placeholder="担当者名（例: 学祭太郎）">
-  <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード">
+  <input id="staffName" type="text" autocomplete="name" maxlength="30" aria-label="担当者名" placeholder="担当者名（例: 学祭太郎）">
+  <input id="pw" type="password" autocomplete="current-password" aria-label="パスワード" placeholder="パスワード">
   <button class="btn big block login-go" id="loginBtn">ログイン</button>
   <div class="login-off hidden" id="loginOff">オフラインのためログインできません。電波のある場所でログインしてください。</div>
   <div class="login-off hidden" id="loginQueue"></div>
@@ -218,7 +221,7 @@
   <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
-<div id="app" class="wrap hidden">
+<div id="app" class="wrap hidden" role="main">
   <header class="app-header">
     <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>レジ</h1><span class="app-sub" id="staffLabel"></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
@@ -353,7 +356,7 @@
 
   <details>
     <summary>ログインのしかたは？</summary>
-    <figure class="narrow"><img src="/help/reg-login.webp" width="380" height="450" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-login.webp" width="380" height="483" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
     <p>自分の名前（担当者名）と、レジ用のパスワードを入れて「ログイン」を押します。パスワードは店の責任者に聞いてください。名前は会計ごとに記録されるので、本人の名前を入れてください。</p>
     <p>ログインは<b>3日間</b>有効なので、同じスマホなら翌日もそのまま使えます。パスワードはスマホに保存されません。</p>
   </details>
@@ -368,7 +371,7 @@
 
   <details>
     <summary>本数の入れ方は？（味ごとの入力）</summary>
-    <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="205" loading="lazy" alt="商品ごとの入力欄。団子は、みたらし2、あんこ1、きなこ1の味のボタンと、計4本の表示。各ボタンの左下にマイナス。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="209" loading="lazy" alt="商品ごとの入力欄。団子は、みたらし2、あんこ1、きなこ1の味のボタンと、計4本の表示。各ボタンの左下にマイナス。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
     <p><b>団子のように味のある商品</b>は、お客さんの言う味のボタンを、その本数だけタップします。「みたらし2本と、あんこ・きなこ1本ずつ」なら、「みたらし」を2回、「あんこ」と「きなこ」を1回ずつ押します。ボタンに本数が出て、右上の「計 ○本」が合計です。</p>
     <p>押しすぎたら、そのボタンの左下の「−」で1本ずつ減らします（「−」は1本以上入っている味にだけ出ます）。全部やり直すときは「お会計」の「クリア」を押します。</p>
     <p>セットの組み方は<b>味に関係なく合計の本数</b>で自動で決まります。たとえば団子4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。味の組み合わせは自由です。</p>
@@ -378,7 +381,7 @@
 
   <details>
     <summary>「あと1本で〜お得」と出たら？</summary>
-    <figure class="narrow"><img src="/help/reg-cart.webp" width="370" height="201" loading="lazy" alt="お会計欄。団子4本（3本セットと1本）550円、その下に味の内訳みたらし2・あんこ1・きなこ1、容器代10円、あと1本で50円お得（味を聞いて追加）という提案、合計560円"></figure>
+    <figure class="narrow"><img src="/help/reg-cart.webp" width="370" height="240" loading="lazy" alt="お会計欄。団子4本（3本セットと1本）550円、その下に味の内訳みたらし2・あんこ1・きなこ1、容器代10円、あと1本で50円お得（味を聞いて追加）という提案、合計560円"></figure>
     <p>本数を少し足したほうが合計が安くなるときに出る提案です。上の例では、団子4本だと560円ですが、5本にすると510円で50円安くなります。</p>
     <p>お客さんに「あと1本足すとお得になりますよ」と声をかけて、希望されたら<b>何味にするか聞いて</b>、その味のボタンを押してください。そのままでよければ、何もせず会計に進んでかまいません。</p>
     <p>味のない商品だけのときは、提案の横に黄色の「○本にする」ボタンが出るので、それを押せば足せます。</p>
@@ -397,7 +400,7 @@
 
   <details>
     <summary>支払方法のボタンを押したあとは？</summary>
-    <figure class="narrow"><img src="/help/reg-pay.webp" width="370" height="63" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
+    <figure class="narrow"><img src="/help/reg-pay.webp" width="370" height="68" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
     <p>お客さんの支払方法のボタンを押すと、記録の前に確認の画面が出ます。ボタンを押しただけでは、まだ記録されません。</p>
     <p>キャッシュレス（PayPay、d払いなど現金以外）のときは、お客さんの支払いが済んだのを確かめてから、確認画面の「はい（記録する）」を押してください。</p>
       <p>出てくる支払方法は、管理画面で催しごとに選んだものです（現金を扱わない催しでは「現金」が出ません）。お預かり金額とおつりを入れるのは「現金」のときだけです。</p>
@@ -405,13 +408,13 @@
 
   <details>
     <summary>現金のとき（お預かりとおつり）は？</summary>
-    <figure class="narrow"><img src="/help/reg-recv.webp" width="358" height="389" loading="lazy" alt="お預かり金額の入力画面。合計510円、ちょうどや1,000円などのボタン、入力欄、おつり490円の表示"></figure>
+    <figure class="narrow"><img src="/help/reg-recv.webp" width="390" height="503" loading="lazy" alt="お預かり金額の入力画面。合計510円、ちょうどや1,000円などのボタン、入力欄、おつり490円の表示"></figure>
     <p>現金では、先に<b>お預かり金額</b>を入れます。「ちょうど」や「¥1,000」などのボタンを押すか、下の欄に金額を入力してください。入れるとおつりが表示されます。合計より少ない金額では「次へ」が押せません。</p>
   </details>
 
   <details>
     <summary>確認画面では何を見ればいい？</summary>
-    <figure class="narrow"><img src="/help/reg-confirm.webp" width="390" height="520" loading="lazy" alt="確認画面。現金の表示、団子5本セット500円、容器代10円、数量 団子5本、味 みたらし2・あんこ2・きなこ1、合計510円、お預かり1,000円、おつり490円、いいえとはいのボタン"></figure>
+    <figure class="narrow"><img src="/help/reg-confirm.webp" width="390" height="641" loading="lazy" alt="確認画面。現金の表示、団子5本セット500円、容器代10円、数量 団子5本、味 みたらし2・あんこ2・きなこ1、合計510円、お預かり1,000円、おつり490円、いいえとはいのボタン"></figure>
     <p>いちばん上の色つきの帯が支払方法です（ボタンと同じ色。現金は緑）。本数、<b>味</b>（ピンクの行）、合計金額、現金ならおつりを確かめて、よければ「はい（記録する）」を押します。味は、お客さんに読み上げて確かめると間違いが減ります。</p>
     <p>間違いに気づいたら「いいえ」を押すと、入力したお会計はそのままで前の画面に戻ります。現金で、お預かり金額だけを直したいときは「← お預かり金額を入力し直す」を押してください。</p>
   </details>
@@ -420,7 +423,7 @@
 
   <details>
     <summary>記録した会計を間違えた</summary>
-    <figure class="narrow"><img src="/help/reg-hist.webp" width="370" height="382" loading="lazy" alt="最近の会計の一覧。各行に会計番号と時刻、内容と味、金額、取消ボタン。キッチンで作り終わった会計には「できた」の印。取消済みの行は取り消し線が引かれ、戻すボタンになっている"></figure>
+    <figure class="narrow"><img src="/help/reg-hist.webp" width="370" height="509" loading="lazy" alt="最近の会計の一覧。各行に会計番号と時刻、内容と味、金額、取消ボタン。キッチンで作り終わった会計には「できた」の印。取消済みの行は取り消し線が引かれ、戻すボタンになっている"></figure>
     <p>「最近の会計」の一覧で、その会計の「取消」を押します。取り消した会計には取り消し線が引かれ、売上と本数から外れます。キッチン画面でも赤い線で「取消」と表示されるので、作らずに済みます。正しい内容（正しい味）で、もう一度会計し直してください。</p>
     <p>取り消しを間違えたときは、同じ行の「戻す」で元に戻せます。取消と戻すは、誰がいつしたかが記録されます。電波がないときも取り消せます（あとで自動で送信されます）。</p>
     <p>ここに出るのは最新の5件です。それより前の会計は、下の「すべての会計を見る」から探して取り消してください（こちらは電波が必要です）。</p>
@@ -439,7 +442,7 @@
 
   <details>
     <summary>電波がないとき（オフライン）は？</summary>
-    <figure class="narrow"><img src="/help/reg-offline.webp" width="370" height="40" loading="lazy" alt="画面上部の赤い帯。オフライン、未送信2件"></figure>
+    <figure class="narrow"><img src="/help/reg-offline.webp" width="370" height="46" loading="lazy" alt="画面上部の赤い帯。オフライン、未送信2件"></figure>
     <p>そのまま会計を続けてください。電波がないと画面の上の帯が<b>赤い「オフライン（端末に保存）」</b>になり、会計と取消は<b>スマホの中に保存</b>されます。保存した件数と金額は「未送信 ○件」に出ます。最近の会計にも「未送信」と付いて表示されます。</p>
     <p>電波が戻ると、古い順に<b>自動で送信</b>され、「未送信 0 件」になります。すぐ送りたいときは帯の右の「送信」を押してください。同じ会計が二重に記録されることはありません。</p>
     <p>電波がない状態で画面を開き直しても、レジは開けます（一度でも電波のある場所で開いていれば）。ダッシュボードの数字には、送信されてから反映されます。</p>
@@ -639,7 +642,7 @@
     $('auditLog').innerHTML = d.audit.length ? d.audit.map(a =>
       '<div class="log-line"><span class="t">' + fmtTime(a.at) + '</span>' +
       '<span class="who">' + esc(a.actor) + '</span>' +
-      '<span class="what">' + esc(a.action) + (a.detail ? '　<span style="color:var(--sub)">' + esc(a.detail) + '</span>' : '') + '</span></div>'
+      '<span class="what">' + esc(a.action) + (a.detail ? '　<span style="color:var(--mg-text-sub)">' + esc(a.detail) + '</span>' : '') + '</span></div>'
     ).join('') : '<div class="empty">記録はありません</div>';
     // 商品の更新のお知らせより後に出す（こちらを優先して見せる）
     if (switched) toast('催しが「' + d.project.name + '」に切り替わりました。商品も切り替わっています');
@@ -948,7 +951,7 @@
       '<div class="sum-line"><span>' + (l.members.length > 1 ? '' : esc(l.members[0].product.name) + ' ') + packLabel(k, esc(l.product.unit)) + '（' + k.price + '円）× ' + k.count + '</span><span class="sub">' + yen(k.price * k.count) + '</span></div>'
     ).join('')).join('') +
       (fee ? '<div class="sum-line fee"><span>容器代' + (manualFee != null && manualFee !== autoFee() ? '（手動）' : '') + '</span><span class="sub">' + yen(fee) + '</span></div>' : '') +
-      '<div class="sum-line" style="color:var(--sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(lineQtyText).join('・') + '</span></div>' +
+      '<div class="sum-line" style="color:var(--mg-text-sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(lineQtyText).join('・') + '</span></div>' +
       (flavorRows().length ? '<div class="sum-line sum-flv"><span>味</span><span>' + esc(describeFlavors(flavorRows())) + '</span></div>' : '');
     $('cfTotal').textContent = yen(p.total);
     const isCash = isCashPayment(p.method);

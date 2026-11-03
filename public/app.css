@@ -1,60 +1,234 @@
 /*
  * 岡大グリー模擬店システム：全画面で共通のデザイン（ダッシュボード・レジ・キッチン・管理画面・会計の一覧）
- *   色・文字・見出し（ヘッダー）・カード・ボタン・ログイン・トースト
- * 画面ごとの部品は各 HTML の <style> に置く。色は必ずここの変数を使う。
- * レジはオフラインでも開くので、Service Worker（sw.js）でこのファイルもキャッシュしている。
+ *
+ * デザインシステムの考え方は docs/design-system.md。ここはその実装。
+ *   - 土台はデジタル庁デザインシステム（DADS）。値は /tokens.css（DADS のトークンをそのまま写したもの）
+ *   - 色はこのシステムの現行の色（茶・ピンク・クリーム）を引き継ぎ、DADS と同じ「プリミティブ → 役割（セマンティック）」の 2 段で持つ
+ *   - フォント・文字の大きさ・フォーカスの表示・ボタンや入力欄の形・角丸・影は DADS に合わせる
+ *
+ * 画面ごとの部品は各 HTML の <style> に置く。色・角丸・影は必ずここの --mg-* を使い、色コードを直接書かない。
+ * レジはオフラインでも開くので、Service Worker（sw.js）でこのファイルと tokens.css もキャッシュしている。
  */
+
+/* ════════════════════════════════════════════════════════════════════════
+ * 1. プリミティブカラー（現行の色をそのまま並べたもの。画面からは直接使わず、2. の役割を通して使う）
+ * ════════════════════════════════════════════════════════════════════════ */
 :root {
-  /* 基本 */
-  --bg: #fbf7f0;          /* 画面の背景 */
-  --card: #ffffff;        /* カード */
-  --ink: #2b2420;         /* 文字 */
-  --sub: #7a6f66;         /* 補足の文字 */
-  --line: #ebe3d8;        /* 線・枠 */
-  --soft: #f1ebe2;        /* 控えめなボタン・バーの地 */
-  /* アクセントの色 */
-  --pink: #e8879f;
-  --pink-soft: #fff4f6;
-  --green: #7fae5c;
-  --brown: #8a5a3b;       /* 主なボタン・リンク */
-  /* 状態 */
-  --ok: #5b8c3a;          /* できた・オンライン・成功 */
-  --ok-soft: #e3f0d8;
-  --red: #c0392b;         /* エラー・取消・危険な操作 */
-  --red-soft: #fdecea;
-  --amber: #d98a00;       /* 注意 */
-  --amber-soft: #fde7c8;
-  /* 支払方法 */
-  --cash: #5b8c3a;
-  --paypay: #e60012;
-  --dpay: #cc0033;
-  /* 形 */
-  --radius: 14px;
-  --radius-sm: 10px;
-  --font: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  /* クリーム（地・線） */
+  --mg-cream-50: #fdfbf8;
+  --mg-cream-100: #fbf7f0;
+  --mg-cream-200: #f6f2ec;
+  --mg-cream-300: #f1ebe2;
+  --mg-cream-400: #ebe3d8;
+  --mg-cream-500: #e4e0d9;
+  --mg-cream-600: #cfc6ba;
+  /* 墨（文字） */
+  --mg-ink-600: #7a6f66;
+  --mg-ink-900: #2b2420;
+  /* 茶（キーカラー）。600〜800 は押したとき・カーソルを当てたときの濃さ（DADS のボタンと同じく段階で濃くする） */
+  --mg-brown-700: #8a5a3b;
+  --mg-brown-800: #6f4730;
+  --mg-brown-900: #573823;
+  /* ピンク（アクセント：レジの味・キッチンの合計・目標まで） */
+  --mg-pink-50: #fff4f6;
+  --mg-pink-100: #ffe3ea;
+  --mg-pink-200: #f3cdd6;
+  --mg-pink-500: #e8879f;
+  --mg-pink-700: #b5566e;
+  /* 緑（成功・オンライン・現金） */
+  --mg-green-50: #eef6e8;
+  --mg-green-100: #e3f0d8;
+  --mg-green-200: #cfe3bf;
+  --mg-green-400: #7fae5c;
+  --mg-green-600: #5b8c3a;
+  --mg-green-800: #3d6b1f;
+  /* 赤（エラー・取消・危険な操作） */
+  --mg-red-50: #fdecea;
+  --mg-red-200: #f2c2bc;
+  --mg-red-600: #c0392b;
+  --mg-red-800: #8c2a1f;
+  /* 山吹（注意・未送信・未保存） */
+  --mg-amber-50: #fff8e6;
+  --mg-amber-100: #fde7c8;
+  --mg-amber-200: #f0d79b;
+  --mg-amber-500: #e0a400;
+  --mg-amber-600: #d98a00;
+  --mg-amber-800: #9a5b00;
+  /* 青（お知らせ・更新） */
+  --mg-blue-50: #e8f0fb;
+  --mg-blue-200: #b9cdea;
+  --mg-blue-500: #2a78d6;
+  --mg-blue-800: #1f4c86;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+ * 2. 役割（セマンティック）トークン。画面の CSS はここだけを使う
+ * ════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* 地 */
+  --mg-bg: var(--mg-cream-100);              /* 画面の背景 */
+  --mg-surface: #ffffff;                     /* カード・ダイアログ・入力欄 */
+  --mg-surface-alt: var(--mg-cream-50);      /* カードの中の区画（商品の編集など） */
+  --mg-surface-sub: var(--mg-cream-300);     /* 控えめなボタン・バーの溝 */
+  --mg-surface-done: var(--mg-cream-200);    /* 済んだもの（キッチンのできた注文） */
+  --mg-surface-hover: var(--mg-cream-100);   /* 行にカーソル・選択中 */
+  --mg-overlay: rgba(43, 36, 32, .5);        /* ダイアログの後ろ */
+
+  /* 文字 */
+  --mg-text: var(--mg-ink-900);              /* 本文 */
+  --mg-text-sub: var(--mg-ink-600);          /* 補足（白地で 4.5:1 以上） */
+  --mg-text-on-fill: #ffffff;                /* 色を塗ったボタンの上の文字 */
+  --mg-text-disabled: var(--color-neutral-solid-gray-420);
+
+  /* 線 */
+  --mg-border: var(--mg-cream-400);          /* カード・区切り線 */
+  --mg-border-strong: var(--mg-cream-600);   /* グラフの 0 の線など、少し強い区切り */
+  --mg-border-field: var(--mg-ink-600);      /* 入力欄の枠（DADS：背景と 3:1 以上） */
+  --mg-border-field-hover: var(--mg-ink-900);
+
+  /* キーカラー（主なボタン・リンク・選択中） */
+  --mg-primary: var(--mg-brown-700);
+  --mg-primary-hover: var(--mg-brown-800);
+  --mg-primary-active: var(--mg-brown-900);
+  --mg-primary-bg: var(--mg-cream-300);      /* 選択中の地・アウトラインのボタンにカーソル */
+  --mg-primary-bg-active: var(--mg-cream-400);
+
+  /* アクセント（数を入れるボタン・作る量の合計・目標まで） */
+  --mg-accent: var(--mg-pink-500);
+  --mg-accent-bg: var(--mg-pink-50);
+  --mg-accent-bg-active: var(--mg-pink-100);
+  --mg-accent-border: var(--mg-pink-200);
+  --mg-accent-text: var(--mg-pink-700);      /* ピンクで文字を書くとき（白地で 4.5:1 以上） */
+  --mg-accent-glow: rgba(232, 135, 159, .7); /* キッチンに新しい注文が来たときの光（--mg-pink-500 を半透明に） */
+
+  /* 状態 */
+  --mg-success: var(--mg-green-600);         /* できた・オンライン */
+  --mg-success-text: var(--mg-green-800);
+  --mg-success-bg: var(--mg-green-50);
+  --mg-success-bg-strong: var(--mg-green-100);
+  --mg-success-border: var(--mg-green-200);
+  --mg-success-accent: var(--mg-green-400);  /* 目標の達成（グラフ・大きな数字） */
+  --mg-error: var(--mg-red-600);             /* エラー・取消・危険な操作 */
+  --mg-error-text: var(--mg-red-800);
+  --mg-error-bg: var(--mg-red-50);
+  --mg-error-border: var(--mg-red-200);
+  --mg-warning: var(--mg-amber-600);         /* 時間がたった注文 */
+  --mg-caution: var(--mg-amber-500);         /* 未送信・未保存・提案 */
+  --mg-warning-text: var(--mg-amber-800);
+  --mg-warning-bg: var(--mg-amber-50);
+  --mg-warning-bg-strong: var(--mg-amber-100);
+  --mg-warning-border: var(--mg-amber-200);
+  --mg-info: var(--mg-blue-500);             /* お知らせ・新しい版 */
+  --mg-info-text: var(--mg-blue-800);
+  --mg-info-bg: var(--mg-blue-50);
+  --mg-info-border: var(--mg-blue-200);
+
+  /* 使えないボタン（DADS のグレー） */
+  --mg-disabled-bg: var(--color-neutral-solid-gray-300);
+  --mg-disabled-text: var(--color-neutral-solid-gray-50);
+
+  /* フォーカス（DADS：黒の枠＋黄色のふち。どの画面・どの部品でも同じ） */
+  --mg-focus-outline: var(--color-neutral-black);
+  --mg-focus-ring: var(--color-primitive-yellow-300);
+
+  /* 支払方法（候補の色は pricing.js の PAYMENT_PRESETS と同じ） */
+  --mg-pay-cash: var(--mg-green-600);
+
+  /* グラフ（ダッシュボードの円グラフの系列。8 色で足りないときは繰り返す） */
+  --mg-chart-1: #2a78d6;
+  --mg-chart-2: #eb6834;
+  --mg-chart-3: #1baf7a;
+  --mg-chart-4: #eda100;
+  --mg-chart-5: #e87ba4;
+  --mg-chart-6: #008300;
+  --mg-chart-7: #6250d6;
+  --mg-chart-8: #e34948;
+  --mg-chart-rest: var(--mg-cream-500);      /* 目標に届いていない分 */
+  --mg-chart-bar: var(--mg-primary);         /* 1時間ごとの棒 */
+  --mg-chart-pace: var(--mg-accent-text);    /* 目安の点線 */
+  --mg-chart-grid: var(--mg-cream-400);
+
+  /* 文字（DADS のタイポグラフィ。大きさは 12〜64px の段階から選ぶ） */
+  --mg-font: var(--font-family-sans);
+  --mg-text-xs: calc(12 / 16 * 1rem);   /* 最小。補足・タグ */
+  --mg-text-sm: calc(14 / 16 * 1rem);   /* 業務画面の本文（Dense） */
+  --mg-text-md: calc(16 / 16 * 1rem);   /* 本文（Standard）・ボタン・入力 */
+  --mg-text-lg: calc(18 / 16 * 1rem);
+  --mg-text-xl: calc(20 / 16 * 1rem);   /* カードの見出し */
+  --mg-text-2xl: calc(24 / 16 * 1rem);  /* 画面の見出し */
+  --mg-text-3xl: calc(32 / 16 * 1rem);  /* 大きな数字 */
+  --mg-text-4xl: calc(45 / 16 * 1rem);
+  --mg-text-5xl: calc(57 / 16 * 1rem);  /* ダッシュボードの売上 */
+  --mg-leading-tight: 1.3;              /* Dense：ボタン・表・数字 */
+  --mg-leading: 1.5;                    /* 業務画面の本文 */
+  --mg-leading-loose: 1.7;              /* 読ませる文章（ヘルプ） */
+  --mg-tracking: .02em;
+
+  /* 角丸（DADS：4 / 6 / 8 / 12 / 16 / まる） */
+  --mg-radius-xs: 4px;     /* タグ */
+  --mg-radius-sm: 6px;     /* 小さいボタン */
+  --mg-radius-md: 8px;     /* ボタン・入力欄・ダイアログ */
+  --mg-radius-lg: 12px;    /* カード・大きなボタン */
+  --mg-radius-xl: 16px;    /* 下から出るシート */
+  --mg-radius-full: 999px; /* まるいボタン・チップ */
+
+  /* 影（DADS のエレベーション） */
+  --mg-shadow-sm: var(--elevation-1);   /* 画像・浮いた部品 */
+  --mg-shadow-md: var(--elevation-3);   /* トースト・ダイアログ */
+
+  /* 余白（4px 刻み） */
+  --mg-space-1: 4px;
+  --mg-space-2: 8px;
+  --mg-space-3: 12px;
+  --mg-space-4: 16px;
+  --mg-space-6: 24px;
+  --mg-space-8: 32px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * 3. 土台
+ * ════════════════════════════════════════════════════════════════════════ */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--ink);
-  line-height: 1.5;
+  font-family: var(--mg-font);
+  background: var(--mg-bg);
+  color: var(--mg-text);
+  line-height: var(--mg-leading);
+  letter-spacing: var(--mg-tracking);
   -webkit-font-smoothing: antialiased;
 }
-button, input, select, textarea { font-family: inherit; }
-button { cursor: pointer; border: none; touch-action: manipulation; }
+button, input, select, textarea { font-family: inherit; letter-spacing: inherit; }
+button { cursor: pointer; border: none; touch-action: manipulation; color: inherit; }
 button:disabled { opacity: .45; cursor: default; }
 .hidden { display: none !important; }
+
+/* フォーカス（DADS）：キーボードで動かしたときだけ、黒の枠と黄色のふちで今いる場所を示す */
+:focus-visible {
+  outline: 4px solid var(--mg-focus-outline);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--mg-focus-ring);
+}
+
+/* リンク（DADS：下線を引き、カーソルを当てると太くなる） */
+a { color: var(--mg-primary); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+@media (hover: hover) { a:hover { color: var(--mg-primary-hover); text-decoration-thickness: 3px; } }
+a:active { color: var(--mg-primary-active); text-decoration-thickness: 1px; }
+
+/* 読み上げ用（画面には出さない） */
+.visually-hidden {
+  position: absolute !important; width: 1px !important; height: 1px !important;
+  overflow: hidden !important; clip-path: inset(50%) !important; white-space: nowrap !important;
+}
 
 /* ── 見出し（ヘッダー）：左にシステムのマークと画面名、右にほかの画面へのリンクと使い方 ── */
 .app-header { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; min-height: 44px; }
 .app-title { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 0; max-width: 55%; color: inherit; text-decoration: none; }
 .app-name { min-width: 0; }
-.app-name h1 { margin: 0; font-size: 19px; line-height: 1.25; white-space: nowrap; letter-spacing: .02em; }
-.app-sub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 12px; line-height: 1.4; color: var(--sub); }
-.app-sub a { color: var(--brown); font-weight: 700; }
+.app-name h1 { margin: 0; font-size: var(--mg-text-lg); line-height: var(--mg-leading-tight); white-space: nowrap; letter-spacing: var(--mg-tracking); }
+.app-sub { letter-spacing: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: var(--mg-text-xs); line-height: 1.4; color: var(--mg-text-sub); }
+.app-sub a { font-weight: 700; }
 .app-sub .nw { display: inline-block; }   /* 折り返すときは言葉の切れ目で */
 .app-header .screen-links { flex: 1; }
 .app-header .btn-help { flex-shrink: 0; }
@@ -63,14 +237,14 @@ button:disabled { opacity: .45; cursor: default; }
 .app-mark {
   flex-shrink: 0;
   width: 40px; height: 40px;
-  border-radius: 12px;
-  background: var(--brown);
+  border-radius: var(--mg-radius-md);
+  background: var(--mg-primary);
   display: inline-flex; align-items: center; justify-content: center;
 }
 .app-mark::before {
   content: '';
   width: 60%; height: 60%;
-  background: #fff;
+  background: var(--mg-text-on-fill);
   -webkit-mask: var(--mark-icon) center / contain no-repeat;
   mask: var(--mark-icon) center / contain no-repeat;
 }
@@ -81,52 +255,92 @@ button:disabled { opacity: .45; cursor: default; }
 /* ほかの画面へのリンク */
 .screen-links {
   display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center;
-  gap: 2px 12px; min-width: 0;
-  font-size: 13px; line-height: 1.5;
+  gap: 2px 10px; min-width: 0;
+  font-size: var(--mg-text-xs); line-height: 1.5; letter-spacing: 0;
 }
-.screen-links a { color: var(--brown); white-space: nowrap; text-decoration: underline; text-underline-offset: 2px; }
-.screen-links a:active { opacity: .6; }
+.screen-links a { white-space: nowrap; }
 
 @media (max-width: 420px) {
   .app-header { gap: 8px; }
-  .app-mark { width: 34px; height: 34px; border-radius: 10px; }
-  .app-name h1 { font-size: 17px; }
-  .screen-links { font-size: 12px; gap: 0 10px; }
+  .app-mark { width: 34px; height: 34px; border-radius: var(--mg-radius-sm); }
+  .app-name h1 { font-size: var(--mg-text-md); }
+  .screen-links { gap: 0 8px; }
   .app-header .help-label { display: none; }
   .app-header .btn-help { padding-left: 6px; padding-right: 6px; }
 }
 
 /* ── カード ── */
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
-.label { font-size: 13px; color: var(--sub); font-weight: 700; margin-bottom: 8px; }
-.note { color: var(--sub); font-size: 12px; margin-top: 6px; line-height: 1.6; }
-.empty { color: var(--sub); text-align: center; padding: 10px 0; }
+.card { background: var(--mg-surface); border: 1px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 16px; margin-bottom: 12px; }
+.label { font-size: var(--mg-text-sm); color: var(--mg-text-sub); font-weight: 700; line-height: var(--mg-leading-tight); margin-bottom: 8px; }
+.note { color: var(--mg-text-sub); font-size: var(--mg-text-xs); margin-top: 6px; line-height: 1.6; }
+.empty { color: var(--mg-text-sub); text-align: center; padding: 10px 0; }
 
-/* ── ボタン ── */
+/* ── ボタン（DADS のボタン：塗り・アウトライン、大きさは lg / 標準 / small） ──
+ *   .btn          塗り（主な操作）。高さ 40px
+ *   .btn.sub      アウトライン（ほかの操作）
+ *   .btn.danger   塗りの赤（消す・リセットなど元に戻せない操作）
+ *   .btn.small    高さ 32px（一覧の中の操作）
+ *   .btn.big      高さ 56px（ログイン・記録するなど、その画面でいちばん大事な操作）
+ *   .btn.block    横いっぱい
+ * カーソルを当てると色が濃くなり下線が出る（DADS）。押したときはもう一段濃くする */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  background: var(--brown); color: #fff;
-  border-radius: var(--radius-sm); padding: 10px 14px;
-  font-size: 14px; font-weight: 700; line-height: 1.3;
-  text-decoration: none; text-align: center;
+  min-height: 40px;
+  border: 1px solid transparent;
+  background: var(--mg-primary); color: var(--mg-text-on-fill);
+  border-radius: var(--mg-radius-md); padding: 6px 16px;
+  font-size: var(--mg-text-md); font-weight: 700; line-height: var(--mg-leading-tight);
+  text-decoration: none; text-align: center; text-underline-offset: 3px;
 }
-.btn:active { transform: scale(.98); }
-.btn.sub { background: var(--soft); color: var(--brown); }
-.btn.danger { background: var(--red); color: #fff; }
-.btn.small { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+@media (hover: hover) { .btn:hover { background: var(--mg-primary-hover); color: var(--mg-text-on-fill); text-decoration: underline; text-decoration-thickness: 1px; } }
+.btn:active { background: var(--mg-primary-active); }
+.btn.sub { background: var(--mg-surface); color: var(--mg-primary); border-color: currentColor; }
+@media (hover: hover) { .btn.sub:hover { background: var(--mg-primary-bg); color: var(--mg-primary-hover); } }
+.btn.sub:active { background: var(--mg-primary-bg-active); color: var(--mg-primary-active); }
+.btn.danger { background: var(--mg-error); color: var(--mg-text-on-fill); }
+@media (hover: hover) { .btn.danger:hover { background: var(--mg-error-text); } }
+.btn.danger:active { background: var(--mg-error-text); }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: 1; background: var(--mg-disabled-bg); color: var(--mg-disabled-text); border-color: transparent; text-decoration: none; }
+.btn.sub:disabled, .btn.sub[aria-disabled="true"] { background: var(--mg-surface); color: var(--mg-disabled-bg); border-color: currentColor; }
+.btn.small { min-height: 32px; padding: 2px 10px; font-size: var(--mg-text-sm); border-radius: var(--mg-radius-sm); }
 .btn.block { display: flex; width: 100%; }
-.btn.big { padding: 14px; font-size: 18px; }
+.btn.big { min-height: 56px; padding: 12px 16px; font-size: var(--mg-text-lg); border-radius: var(--mg-radius-md); }
+
+/* ── 入力欄（DADS の入力欄：濃い枠・角丸 8px。カーソルで枠が黒く、エラーは赤） ── */
+.field,
+.login-card input {
+  display: block; width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md);
+  background: var(--mg-surface); color: var(--mg-text);
+  font-size: var(--mg-text-md); line-height: var(--mg-leading-tight);
+}
+@media (hover: hover) { .field:hover, .login-card input:hover { border-color: var(--mg-border-field-hover); } }
+.field[aria-invalid="true"] { border-color: var(--mg-error); }
+.field:disabled { border-color: var(--mg-disabled-bg); background: var(--color-neutral-solid-gray-50); color: var(--mg-text-disabled); }
+.field::placeholder, .login-card input::placeholder { color: var(--mg-text-sub); opacity: 1; }
+
+/* ── タグ（DADS のチップラベル。状態を短い言葉で示す） ── */
+.tag {
+  display: inline-block; vertical-align: middle;
+  padding: 1px 6px; border-radius: var(--mg-radius-xs);
+  font-size: var(--mg-text-xs); font-weight: 400; line-height: 1.5; white-space: nowrap;
+  background: var(--mg-surface-sub); color: var(--mg-text-sub);
+}
+.tag.accent { background: var(--mg-accent-bg); color: var(--mg-accent-text); }
+.tag.success { background: var(--mg-success-bg-strong); color: var(--mg-success-text); }
+.tag.warning { background: var(--mg-warning-bg-strong); color: var(--mg-warning-text); }
+.tag.error { background: var(--mg-error-bg); color: var(--mg-error); }
 
 /* ── ログイン画面（レジ・キッチン・管理画面で共通） ── */
 .card.login-card { max-width: 380px; margin: 64px auto; padding: 28px 22px 22px; text-align: center; }
-.login-card .app-mark { width: 52px; height: 52px; border-radius: 16px; margin-bottom: 8px; }
-.login-card .login-system { font-size: 12px; color: var(--sub); font-weight: 700; letter-spacing: .04em; margin-bottom: 2px; }
-.login-card h2 { margin: 0 0 4px; font-size: 22px; }
-.login-card .login-lead { color: var(--sub); font-size: 13px; margin: 0 0 14px; }
-.login-card input { display: block; width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); border-radius: var(--radius-sm); margin: 0 0 10px; background: #fff; color: var(--ink); }
-.login-card input:focus { outline: none; border-color: var(--brown); box-shadow: 0 0 0 3px rgba(138, 90, 59, .15); }
+.login-card .app-mark { width: 52px; height: 52px; border-radius: var(--mg-radius-lg); margin-bottom: 8px; }
+.login-card .login-system { font-size: var(--mg-text-xs); color: var(--mg-text-sub); font-weight: 700; margin-bottom: 2px; }
+.login-card h2 { margin: 0 0 4px; font-size: var(--mg-text-2xl); line-height: var(--mg-leading-tight); }
+.login-card .login-lead { color: var(--mg-text-sub); font-size: var(--mg-text-sm); margin: 0 0 14px; }
+.login-card input { padding: 14px 16px; font-size: var(--mg-text-lg); margin: 0 0 10px; }
 .login-card .login-go { margin-top: 4px; }
-.login-card .login-note { color: var(--sub); font-size: 12px; margin-top: 12px; }
+.login-card .login-note { color: var(--mg-text-sub); font-size: var(--mg-text-xs); margin-top: 12px; }
 .login-card .btn-help { margin-top: 16px; }
 @media (max-width: 420px) { .login-card { margin: 32px 12px; } }
 
@@ -134,18 +348,18 @@ button:disabled { opacity: .45; cursor: default; }
 .toast {
   position: fixed; left: 50%; bottom: 24px; z-index: 30;
   transform: translateX(-50%) translateY(140px);
-  background: var(--ink); color: #fff;
-  padding: 12px 20px; border-radius: 12px;
-  font-size: 15px; text-align: center; max-width: calc(100% - 32px);
-  box-shadow: 0 6px 24px rgba(43, 36, 32, .25);
+  background: var(--mg-text); color: var(--mg-text-on-fill);
+  padding: 12px 20px; border-radius: var(--mg-radius-md);
+  font-size: var(--mg-text-md); text-align: center; max-width: calc(100% - 32px);
+  box-shadow: var(--mg-shadow-md);
   transition: transform .25s;
 }
 .toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; }
 .toast.show { transform: translateX(-50%) translateY(0); }
-.toast.err { background: var(--red); }
+.toast.err { background: var(--mg-error); }
 
 /* 営業終了などの帯 */
-.closed-band { background: var(--ink); color: #fff; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; font-weight: 700; line-height: 1.5; }
-.closed-band .sub { display: block; font-size: 12px; font-weight: 400; opacity: .8; }
+.closed-band { background: var(--mg-text); color: var(--mg-text-on-fill); border-radius: var(--mg-radius-md); padding: 10px 14px; margin-bottom: 12px; font-size: var(--mg-text-sm); font-weight: 700; line-height: 1.5; }
+.closed-band .sub { display: block; font-size: var(--mg-text-xs); font-weight: 400; opacity: .85; }
 
-@media (prefers-reduced-motion: reduce) { .toast, .btn:active { transition: none; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }

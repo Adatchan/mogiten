@@ -7,7 +7,8 @@
 <title>管理画面｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
 <style>
@@ -18,106 +19,110 @@
   .mini { display: flex; gap: 8px; text-align: center; }
   .mini > div { flex: 1; }
   .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .mini .k { font-size: 11px; color: var(--sub); }
+  .mini .k { font-size: var(--mg-text-xs); color: var(--mg-text-sub); }
 
   .row { display: flex; flex-wrap: wrap; gap: 8px; }
-  .form input[type=password] { width: 100%; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; }
+  .form input[type=password] { display: block; width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); margin-bottom: 8px; }
   .form label { display: flex; gap: 6px; align-items: center; font-size: 14px; margin-bottom: 8px; }
-  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 10px; background: var(--soft); color: var(--sub); vertical-align: middle; }
-  .badge.ok { background: var(--ok-soft); color: #3d6b1f; }
-  .badge.warn { background: var(--amber-soft); color: #9a5b00; }
+  .badge { display: inline-block; font-size: var(--mg-text-xs); padding: 1px 7px; border-radius: var(--mg-radius-xs); background: var(--mg-surface-sub); color: var(--mg-text-sub); vertical-align: middle; }
+  .badge.ok { background: var(--mg-success-bg-strong); color: var(--mg-success-text); }
+  .badge.warn { background: var(--mg-warning-bg-strong); color: var(--mg-warning-text); }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
-  th { color: var(--sub); font-weight: 700; font-size: 12px; border-top: none; }
-  td.t { color: var(--sub); white-space: nowrap; }
+  th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--mg-border); vertical-align: middle; }
+  th { color: var(--mg-text-sub); font-weight: 700; font-size: var(--mg-text-xs); border-top: none; }
+  td.t { color: var(--mg-text-sub); white-space: nowrap; }
   .scroll { max-height: 420px; overflow: auto; }
+  #sessions { overflow-x: auto; }   /* 狭い画面では表を横にずらして見る（文字を 1 文字ずつ縦に折り返さない） */
+  table.sessions td, table.sessions th { white-space: nowrap; }
+  table.sessions td:nth-child(3) { white-space: normal; min-width: 7em; }
 
   /* 商品の編集 */
-  .pcard { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fdfbf8; }
-  .pcard.dirty { border-color: #e0a400; background: #fffaf0; }
+  .pcard { border: 1px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 12px; margin-bottom: 10px; background: var(--mg-surface-alt); }
+  .pcard.dirty { border-color: var(--mg-caution); background: var(--mg-warning-bg); }
   .pcard.off { opacity: .7; }
   .pcard .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .pcard input[type=text], .pcard input[type=number], .rule input { padding: 8px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; }
+  .pcard input[type=text], .pcard input[type=number], .rule input { padding: 8px; font-size: 16px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); }
   .pcard .pname { flex: 1; min-width: 8em; font-weight: 700; }
   .pcard .punit { width: 4em; }
   .sets { margin: 10px 0 6px; }
   .set-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 14px; }
   .set-row input { width: 5.5em; }
-  .set-row .x { background: none; color: var(--sub); font-size: 18px; padding: 0 6px; }
+  .set-row .su { white-space: nowrap; letter-spacing: 0; }
+  .set-row .x { background: none; color: var(--mg-text-sub); font-size: 18px; padding: 0 6px; }
   .checks { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; margin: 8px 0; }
-  .flv-edit { display: block; font-size: 13px; color: var(--sub); margin: 10px 0 4px; }
-  .flv-edit input { display: block; width: 100%; margin-top: 4px; color: var(--ink); }
+  .flv-edit { display: block; font-size: 13px; color: var(--mg-text-sub); margin: 10px 0 4px; }
+  .flv-edit input { display: block; width: 100%; margin-top: 4px; color: var(--mg-text); }
   .checks label { display: flex; gap: 6px; align-items: center; }
-  .checks select { padding: 6px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; max-width: 100%; }
+  .checks select { padding: 6px; font-size: 14px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); max-width: 100%; }
   .checks label.bundle { width: 100%; min-width: 0; }
   .checks label.bundle select { flex: 1; min-width: 0; width: 100%; }
   .pactions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pactions .sp { flex: 1; }
-  .dirty-badge { font-size: 11px; color: #9a5b00; background: #fde7c8; padding: 2px 7px; border-radius: 10px; }
+  .dirty-badge { font-size: var(--mg-text-xs); color: var(--mg-warning-text); background: var(--mg-warning-bg-strong); padding: 1px 7px; border-radius: var(--mg-radius-xs); }
   .rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
   .rule input { width: 5em; }
-  .danger-zone { border-color: #f2c2bc; background: #fffaf9; }
+  .danger-zone { border-color: var(--mg-error-border); }
 
   /* 催し */
-  .pj-item { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .pj-item.active { border-color: var(--ok); background: #f6faf2; }
+  .pj-item { border: 1px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pj-item.active { border-color: var(--mg-success); background: var(--mg-success-bg); }
   .pj-item .info { flex: 1; min-width: 12em; }
   .pj-item .nm { font-weight: 700; font-size: 16px; }
-  .pj-item .meta { font-size: 12px; color: var(--sub); }
+  .pj-item .meta { font-size: var(--mg-text-xs); color: var(--mg-text-sub); }
   .pj-item .acts { display: flex; gap: 6px; flex-wrap: wrap; }
   .pj-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 10px; margin: 6px 0 8px; }
   .pj-grid > label { min-width: 0; }
-  .pj-grid label, .pj-line { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--sub); font-weight: 700; }
+  .pj-grid label, .pj-line { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--mg-text-sub); font-weight: 700; }
   .pj-line { margin-bottom: 8px; }
   .pj-wide { grid-column: 1 / -1; }
-  .pj-grid input, .pj-grid select, .pj-line input, .pj-line select { padding: 9px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; font-weight: 400; width: 100%; min-width: 0; }
-  .req { font-size: 10px; color: var(--red); font-weight: 700; }
+  .pj-grid input, .pj-grid select, .pj-line input, .pj-line select { padding: 9px; font-size: 16px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); color: var(--mg-text); background: var(--mg-surface); font-weight: 400; width: 100%; min-width: 0; }
+  .req { font-size: var(--mg-text-xs); color: var(--mg-error); font-weight: 700; }
   /* 支払方法 */
   .pay-opts { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pay-opts label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; background: #fff; }
-  .pay-opts label:has(input:checked) { border-color: var(--brown); background: var(--soft); font-weight: 700; }
-  .pay-opts .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .pay-opts input { accent-color: var(--brown); }
+  .pay-opts label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-full); padding: 6px 12px; font-size: 14px; cursor: pointer; background: var(--mg-surface); }
+  .pay-opts label:has(input:checked) { border-color: var(--mg-primary); background: var(--mg-primary-bg); font-weight: 700; }
+  .pay-opts .dot { width: 10px; height: 10px; border-radius: var(--mg-radius-full); flex-shrink: 0; }
+  .pay-opts input { accent-color: var(--mg-primary); }
 
   /* 容器代を取る／取らない */
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
-  .seg label { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--sub); }
-  .seg label + label { border-left: 1px solid var(--line); }
-  .seg input { accent-color: var(--brown); }
-  .seg label:has(input:checked) { background: var(--soft); color: var(--brown); }
+  .seg { display: inline-flex; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); overflow: hidden; margin-bottom: 8px; }
+  .seg label { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--mg-text-sub); }
+  .seg label + label { border-left: 1px solid var(--mg-border-field); }
+  .seg input { accent-color: var(--mg-primary); }
+  .seg label:has(input:checked) { background: var(--mg-primary-bg); color: var(--mg-primary); }
   #app.no-container .pcont-label { display: none; }   /* 容器代を取らない催しでは「容器代の対象」を出さない */
-  .pj-add { border: 1.5px dashed var(--line); border-radius: 12px; margin-bottom: 10px; }
-  .pj-add.open { border-style: solid; border-color: var(--brown); }
-  .pj-add-row { display: flex; align-items: center; gap: 8px; width: 100%; background: none; padding: 14px 12px; font-size: 16px; font-weight: 700; color: var(--brown); text-align: left; }
-  .pj-add-row .plus { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--soft); font-size: 16px; }
+  .pj-add { border: 1.5px dashed var(--mg-border-strong); border-radius: var(--mg-radius-lg); margin-bottom: 10px; }
+  .pj-add.open { border-style: solid; border-color: var(--mg-primary); }
+  .pj-add-row { display: flex; align-items: center; gap: 8px; width: 100%; background: none; padding: 14px 12px; font-size: 16px; font-weight: 700; color: var(--mg-primary); text-align: left; }
+  .pj-add-row .plus { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: var(--mg-radius-full); background: var(--mg-primary-bg); font-size: 16px; }
   .pj-add-row .chev { margin-left: auto; width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .2s; }
   .pj-add.open .pj-add-row .chev { transform: rotate(-135deg); }
   .pj-add-form { padding: 0 12px 12px; }
   .pj-grid input[type=date] { padding: 9px 6px; font-size: 15px; }   /* スマホでも年まで見えるように */
   .pj-add-btns { display: flex; gap: 8px; }
-  .pj-copy { background: var(--bg); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+  .pj-copy { background: var(--mg-bg); border-radius: var(--mg-radius-md); padding: 10px; margin-bottom: 8px; }
   .pj-copy .pj-line { margin-bottom: 0; }
   .pj-check { display: flex; gap: 6px; align-items: center; font-size: 14px; margin: 4px 0 10px; }
   .pj-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
   .pj-bar .pj-title { font-weight: 700; font-size: 16px; }
   #pjSettings summary { list-style: none; }
   #pjSettings summary::-webkit-details-marker { display: none; }
-  #pjSettings summary::before { content: '▸ '; color: var(--sub); }
+  #pjSettings summary::before { content: '▸ '; color: var(--mg-text-sub); }
   #pjSettings[open] summary::before { content: '▾ '; }
   #pjSettings summary .note { display: inline; }
-  .danger-zone h2 { color: var(--red); }
+  .danger-zone h2 { color: var(--mg-error); }
 
 </style>
 </head>
 <body>
 
-<div id="login" class="card login-card hidden">
+<div id="login" class="card login-card hidden" role="main">
   <span class="app-mark" aria-hidden="true"></span>
   <div class="login-system">岡大グリー模擬店システム</div>
   <h2>管理画面</h2>
   <p class="login-lead">店の責任者用の画面です。<br>マスターパスワードを入力してください</p>
-  <input id="pw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+  <input id="pw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
   <button class="btn big block login-go" id="loginBtn">ログイン</button>
   <div class="login-note">ログインは12時間有効です</div>
   <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
@@ -171,7 +176,7 @@
   <button class="btn sub" id="logoutBtn2">ログアウト</button>
 </div>
 
-<div id="app" class="wrap hidden">
+<div id="app" class="wrap hidden" role="main">
   <header class="app-header">
     <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>管理画面</h1><span class="app-sub" id="projSub"></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav>
@@ -239,9 +244,9 @@
     <div class="note" id="feeOffNote">この催しでは容器代を取りません。レジに容器代の行は出ず、容器代はいつも0円です。</div>
     <div id="ruleBody">
     <div class="rule">
-      容器代の対象が <input id="ruleFree" type="number" inputmode="numeric" min="0"> 個までは無料、それより多いときは
-      <input id="rulePer" type="number" inputmode="numeric" min="1"> 個ごとに <input id="ruleFee" type="number" inputmode="numeric" min="0"> 円。
-      容器は最大 <input id="ruleMax" type="number" inputmode="numeric" min="0"> 個まで（0 = 上限なし）
+      容器代の対象が <input id="ruleFree" aria-label="無料の個数" type="number" inputmode="numeric" min="0"> 個までは無料、それより多いときは
+      <input id="rulePer" aria-label="何個ごとに" type="number" inputmode="numeric" min="1"> 個ごとに <input id="ruleFee" aria-label="容器代（円）" type="number" inputmode="numeric" min="0"> 円。
+      容器は最大 <input id="ruleMax" aria-label="容器の上限の個数" type="number" inputmode="numeric" min="0"> 個まで（0 = 上限なし）
       <button class="btn" id="ruleBtn">変更する</button>
     </div>
     <div class="note" id="rulePreview"></div>
@@ -253,7 +258,7 @@
     <div class="note" style="margin:0 0 8px">この催しのレジに出す支払方法を選んで「保存」を押します（1〜8種類）。「現金」を選ぶと、レジでお預かり金額とおつりを入れます。現金を扱わない催しでは「現金」を外します。</div>
     <div class="pay-opts" id="payOpts"></div>
     <div class="row" style="margin:8px 0">
-      <input id="payNew" type="text" maxlength="20" placeholder="ほかの支払方法を追加（例: Airペイ）" style="flex:1;min-width:0;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px">
+      <input id="payNew" type="text" maxlength="20" aria-label="ほかの支払方法を追加" placeholder="ほかの支払方法を追加（例: Airペイ）" class="field" style="flex:1;min-width:0">
       <button class="btn sub" id="payAdd" type="button">追加</button>
     </div>
     <button class="btn" id="paySave">保存</button>
@@ -269,7 +274,7 @@
   <section class="card">
     <h2>目標金額</h2>
     <div class="row">
-      <input id="targetInput" type="number" inputmode="numeric" min="1" style="flex:1;min-width:0;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px">
+      <input id="targetInput" aria-label="目標金額（円）" type="number" inputmode="numeric" min="1" class="field" style="flex:1;min-width:0">
       <button class="btn" id="targetBtn">変更する</button>
     </div>
     <div class="note">ダッシュボードとレジの「目標まで」に反映されます。</div>
@@ -293,8 +298,8 @@
 
   <section class="card form">
     <h2>レジのパスワードを変更 <span class="badge" id="regPwState"></span></h2>
-    <input id="regNew" type="password" autocomplete="new-password" placeholder="新しいレジ用パスワード（8文字以上）">
-    <input id="regNew2" type="password" autocomplete="new-password" placeholder="新しいレジ用パスワード（確認）">
+    <input id="regNew" type="password" autocomplete="new-password" aria-label="新しいレジ用パスワード" placeholder="新しいレジ用パスワード（8文字以上）">
+    <input id="regNew2" type="password" autocomplete="new-password" aria-label="新しいレジ用パスワード" placeholder="新しいレジ用パスワード（確認）">
     <label><input type="checkbox" id="regRevoke"> 同時にレジ端末をすべて締め出す</label>
     <button class="btn" id="regBtn">変更する</button>
     <div class="note">今のパスワードを知らなくても変更できます（マスターだけの操作）。</div>
@@ -302,9 +307,9 @@
 
   <section class="card form">
     <h2>マスターパスワードを変更 <span class="badge" id="masterPwState"></span></h2>
-    <input id="mCur" type="password" autocomplete="current-password" placeholder="今のマスターパスワード">
-    <input id="mNew" type="password" autocomplete="new-password" placeholder="新しいマスターパスワード（8文字以上）">
-    <input id="mNew2" type="password" autocomplete="new-password" placeholder="新しいマスターパスワード（確認）">
+    <input id="mCur" type="password" autocomplete="current-password" aria-label="今のマスターパスワード" placeholder="今のマスターパスワード">
+    <input id="mNew" type="password" autocomplete="new-password" aria-label="新しいマスターパスワード" placeholder="新しいマスターパスワード（8文字以上）">
+    <input id="mNew2" type="password" autocomplete="new-password" aria-label="新しいマスターパスワード" placeholder="新しいマスターパスワード（確認）">
     <button class="btn" id="mBtn">変更する</button>
     <div class="note">変更すると、この端末以外のマスターログインは解除されます。</div>
   </section>
@@ -312,8 +317,8 @@
   <section class="card form danger-zone">
     <h2>この催しの売上記録を全リセット（テスト用）</h2>
     <div class="note" id="resetInfo"></div>
-    <input id="resetConfirm" type="text" autocomplete="off" placeholder="確認のため「リセット」と入力" style="width:100%;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
-    <input id="resetPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+    <input id="resetConfirm" type="text" autocomplete="off" aria-label="「リセット」の確認" placeholder="確認のため「リセット」と入力" class="field" style="margin:8px 0">
+    <input id="resetPw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
     <button class="btn danger" id="resetBtn">すべての会計を削除する</button>
     <div class="note">
       ・<b>この催しの</b>、取消済みも含めたすべての会計と明細を削除し、会計番号を #1 に戻します（ほかの催しの会計はそのまま）。<strong>元に戻せません。</strong><br>
@@ -327,8 +332,8 @@
     <h2>この催しを削除</h2>
     <div class="note" id="pjDeleteInfo"></div>
     <div id="pjDeleteInputs">
-      <input id="pjDelName" type="text" autocomplete="off" placeholder="確認のため催し名を入力" style="width:100%;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
-      <input id="pjDelPw" type="password" autocomplete="current-password" placeholder="マスターパスワード">
+      <input id="pjDelName" type="text" autocomplete="off" aria-label="削除する催し名の確認" placeholder="確認のため催し名を入力" class="field" style="margin:8px 0">
+      <input id="pjDelPw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
     </div>
     <button class="btn danger" id="pjDelBtn">この催しを削除する</button>
     <div class="note">
@@ -340,7 +345,7 @@
 
   <section class="card">
     <h2>操作の記録</h2>
-    <div class="scroll" id="audit"></div>
+    <div class="scroll" id="audit" tabindex="0" role="region" aria-label="操作の記録"></div>
   </section>
 
   <button class="btn sub" id="logoutBtn">ログアウト</button>
@@ -365,14 +370,14 @@
 
   <details>
     <summary>催しとは？</summary>
-    <figure class="narrow"><img src="/help/master-projects.webp" width="390" height="681" loading="lazy" alt="催しの一覧。27岡山大学祭と、レジで使用中の26岡山大学祭。それぞれ期間・営業時間・売上・目標・商品の数と、開く・レジで使うのボタン。いちばん下に「新しい催しを追加」の行"></figure>
+    <figure class="narrow"><img src="/help/master-projects.webp" width="390" height="560" loading="lazy" alt="催しの一覧。27岡山大学祭と、レジで使用中の26岡山大学祭。それぞれ期間・営業時間・売上・目標・商品の数と、開く・レジで使うのボタン。いちばん下に「新しい催しを追加」の行"></figure>
     <p>「26岡山大学祭」「27岡山大学祭」のような、模擬店を出す1回ごとのまとまりです。催しごとに、商品・価格・味・セット、目標金額、容器代のルール、営業時間、会計（売上）が別々に記録されます。会計番号（#）も催しごとに #1 から始まります。</p>
     <p>レジ・キッチン・ダッシュボード・会計の一覧で使われるのは、<b>「レジで使用中」の催し1つだけ</b>です。前の催しの売上や商品は、催しを切り替えても消えずに残ります。</p>
   </details>
 
   <details>
     <summary>新しい催しを作る（次の学祭の準備）</summary>
-    <figure class="narrow"><img src="/help/master-newproject.webp" width="328" height="673" loading="lazy" alt="「新しい催しを追加」を押して開いた入力欄。催し名、模擬店の名前、開始日、終了日、営業開始、営業終了、目標金額、容器代を取るのチェック（初期はオフ）、前の催しから設定を複製（初期は「複製しない」）、作ったらこの催しをレジで使うのチェック、作成して開くボタン"></figure>
+    <figure class="narrow"><img src="/help/master-newproject.webp" width="328" height="718" loading="lazy" alt="「新しい催しを追加」を押して開いた入力欄。催し名、模擬店の名前、開始日、終了日、営業開始、営業終了、目標金額、容器代を取るのチェック（初期はオフ）、前の催しから設定を複製（初期は「複製しない」）、作ったらこの催しをレジで使うのチェック、作成して開くボタン"></figure>
     <p>催しの一覧のいちばん下の「＋ 新しい催しを追加」を押すと、入力欄が開きます。催し名・開始日・終了日・営業時間を入れて「作成して開く」を押します（「やめる」で閉じます）。模擬店の名前（例：混声合唱と学祭のための 団子）を入れると、ダッシュボードに表示されます。</p>
     <p><b>前の催しから設定を複製</b>で前の催しを選ぶと、商品・価格・セット・味と容器代のルールをそのまま引き継げます（目標金額も選べます）。売上は複製されません。複製したあとで、値段や味を今年の分に直してください。</p>
     <p>「作ったら、この催しをレジで使う」を外しておくと、今の催しの営業を続けたまま、次の催しの準備だけできます。</p>
@@ -407,7 +412,7 @@
 
   <details>
     <summary>商品や価格を変える・追加する</summary>
-    <figure><img src="/help/master-products.webp" width="638" height="369" loading="lazy" alt="商品・価格の欄。団子の商品名、単位、1本150円、3本セット400円、5本セット500円、味の欄（みたらし、あんこ、きなこ）、セットの選択、容器代の対象と販売中のチェック、保存ボタン"></figure>
+    <figure><img src="/help/master-products.webp" width="658" height="443" loading="lazy" alt="商品・価格の欄。団子の商品名、単位、1本150円、3本セット400円、5本セット500円、味の欄（みたらし、あんこ、きなこ）、セットの選択、容器代の対象と販売中のチェック、保存ボタン"></figure>
     <p>「商品・価格」で、商品名、単位、数量ごとの価格（セット）を直して「保存」を押します。変えた商品の枠は保存するまで黄色になります。新しい商品は「＋ 商品を追加」から。1個（1本）の価格は必ず入れてください。</p>
     <p>「セット」で「○○のセット価格に含める」を選ぶと、その商品と本数を合わせて、相手の商品のセット価格で計算します（例：<b>焼きマシュマロの欄</b>で「団子のセット価格に含める」にすると、団子3本＋焼きマシュマロ2本で5本セット500円）。相手に選べるのは、セット価格（2本以上の価格）がある商品だけです。混ぜたセットの金額は、本数の割合で商品ごとに分けて記録します。</p>
     <p>「味」に「みたらし、あんこ、きなこ」のように「、」で区切って入れると、レジではその商品を<b>味ごとに</b>数えて入力するようになり、キッチン画面（<code>/kitchen</code>）にも味ごとに表示されます。セットの組み方や金額は味に関係なく、合計の本数で決まります。味を空にすると、これまでどおり数だけを入れる商品になります。味は12種類まで、1つ12文字までです。並べた順に、レジのボタンとキッチンの合計が並びます。</p>
@@ -426,20 +431,20 @@
 
   <details>
     <summary>目標金額を変える</summary>
-    <figure><img src="/help/master-target.webp" width="692" height="123" loading="lazy" alt="目標金額の入力欄と変更するボタン"></figure>
+    <figure><img src="/help/master-target.webp" width="692" height="136" loading="lazy" alt="目標金額の入力欄と変更するボタン"></figure>
     <p>欄に新しい金額を数字で入れて「変更する」を押します。ダッシュボードとレジの「目標まで」に反映されます。変更は操作の記録に残ります。</p>
   </details>
 
   <details>
     <summary>端末を締め出す（ログインを解除する）</summary>
-    <figure><img src="/help/master-sessions.webp" width="692" height="243" loading="lazy" alt="ログイン中の端末の一覧。種類、名前、端末、ログイン時刻、最終利用時刻と、締め出すボタン"></figure>
+    <figure><img src="/help/master-sessions.webp" width="692" height="326" loading="lazy" alt="ログイン中の端末の一覧。種類、名前、端末、ログイン時刻、最終利用時刻と、締め出すボタン"></figure>
     <p>「ログイン中の端末」に、今ログインしている端末が名前つきで並びます。1台ずつ締め出すときは、その行の「締め出す」を押します。「レジ端末をすべて締め出す」で、レジの端末をまとめて解除できます。</p>
     <p>締め出された端末は、次の操作でログイン画面に戻ります。パスワードを知っていれば再びログインできるので、スマホをなくしたときなどは、下でレジのパスワードも変えてください。</p>
   </details>
 
   <details>
     <summary>「ログインできない」と言われたとき</summary>
-    <figure><img src="/help/master-unlock.webp" width="692" height="159" loading="lazy" alt="ログイン制限のカード。ログイン制限を解除ボタンと説明"></figure>
+    <figure><img src="/help/master-unlock.webp" width="692" height="172" loading="lazy" alt="ログイン制限のカード。ログイン制限を解除ボタンと説明"></figure>
     <p>同じ接続元から10分間に5回パスワードを間違えると、その接続元からは10分間ログインできなくなります。同じ Wi-Fi やテザリングを使っている人はまとめて止まるので、打ち間違いで巻き込まれた人がいるときは「ログイン制限を解除」を押してください。ログイン済みの端末には影響しません。</p>
   </details>
 
@@ -529,7 +534,7 @@
       (d.total >= d.target ? '　🎉 達成！' + yen(d.total - d.target) + 'の黒字（見込）' : '');
     if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
 
-    $('sessions').innerHTML = d.sessions.length ? '<table><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th></th></tr>' +
+    $('sessions').innerHTML = d.sessions.length ? '<table class="sessions"><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th><span class="visually-hidden">操作</span></th></tr>' +
       d.sessions.map(s => '<tr><td>' + ROLE[s.role] + '</td><td>' + esc(s.staff) + '</td><td>' + esc(s.device) + '</td>' +
         '<td class="t">' + fmt(s.created_at) + '</td><td class="t">' + fmt(s.last_seen) + '</td>' +
         '<td>' + (s.current ? '<span class="badge ok">この端末</span>' : '<button class="btn danger small" data-revoke="' + s.id + '">締め出す</button>') + '</td></tr>'
@@ -583,8 +588,8 @@
   function productCard(p) {
     const u = esc(p.unit || '本');
     return '<div class="pcard' + (p.active === false ? ' off' : '') + '" data-id="' + (p.id || '') + '">' +
-      '<div class="head"><input type="text" class="pname" maxlength="20" placeholder="商品名" value="' + esc(p.name || '') + '">' +
-      '単位 <input type="text" class="punit" maxlength="4" value="' + u + '">' +
+      '<div class="head"><input type="text" class="pname" maxlength="20" aria-label="商品名" placeholder="商品名" value="' + esc(p.name || '') + '">' +
+      '単位 <input type="text" class="punit" maxlength="4" aria-label="単位" value="' + u + '">' +
       (p.id ? '' : '<span class="dirty-badge">新しい商品</span>') + '</div>' +
       '<div class="sets">' + (p.sets || [{ qty: 1, price: '' }]).map(setRow).join('') + '</div>' +
       '<button class="btn sub small" data-act="addset">＋ セットを追加</button>' +
@@ -603,8 +608,8 @@
       '</div></div>';
   }
   function setRow(s) {
-    return '<div class="set-row"><input type="number" class="sq" inputmode="numeric" min="1" value="' + (s.qty ?? '') + '"><span class="su"></span>' +
-      '<input type="number" class="sp" inputmode="numeric" min="0" value="' + (s.price ?? '') + '">円' +
+    return '<div class="set-row"><input type="number" class="sq" inputmode="numeric" min="1" aria-label="セットの数" value="' + (s.qty ?? '') + '"><span class="su"></span>' +
+      '<input type="number" class="sp" inputmode="numeric" min="0" aria-label="セットの価格（円）" value="' + (s.price ?? '') + '">円' +
       '<button class="x" data-act="delset" aria-label="このセットを消す">×</button></div>';
   }
   function refreshUnits(card) {

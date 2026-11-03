@@ -2,12 +2,13 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>会計の一覧｜岡大グリー模擬店システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <style>
   /* 色・文字・見出し・カード・ボタン・トーストの共通部分は /app.css */
@@ -16,26 +17,26 @@
   .mini { display: flex; gap: 8px; text-align: center; }
   .mini > div { flex: 1; }
   .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .mini .k { font-size: 11px; color: var(--sub); }
-  .day { font-size: 13px; font-weight: 700; color: var(--sub); margin: 14px 4px 6px; }
-  .line { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px dashed var(--line); font-size: 14px; }
+  .mini .k { font-size: var(--mg-text-xs); color: var(--mg-text-sub); }
+  .day { font-size: 13px; font-weight: 700; color: var(--mg-text-sub); margin: 14px 4px 6px; }
+  .line { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px dashed var(--mg-border); font-size: 14px; }
   .line:first-child { border-top: none; }
-  .line .t { color: var(--sub); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .line .t { color: var(--mg-text-sub); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .line .d { flex: 1; min-width: 0; }
-  .line .d .s { color: var(--sub); font-size: 12px; }
+  .line .d .s { color: var(--mg-text-sub); font-size: 12px; }
   .nw { white-space: nowrap; }
   .line .a { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .line.cancelled .d, .line.cancelled .a { text-decoration: line-through; color: var(--sub); }
-  .line .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #fde2df; color: var(--red); margin-left: 4px; text-decoration: none; display: inline-block; }
-  .line button { background: #f1ebe2; border-radius: 6px; padding: 6px 9px; font-size: 12px; color: var(--ink); flex-shrink: 0; }
-  .more { display: block; width: 100%; margin-top: 4px; padding: 12px; border-radius: 10px; background: #f1ebe2; color: var(--brown); font-size: 15px; font-weight: 700; }
-  .empty { color: var(--sub); text-align: center; padding: 16px 0; }
+  .line.cancelled .d, .line.cancelled .a { text-decoration: line-through; color: var(--mg-text-sub); }
+  .line .tag { margin-left: 4px; text-decoration: none; background: var(--mg-error-bg); color: var(--mg-error); }
+  .line button { background: var(--mg-surface-sub); border-radius: var(--mg-radius-sm); padding: 6px 9px; font-size: 12px; color: var(--mg-text); flex-shrink: 0; }
+  .more { display: block; width: 100%; margin-top: 4px; padding: 12px; border-radius: var(--mg-radius-md); background: var(--mg-surface); border: 1px solid currentColor; color: var(--mg-primary); font-size: 15px; font-weight: 700; }
+  .empty { color: var(--mg-text-sub); text-align: center; padding: 16px 0; }
   .msg { text-align: center; padding: 40px 10px; }
   .msg .btn { margin-top: 14px; }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" role="main">
   <header class="app-header">
     <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>会計の一覧</h1><span class="app-sub"><span id="projName"></span><a href="/admin">← レジに戻る</a></span></div></div>
     <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
