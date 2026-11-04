@@ -149,7 +149,7 @@
   --mg-chart-grid: var(--mg-cream-400);
 
   /* 文字（DADS のタイポグラフィ。大きさは 12〜64px の段階から選ぶ） */
-  --mg-font: 'BIZ UDPGothic', var(--font-family-sans);   /* 読みやすさのため BIZ UDP ゴシックを優先（Google Fonts。読めなければ DADS の既定） */
+  --mg-font: var(--font-family-sans);
   --mg-text-xs: calc(12 / 16 * 1rem);   /* 最小。補足・タグ */
   --mg-text-sm: calc(14 / 16 * 1rem);   /* 業務画面の本文（Dense） */
   --mg-text-md: calc(16 / 16 * 1rem);   /* 本文（Standard）・ボタン・入力 */

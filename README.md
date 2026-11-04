@@ -68,7 +68,7 @@
 **そのほか**（模擬店システムと同じ）
 - ログイン中の端末の一覧と締め出し、パスワードの変更、ログイン制限の解除、操作の記録
 - 全画面に「?使い方」のヘルプ
-- フォントは BIZ UDPゴシック（読み込めなければ Noto Sans JP）。デザインのきまりは [docs/design-system.md](docs/design-system.md)
+- フォントは Noto Sans JP。デザインのきまりは [docs/design-system.md](docs/design-system.md)
 
 ## セキュリティのしくみ
 
