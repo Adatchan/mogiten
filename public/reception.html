@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>受付（取り置き）｜定演チケットシステム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/help.css">
+<style>
+  /* 色・文字・見出し・ボタン・ログイン・トーストの共通部分は /app.css */
+  :root { --strike: var(--mg-primary); }   /* 受け渡したときの打ち消し線 */
+
+  /* 上の帯 */
+  .bar { position: sticky; top: 0; z-index: 10; background: var(--mg-bg); border-bottom: 1px solid var(--mg-border); padding: 8px 12px; }
+  .bar .app-header { margin: 0; }
+  .bar .app-sub { font-size: 13px; overflow: visible; }
+  .bar .app-sub b { font-size: 18px; color: var(--mg-text); font-variant-numeric: tabular-nums; }
+  .bar-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .sp { flex: 1; }
+  .net { display: inline-flex; align-items: center; gap: 5px; font-size: var(--mg-text-xs); color: var(--mg-text-sub); white-space: nowrap; }
+  .net .dot { width: 9px; height: 9px; border-radius: var(--mg-radius-full); background: var(--mg-success); }
+  .net.off .dot { background: var(--mg-error); }
+  .net.off { color: var(--mg-error); font-weight: 700; }
+  .net.wait .dot { background: var(--mg-caution); }
+  .net.wait { color: var(--mg-warning-text); font-weight: 700; }
+  .tool { min-height: 32px; background: var(--mg-surface); border: 1px solid var(--mg-border-field); color: var(--mg-text); border-radius: var(--mg-radius-full); padding: 6px 12px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .tool[aria-pressed="true"] { background: var(--mg-text); color: var(--mg-text-on-fill); border-color: var(--mg-text); }
+
+  /* 検索 */
+  .search { display: flex; gap: 6px; margin-top: 8px; }
+  .search input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 18px; border: 2px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); }
+  .search input:focus { border-color: var(--mg-primary); }
+  .search button { min-width: 44px; background: var(--mg-surface-sub); border-radius: var(--mg-radius-md); font-size: 15px; font-weight: 700; color: var(--mg-text); padding: 0 12px; }
+
+  /* まだ渡していない分の合計 */
+  .todo { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .todo .chip { background: var(--mg-accent-bg); border: 2px solid var(--mg-accent); border-radius: var(--mg-radius-md); padding: 3px 10px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .todo .chip b { font-size: 18px; font-variant-numeric: tabular-nums; margin-left: 4px; }
+  .todo .chip.money { background: var(--mg-warning-bg); border-color: var(--mg-warning-border); }
+  .todo .chip.ok { background: var(--mg-success-bg); border-color: var(--mg-success-border); }
+  .todo .none { color: var(--mg-text-sub); font-size: 14px; padding: 4px 0; }
+
+  /* 取り置きのカード */
+  .list { align-items: start; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; padding: 12px 12px 120px; }
+  .resv { position: relative; background: var(--mg-surface); border: 2px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 10px 12px 8px;
+          touch-action: pan-y; user-select: none; -webkit-user-select: none; transition: transform .2s, opacity .2s, border-color .2s; cursor: pointer; }
+  .resv.dragging { transition: none; }
+  .resv.unpaid { border-color: var(--mg-warning-border); }
+  .rh { display: flex; align-items: baseline; gap: 8px; }
+  .rh .no { font-size: 15px; font-weight: 700; color: var(--mg-text-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rh .nm { font-size: 24px; font-weight: 700; line-height: 1.25; min-width: 0; word-break: break-all; }
+  .kana { font-size: var(--mg-text-xs); color: var(--mg-text-sub); margin-top: 1px; }
+  .tl { list-style: none; margin: 6px 0 4px; padding: 0; }
+  .tl li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 2px 0; font-size: 20px; font-weight: 700; }
+  .tl .q { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* 打ち消し線：「受け渡し済み」にすると左から引かれていく */
+  .t { background: linear-gradient(var(--strike), var(--strike)) no-repeat 0 52% / 0% 3px; transition: background-size .35s ease-out; }
+  .handed .t { background-size: 100% 3px; }
+  .pay { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-radius: var(--mg-radius-md); padding: 4px 8px; margin: 4px 0; font-weight: 700; }
+  .pay.paid { background: var(--mg-success-bg); color: var(--mg-success-text); font-size: 14px; }
+  .pay.due { background: var(--mg-warning-bg-strong); color: var(--mg-warning-text); font-size: 15px; }
+  .pay.due b { font-size: 24px; font-variant-numeric: tabular-nums; }
+  .pay.free { background: var(--mg-surface-sub); color: var(--mg-text-sub); font-size: 14px; }
+  .note { font-size: 14px; background: var(--mg-info-bg); color: var(--mg-info-text); border-radius: var(--mg-radius-sm); padding: 3px 8px; margin: 4px 0; white-space: pre-wrap; word-break: break-all; }
+  .handed { background: var(--mg-surface-done); border-color: var(--mg-border) !important; }
+  .handed .tl li, .handed .rh .nm { color: var(--mg-text-sub); }
+  .handed .pay { opacity: .6; }
+  .rstate { font-size: var(--mg-text-xs); color: var(--mg-text-sub); border-top: 1px dashed var(--mg-border); padding-top: 6px; margin-top: 4px; }
+  .handed .rstate { color: var(--mg-success); font-weight: 700; }
+  .resv.syncing .rstate::after { content: '（送信待ち）'; color: var(--mg-warning-text); font-weight: 700; }
+  /* スワイプ中のヒント：線の手前までは薄く、指を離せば決まるところまで来たら不透明になる */
+  .resv .hint { position: absolute; inset: 0; z-index: 2; border-radius: var(--mg-radius-md); display: flex; align-items: center; justify-content: center; text-align: center;
+                font-size: 24px; font-weight: 700; color: var(--mg-text-on-fill); opacity: 0; pointer-events: none; padding: 8px; }
+  .resv .hint.ok { background: var(--mg-success); }
+  .resv .hint.back { background: var(--mg-text-sub); }
+  .empty { text-align: center; color: var(--mg-text-sub); padding: 40px 12px; grid-column: 1 / -1; }
+  mark { background: var(--mg-caution-bg, #fff1a8); color: inherit; border-radius: 2px; }
+
+  /* トースト（「元に戻す」ボタンつき） */
+  .toast { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 18px; max-width: calc(100vw - 24px); }
+  #toastMsg { min-width: 0; }
+  .toast button { background: var(--mg-surface); color: var(--mg-text); border-radius: var(--mg-radius-sm); padding: 8px 12px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .failed { margin: 8px 12px 0; background: var(--mg-error-bg); border: 1px solid var(--mg-error-border); border-radius: var(--mg-radius-md); padding: 8px 12px; font-size: 13px; color: var(--mg-error-text); }
+  .failed button { margin-left: 8px; background: var(--mg-surface); border: 1px solid currentColor; color: inherit; border-radius: var(--mg-radius-sm); padding: 3px 8px; font-size: 12px; }
+  @media (prefers-reduced-motion: reduce) { .t, .resv { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="login" class="card login-card hidden" role="main">
+  <span class="app-mark" aria-hidden="true"></span>
+  <div class="login-system">定演チケットシステム</div>
+  <h2>受付（取り置き）</h2>
+  <p class="login-lead">レジと同じパスワードでログインします</p>
+  <input id="staffName" type="text" autocomplete="name" maxlength="30" aria-label="名前" placeholder="名前（例: 受付1）">
+  <input id="pw" type="password" autocomplete="current-password" aria-label="レジ用パスワード" placeholder="レジ用パスワード">
+  <button class="btn big block login-go" id="loginBtn">ログイン</button>
+  <div class="login-note">ログインは3日間有効です</div>
+  <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
+</div>
+
+<div id="app" class="hidden" role="main">
+  <div class="bar">
+    <header class="app-header">
+      <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>受付（取り置き）</h1><span class="app-sub"><span id="projName"></span>まだ <b id="nTodo">0</b> 件</span></div></div>
+      <nav class="screen-links" aria-label="ほかの画面"><a href="/admin" target="_blank">レジ ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
+      <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
+    </header>
+    <div class="search">
+      <input id="q" type="search" inputmode="search" autocomplete="off" aria-label="名前・フリガナ・番号で探す" placeholder="🔍 名前・フリガナ・番号で探す">
+      <button id="qClear" class="hidden" aria-label="検索をやめる">✕</button>
+    </div>
+    <div class="bar-tools">
+      <span class="net" id="net"><span class="dot"></span><span id="netText">確認中…</span></span>
+      <span class="sp"></span>
+      <button class="tool" id="sortBtn">番号順</button>
+      <button class="tool" id="hideBtn" aria-pressed="false">渡したものを隠す</button>
+    </div>
+    <div class="todo" id="todo"></div>
+  </div>
+  <div class="failed hidden" id="failedBox"></div>
+  <div class="list" id="list"></div>
+</div>
+
+<dialog id="help-dialog" aria-label="ヘルプ">
+  <div class="help-head">
+    <h2>受付（取り置き）の使い方</h2>
+    <button class="help-close" type="button">閉じる</button>
+  </div>
+
+  <h3 class="help-group">はじめに</h3>
+
+  <details open>
+    <summary>この画面は？</summary>
+    <p>事前に受け付けた<b>取り置き</b>が、1件ずつカードで並ぶ画面です。管理画面で取り置きの一覧（CSV）を取り込むと、ここに出てきます。お客さんが来たら名前でカードを探し、チケットを渡したら<b>右へスワイプ</b>（またはタップ）して「受け渡し済み」にします。</p>
+    <p>当日券の販売は、この画面ではなく<b>レジ</b>（<code>/admin</code>）で行います。</p>
+  </details>
+
+  <details>
+    <summary>ログインのしかたは？</summary>
+    <p>名前（例：「受付1」や自分の名前）と、<b>レジと同じパスワード</b>を入れて「ログイン」を押します。ログインは3日間有効です。名前は「誰が渡したか」として記録されます。</p>
+  </details>
+
+  <h3 class="help-group">受け渡しのしかた</h3>
+
+  <details>
+    <summary>お客さんを探すには？</summary>
+    <p>上の欄に、名前・フリガナ・番号のどれかを入れると、合うカードだけが出ます。ひらがなとカタカナ、空白のあるなしは区別しません（「おかだい」で「オカダイ タロウ」も出ます）。「✕」で検索をやめます。</p>
+    <p>「番号順」「名前順」のボタンで並び順を切り替えられます（名前順はフリガナの五十音順）。</p>
+  </details>
+
+  <details>
+    <summary>カードの見かたは？</summary>
+    <ul>
+      <li><b>#12</b>：取り置きの番号</li>
+      <li><b>名前とフリガナ</b></li>
+      <li><b>一般 ×2</b>：渡すチケットの券種と枚数</li>
+      <li><b>オレンジの「当日 ¥2,000 受け取る」</b>：まだ代金をもらっていない取り置きです。<b>代金を受け取ってから</b>チケットを渡してください</li>
+      <li><b>緑の「支払済み」</b>：代金はもらってあるので、チケットを渡すだけです</li>
+      <li><b>青い枠</b>：備考（申し込みのときの連絡事項など）</li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>渡したら（受け渡し済みにする）</summary>
+    <p>そのカードを<b>右へスワイプ</b>します。カードが緑色になって「離すと受け渡し済み」と出たところで指を離してください（途中で離すと何も変わりません）。カードを<b>タップ</b>しても同じです。</p>
+    <p>受け渡し済みにすると打ち消し線が引かれ、時刻と名前が記録されます。ほかの受付の端末にも数秒で反映され、レジの「取り置き」の数字と、当日精算で受け取った額にも入ります。</p>
+  </details>
+
+  <details>
+    <summary>間違えて受け渡し済みにした</summary>
+    <p>もう一度タップするか、<b>左へスワイプ</b>すると元に戻ります。直後なら、画面下に出る「元に戻す」を押しても戻せます。戻したことは操作の記録に残ります。</p>
+  </details>
+
+  <details>
+    <summary>渡したカードが多くて見づらい</summary>
+    <p>上の「渡したものを隠す」を押すと、受け渡し済みのカードを隠します。もう一度押すと表示に戻ります（この端末だけの設定です）。</p>
+  </details>
+
+  <h3 class="help-group">そのほか</h3>
+
+  <details>
+    <summary>上の色つきの枠（まだ渡していない分）は？</summary>
+    <p>「まだ ○件」は、まだ受け渡し済みにしていない取り置きの件数です。ピンクの枠は券種ごとの残りの枚数、オレンジの枠は<b>まだ受け取っていない当日精算の合計</b>、緑の枠は受け取った額の合計です（受付の現金の確認に使えます）。</p>
+  </details>
+
+  <details>
+    <summary>電波がないとき（「通信できません」と出た）</summary>
+    <p>そのまま受け渡しを続けられます。最後に読み込んだ一覧で表示し、受け渡し済みにした操作は<b>この端末に保存</b>され、カードに「送信待ち」と出ます。電波が戻ると自動で送信されます。</p>
+    <p>ただし、電波がない間はほかの受付の端末で渡したことがわかりません。受付が複数あるときは、電波のある場所で使うか、声をかけ合ってください。</p>
+  </details>
+
+  <details>
+    <summary>名前が見つからない／内容が違う</summary>
+    <p>この画面には、管理画面で取り込んだ取り置きだけが出ます。見つからないときは別の書き方（旧字体・フリガナ・番号）で探し、それでもなければ責任者に確認してください。そのまま当日券として買ってもらう場合は、レジで会計します。</p>
+    <p>取り置きの内容（枚数など）を直すのは管理画面の担当者です。直した CSV を取り込み直すと、受け渡しの記録はそのままで、この画面の内容が変わります。</p>
+  </details>
+</dialog>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastBtn" class="hidden">元に戻す</button></div>
+
+<script type="module">
+  import { describeTickets } from '/pricing.js';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
+  const POLL_MS = 3000;
+  const STAFF_KEY = 'teien_reception_staff';
+  const HIDE_KEY = 'teien_reception_hide';
+  const SORT_KEY = 'teien_reception_sort';
+  const DATA_KEY = 'teien_reception_data_v1';   // 最後に受け取った一覧（電波がないときに表示する）
+  const OPS_KEY = 'teien_reception_ops_v1';     // まだ送れていない受け渡しの操作 { 取り置きID: { handed, at, label } }
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    json(k, def) { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } },
+  };
+
+  let data = store.json(DATA_KEY, null);    // サーバーから受け取った最新の一覧
+  let ops = store.json(OPS_KEY, {});         // 送信待ちの「受け渡し済み／戻す」
+  let failed = [];                           // サーバーに受け付けられなかった操作
+  let hideDone = store.get(HIDE_KEY) === '1';
+  let sortBy = store.get(SORT_KEY) || 'no';  // 'no' 番号順 / 'kana' 名前順
+  let netOk = true;
+  const saveOps = () => store.set(OPS_KEY, JSON.stringify(ops));
+
+  // ---------- 通信 ----------
+  async function api(path, body) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 10000);
+    let res;
+    try {
+      res = await fetch('/api/admin/' + path, {
+        method: body ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+        cache: 'no-store', credentials: 'same-origin', signal: ctl.signal,
+      });
+    } catch (e) {
+      setNet(false);
+      throw Object.assign(new Error('通信できません'), { network: true });
+    } finally { clearTimeout(timer); }
+    setNet(true);
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 401 && path !== 'login') {
+      // ログインが切れた：保存していた一覧（お客さんの名前）は消す。送信待ちの操作は残し、ログインし直したら送る
+      data = null;
+      try { localStorage.removeItem(DATA_KEY); } catch {}
+      showLogin();
+    }
+    if (!res.ok) throw Object.assign(new Error(d.error || ('通信エラー ' + res.status)), { status: res.status });
+    return d;
+  }
+
+  let lastOk = null;
+  const hms = (d, sec) => d.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', ...(sec ? { second: '2-digit' } : {}) });
+  function setNet(ok) {
+    netOk = ok;
+    if (ok) lastOk = new Date();
+    renderNet();
+  }
+  function renderNet() {
+    const n = Object.keys(ops).length;
+    $('net').className = 'net' + (netOk ? (n ? ' wait' : '') : ' off');
+    $('netText').textContent = (netOk
+      ? (lastOk ? '更新 ' + hms(lastOk, true) : '確認中…')
+      : '通信できません' + (lastOk ? '（' + hms(lastOk) + ' の表示）' : data ? '（保存した一覧を表示）' : ''))
+      + (n ? '・送信待ち ' + n + ' 件' : '');
+    $('failedBox').classList.toggle('hidden', !failed.length);
+    $('failedBox').innerHTML = failed.length ? '⚠ 送れなかった操作があります：' + failed.map(f => esc(f.label) + '（' + esc(f.error) + '）').join('、') +
+      '<button id="failedOk">閉じる</button>' : '';
+  }
+  $('failedBox').addEventListener('click', e => { if (e.target.id === 'failedOk') { failed = []; renderNet(); } });
+
+  let toastTimer;
+  function toast(msg, opts = {}) {
+    $('toastMsg').textContent = msg;
+    $('toast').className = 'toast show' + (opts.err ? ' err' : '');
+    $('toastBtn').classList.toggle('hidden', !opts.undo);
+    $('toastBtn').onclick = () => { hideToast(); opts.undo && opts.undo(); };
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, opts.undo ? 5000 : 2500);
+  }
+  function hideToast() { $('toast').className = 'toast'; }
+
+  // ---------- ログイン ----------
+  function showLogin() {
+    $('app').classList.add('hidden');
+    $('login').classList.remove('hidden');
+  }
+  function showApp() {
+    $('login').classList.add('hidden');
+    $('app').classList.remove('hidden');
+  }
+  $('staffName').value = store.get(STAFF_KEY) || '';
+  async function submitLogin() {
+    const name = $('staffName').value.trim();
+    if (!name) { toast('名前を入力してください', { err: true }); return; }
+    try {
+      await api('login', { staff: name, password: $('pw').value, screen: 'reception' });
+      store.set(STAFF_KEY, name);
+      $('pw').value = '';
+      showApp();
+      poll(true);
+      flush();
+    } catch (e) { toast(e.message, { err: true }); }
+  }
+  $('loginBtn').onclick = submitLogin;
+  $('pw').onkeydown = e => { if (e.key === 'Enter') submitLogin(); };
+  $('staffName').onkeydown = e => { if (e.key === 'Enter') $('pw').focus(); };
+
+  // ---------- 取得 ----------
+  let polling = false;
+  async function poll(force) {
+    if (polling) return;
+    polling = true;
+    try {
+      // 変化がないか確かめるための印（公演・版）。どちらかが変わっていれば全件が返ってくる
+      const q = data && !force ? '?project=' + data.project.id + '&rev=' + data.rev : '';
+      const d = await api('reservations' + q);
+      showApp();
+      if (!d.same) {
+        const switched = data && data.project.id !== d.project.id;
+        data = d;
+        store.set(DATA_KEY, JSON.stringify(d));
+        if (switched) toast('公演が「' + d.project.name + '」に切り替わりました');
+        render();
+      }
+    } catch (e) {
+      if (e.status === 401) return;
+      if (e.network) { if (data) { showApp(); render(); } else { showApp(); $('list').innerHTML = '<div class="empty">通信できません。電波を確認してください（自動でやり直します）</div>'; } }
+      else if (!data) toast(e.message, { err: true });
+    } finally { polling = false; }
+  }
+
+  // ---------- 表示 ----------
+  const isHanded = r => (r.id in ops ? ops[r.id].handed : !!r.handedAt);
+  // 検索用に文字をそろえる（全角・半角、ひらがな→カタカナ、空白を除く）
+  const norm = s => String(s || '').normalize('NFKC').replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60)).replace(/[\s・･]/g, '').toLowerCase();
+  const byNo = (a, b) => String(a.no).localeCompare(String(b.no), 'ja', { numeric: true });
+  const byKana = (a, b) => norm(a.kana || a.name).localeCompare(norm(b.kana || b.name), 'ja') || byNo(a, b);
+
+  /** 検索語にあたる部分に印を付ける（名前とフリガナ） */
+  function hl(text, q) {
+    if (!q) return esc(text);
+    const t = String(text);
+    // そろえた文字の位置ともとの文字の位置を対応づける
+    const map = [];
+    let n = '';
+    for (let i = 0; i < t.length; i++) {
+      const c = norm(t[i]);
+      for (let k = 0; k < c.length; k++) map.push(i);
+      n += c;
+    }
+    const at = n.indexOf(q);
+    if (at < 0) return esc(t);
+    const s = map[at], e = map[at + q.length - 1] + 1;
+    return esc(t.slice(0, s)) + '<mark>' + esc(t.slice(s, e)) + '</mark>' + esc(t.slice(e));
+  }
+
+  let renderLater = false;
+  function render() {
+    if (!data) return;
+    $('projName').textContent = data.project.name + '・';
+    if (drag && drag.active) { renderLater = true; return; }   // スワイプ中は描き直さない
+    const all = data.reservations || [];
+
+    // まだ渡していない分の合計（券種の並び順）
+    const todo = all.filter(r => !isHanded(r));
+    $('nTodo').textContent = todo.length;
+    const sums = new Map();
+    for (const r of todo) for (const t of r.tickets) {
+      const k = t.productId || t.name;
+      const g = sums.get(k) || { ...t, qty: 0 };
+      g.qty += t.qty;
+      sums.set(k, g);
+    }
+    const idx = t => { const i = (data.products || []).findIndex(p => p.id === t.productId); return i < 0 ? 999 : i; };
+    const due = todo.reduce((a, r) => a + r.due, 0);
+    const got = all.filter(isHanded).reduce((a, r) => a + r.due, 0);
+    $('todo').innerHTML = all.length
+      ? [...sums.values()].sort((a, b) => idx(a) - idx(b)).map(t => '<span class="chip">' + esc(t.name) + '<b>' + t.qty + '</b>' + esc(t.unit || '枚') + '</span>').join('') +
+        (due ? '<span class="chip money">未収<b>' + yen(due) + '</b></span>' : '') +
+        (got ? '<span class="chip ok">受取済<b>' + yen(got) + '</b></span>' : '') +
+        (todo.length ? '' : '<span class="none">すべて渡しました 🎉</span>')
+      : '<span class="none">取り置きはまだありません（管理画面で CSV を取り込みます）</span>';
+
+    const q = norm($('q').value);
+    let shown = all.filter(r => !q || norm(r.name).includes(q) || norm(r.kana).includes(q) || norm(r.no) === q || norm('#' + r.no) === q || norm(r.no).startsWith(q));
+    const matched = shown.length;
+    if (hideDone && !q) shown = shown.filter(r => !isHanded(r));   // 検索中は渡したものも出す（二重に渡さないため）
+    shown.sort(sortBy === 'kana' ? byKana : byNo);
+    $('list').innerHTML = shown.length ? shown.map(r => card(r, q)).join('')
+      : '<div class="empty">' + (q ? '「' + esc($('q').value) + '」に合う取り置きはありません' : matched ? 'まだ渡していない取り置きはありません' : '取り置きはありません') + '</div>';
+  }
+
+  function card(r, q) {
+    const handed = isHanded(r);
+    const pending = r.id in ops;
+    const cls = ['resv'];
+    if (handed) cls.push('handed');
+    else if (r.due > 0) cls.push('unpaid');
+    if (pending) cls.push('syncing');
+    const pay = r.paid ? '<div class="pay paid"><span>✓ 支払済み</span></div>'
+      : r.due > 0 ? '<div class="pay due"><span>当日 受け取る</span><b>' + yen(r.due) + '</b></div>'
+      : '<div class="pay free"><span>代金なし</span></div>';
+    const at = pending ? ops[r.id].at : r.handedAt;
+    const state = handed ? '✓ 受け渡し済み' + (at ? ' ' + hms(new Date(at)) : '') + (r.handedBy && !pending ? '（' + esc(r.handedBy) + '）' : '') + '・タップで戻す'
+      : 'タップ／右へスワイプで「受け渡し済み」';
+    return '<div class="' + cls.join(' ') + '" data-id="' + r.id + '" role="button" tabindex="0" aria-pressed="' + handed + '" aria-label="' + esc('#' + r.no + ' ' + r.name + ' ' + describeTickets(r.tickets)) + '">' +
+      '<div class="hint ok">✓ 離すと<br>受け渡し済み</div><div class="hint back">↩ 離すと戻す</div>' +
+      '<div class="rh"><span class="no">#' + hl(r.no, q && norm(r.no).startsWith(q) ? q : '') + '</span><span class="nm"><span class="t">' + hl(r.name, q) + '</span></span></div>' +
+      (r.kana ? '<div class="kana">' + hl(r.kana, q) + '</div>' : '') +
+      '<ul class="tl">' + r.tickets.map(t => '<li><span class="t">' + esc(t.name) + '</span><span class="q t">×' + t.qty + '</span></li>').join('') + '</ul>' +
+      pay + (r.note ? '<div class="note">' + esc(r.note) + '</div>' : '') +
+      '<div class="rstate">' + state + '</div></div>';
+  }
+
+  // ---------- 受け渡し済みにする／戻す ----------
+  function setHanded(id, handed, { withUndo = true } = {}) {
+    const r = data && data.reservations.find(x => x.id === id);
+    if (!r || isHanded(r) === handed) return;
+    const label = '#' + r.no + ' ' + r.name;
+    if (!handed && !(id in ops) && !confirm(label + ' さんの受け渡しを取り消しますか？')) return;
+    // まず端末に保存してから送る（電波がなくても止めない）
+    if (!!r.handedAt === handed) delete ops[id];   // 送る前に元に戻した：送らなくてよい
+    else ops[id] = { handed, at: new Date().toISOString(), label, offline: !netOk };
+    saveOps();
+    render();
+    renderNet();
+    if (withUndo) {
+      const money = handed && r.due > 0 ? '（' + yen(r.due) + ' 受け取り）' : '';
+      toast(label + (handed ? ' さんに渡しました' + money : ' さんを未に戻しました'), { undo: () => setHanded(id, !handed, { withUndo: false }) });
+    }
+    flush();
+  }
+
+  /** 送信待ちの操作を送る。電波がなければ途中でやめて、あとで再試行 */
+  let flushing = false;
+  async function flush() {
+    if (flushing || $('app').classList.contains('hidden')) return;
+    flushing = true;
+    try {
+      for (const id of Object.keys(ops)) {
+        const op = ops[id];
+        try {
+          await api('reservations/handed', { id: Number(id), handed: op.handed, at: op.at, offline: op.offline });
+          const r = data && data.reservations.find(x => x.id === Number(id));
+          if (r) { r.handedAt = op.handed ? (r.handedAt || op.at) : null; if (op.handed) r.handedBy = store.get(STAFF_KEY) || ''; }
+          if (ops[id] === op) delete ops[id];   // 送っている間にまた変えていなければ消す
+        } catch (e) {
+          if (e.network || e.status === 401 || e.status === 429 || e.status >= 500) break;   // あとで再試行
+          failed.push({ label: op.label, error: e.message });
+          delete ops[id];
+        }
+        saveOps();
+      }
+    } finally {
+      flushing = false;
+      renderNet();
+      render();
+    }
+  }
+
+  // タップ（クリック）とスワイプ
+  const SWIPE = 70;
+  let drag = null;
+  let noClickUntil = 0;
+  $('list').addEventListener('pointerdown', e => {
+    const el = e.target.closest('.resv');
+    if (!el || e.button > 0) return;
+    drag = { el, id: Number(el.dataset.id), x: e.clientX, y: e.clientY, dx: 0, active: false, pointer: e.pointerId };
+  });
+  $('list').addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.pointer) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.active) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { drag = null; return; }   // 縦のスクロール
+      if (Math.abs(dx) < 12) return;
+      drag.active = true;
+      drag.el.classList.add('dragging');
+      try { drag.el.setPointerCapture(e.pointerId); } catch {}
+    }
+    drag.dx = dx;
+    drag.el.style.transform = 'translateX(' + dx + 'px)';
+    const k = Math.abs(dx) >= SWIPE ? 1 : Math.min(0.6, Math.abs(dx) / SWIPE * 0.6);
+    drag.el.querySelector('.hint.ok').style.opacity = dx > 0 ? k : 0;
+    drag.el.querySelector('.hint.back').style.opacity = dx < 0 ? k : 0;
+  });
+  function endDrag(e) {
+    if (!drag || (e && e.pointerId !== drag.pointer)) return;
+    const d = drag;
+    drag = null;
+    if (!d.active) return;
+    if (renderLater) { renderLater = false; setTimeout(render, 450); }
+    d.el.classList.remove('dragging');
+    d.el.style.transform = '';
+    d.el.querySelectorAll('.hint').forEach(h => h.style.opacity = 0);
+    noClickUntil = Date.now() + 400;   // スワイプのあとに来る click を無視する
+    if (d.dx > SWIPE) setHanded(d.id, true);
+    else if (d.dx < -SWIPE) setHanded(d.id, false);
+  }
+  $('list').addEventListener('pointerup', endDrag);
+  $('list').addEventListener('pointercancel', endDrag);
+  $('list').addEventListener('click', e => {
+    const el = e.target.closest('.resv');
+    if (!el || Date.now() < noClickUntil) return;
+    const r = data.reservations.find(x => x.id === Number(el.dataset.id));
+    if (r) setHanded(r.id, !isHanded(r));
+  });
+  $('list').addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('resv')) { e.preventDefault(); e.target.click(); }
+  });
+
+  // ---------- 検索・並び順・表示の切り替え ----------
+  $('q').addEventListener('input', () => { $('qClear').classList.toggle('hidden', !$('q').value); render(); window.scrollTo(0, 0); });
+  $('q').addEventListener('keydown', e => { if (e.key === 'Enter') $('q').blur(); });
+  $('qClear').onclick = () => { $('q').value = ''; $('qClear').classList.add('hidden'); render(); };
+  function renderTools() {
+    $('hideBtn').setAttribute('aria-pressed', hideDone);
+    $('sortBtn').textContent = sortBy === 'kana' ? '名前順（五十音）' : '番号順';
+  }
+  $('hideBtn').onclick = () => { hideDone = !hideDone; store.set(HIDE_KEY, hideDone ? '1' : '0'); renderTools(); render(); };
+  $('sortBtn').onclick = () => { sortBy = sortBy === 'kana' ? 'no' : 'kana'; store.set(SORT_KEY, sortBy); renderTools(); render(); };
+
+  // 別のタブで操作されたとき
+  window.addEventListener('storage', e => { if (e.key === OPS_KEY) { ops = store.json(OPS_KEY, {}); render(); renderNet(); } });
+  window.addEventListener('online', () => { poll(); flush(); });
+
+  // 電波がなくても画面を開けるように（レジと同じ Service Worker）
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+  renderTools();
+  renderNet();
+  if (data) { showApp(); render(); }   // まず保存してある一覧を出し、すぐに最新を取りに行く
+  poll(true);
+  setInterval(() => { if (!document.hidden && !$('app').classList.contains('hidden')) { poll(); if (Object.keys(ops).length) flush(); } }, POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { poll(); flush(); } });
+</script>
+<script src="/help.js"></script>
+</body>
+</html>

@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>会計の一覧｜岡大グリー模擬店システム</title>
+<title>当日券の会計の一覧｜定演チケットシステム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <style>
@@ -38,8 +38,8 @@
 <body>
 <div class="wrap" role="main">
   <header class="app-header">
-    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>会計の一覧</h1><span class="app-sub"><span id="projName"></span><a href="/admin">← レジに戻る</a></span></div></div>
-    <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
+    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>当日券の会計の一覧</h1><span class="app-sub"><span id="projName"></span><a href="/admin">← レジに戻る</a></span></div></div>
+    <nav class="screen-links" aria-label="ほかの画面"><a href="/admin" target="_blank">レジ ↗</a><a href="/reception" target="_blank">受付 ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
   </header>
 
   <div id="needLogin" class="card msg hidden">
@@ -113,11 +113,10 @@
       });
       $('list').innerHTML = groups.map(g => '<div class="day">' + g.day + '</div><section class="card">' + g.items.map(r => {
         const desc = esc(r.desc);
-        const fee = r.container ? '＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') : '';
         return '<div class="line' + (r.cancelled ? ' cancelled' : '') + '">' +
           '<span class="t">' + timeLabel(r.created_at) + '</span>' +
           '<span class="d">' + desc + (r.cancelled ? '<span class="tag">取消</span>' : '') +
-            '<br><span class="s">' + ['#' + (r.order_no ?? r.id), fee, r.payment, r.staff ? '担当 ' + esc(r.staff) : ''].filter(Boolean).map(x => '<span class="nw">' + x + '</span>').join('　') + '</span></span>' +
+            '<br><span class="s">' + ['#' + r.order_no, esc(r.payment), r.staff ? '担当 ' + esc(r.staff) : ''].filter(Boolean).map(x => '<span class="nw">' + x + '</span>').join('　') + '</span></span>' +
           '<span class="a">' + yen(r.amount) + '</span>' +
           '<button data-cancel="' + r.id + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
       }).join('') + '</section>').join('');

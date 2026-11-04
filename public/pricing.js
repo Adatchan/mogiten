@@ -1,26 +1,19 @@
 /**
- * 料金計算（レジ画面とサーバーで共通）。商品は催しごとに管理画面で登録する（初期の商品はない）
+ * 料金計算（レジ画面とサーバーで共通）。券種は公演ごとに管理画面で登録する（初期の券種はない）
  *
- * 商品（product）の形:
- *   { id, name, unit: '本', sets: [{ qty: 1, price: 150 }, { qty: 3, price: 400 }, ...],
- *     container: true/false（容器代の対象か）, active: true/false,
- *     bundleWith: null または 商品ID（その商品のセットに含めて、本数を合わせてセットを組む）,
- *     flavors: ['みたらし', 'あんこ', ...]（味。空なら味を選ばずに数だけ入れる。料金には関係しない） }
+ * 券種（product）の形:
+ *   { id, name, unit: '枚', sets: [{ qty: 1, price: 1000 }, { qty: 2, price: 1800 }, ...],
+ *     active: true/false（レジで販売中か）,
+ *     bundleWith: null または 券種ID（その券種のセット価格に含めて、枚数を合わせてセットを組む） }
  *
- * 容器代のルール（rule）: enabled = false なら容器代を取らない（いつも 0 円）
- *   { freeUpTo: 2, per: 4, fee: 10, maxCount: 1 }
- *   → 容器代の対象の合計が freeUpTo 以下なら 0円、それより多ければ per 個ごとに 1 個（fee 円）。
- *     容器の数は maxCount 個まで（0 = 上限なし）
- *     （初期値: 1〜2本 0円 / 3本以上は何本でも 1 個 10円）
+ * sets は「数量ごとの価格」。1枚の価格は必須で、2枚以上の価格（例: ペア券 2枚 1,800円）を登録すると、
+ * 枚数を入れるだけでお客さんに一番有利な組み方を自動で選ぶ。
  */
 
-export const DEFAULT_RULE = { enabled: true, freeUpTo: 2, per: 4, fee: 10, maxCount: 1 };
-
-
-export const MAX_QTY = 200;   // 1会計・1商品あたりの上限
+export const MAX_QTY = 200;   // 1会計・1券種あたりの上限
 
 /**
- * 支払方法の候補（管理画面で催しごとに選ぶ。候補にないものも名前を入れて追加できる）。
+ * 支払方法の候補（管理画面で公演ごとに選ぶ。候補にないものも名前を入れて追加できる）。
  * 「現金」だけはレジでお預かり金額とおつりを入れる。color はレジのボタンの色（現金は app.css の --mg-pay-cash と同じ。ほかは各社の色）
  */
 export const PAYMENT_PRESETS = [
@@ -33,7 +26,7 @@ export const PAYMENT_PRESETS = [
   { name: '交通系IC', color: '#2f6db5' },
   { name: 'クレジットカード', color: '#3d4a8a' },
 ];
-export const DEFAULT_PAYMENTS = ['現金', 'PayPay', 'd払い'];   // これまでの催しと、新しい催しの初期値
+export const DEFAULT_PAYMENTS = ['現金'];   // 新しい公演の初期値（当日券は現金だけのことが多い）
 export const MAX_PAYMENTS = 8;
 export const isCashPayment = (name) => name === '現金';
 
@@ -47,16 +40,8 @@ export function paymentColor(name) {
   return palette[h % palette.length];
 }
 
-export function containerFee(rule, n) {
-  if (rule.enabled === false) return 0;   // この催しでは容器代を取らない
-  if (!(n > 0) || n <= rule.freeUpTo) return 0;
-  let count = Math.ceil(n / rule.per);
-  if (rule.maxCount > 0) count = Math.min(count, rule.maxCount);   // 容器の数の上限
-  return count * rule.fee;
-}
-
 /**
- * qty 個ちょうどで一番安くなるセットの組み合わせ（お客さんに有利な組み方）。
+ * qty 枚ちょうどで一番安くなるセットの組み合わせ（お客さんに有利な組み方）。
  * 同じ金額なら、セットの数が少ない（大きいセットを使う）ほうを選ぶ。
  * 戻り値: { cost, packs: [{ qty, price, count }]（大きいセットから順） }
  */
@@ -70,7 +55,7 @@ export function bestBundle(sets, qty) {
       const cand = { cost: prev.cost + s.price, n: prev.n + 1, k, prev };
       if (!b || cand.cost < b.cost || (cand.cost === b.cost && cand.n < b.n)) b = cand;
     });
-    if (!b) { best[i] = null; continue; }   // 作れない個数（1個単位のセットがないとき）
+    if (!b) { best[i] = null; continue; }   // 作れない枚数（1枚単位の価格がないとき）
     const counts = b.prev.counts.slice();
     counts[b.k]++;
     best[i] = { cost: b.cost, n: b.n, counts };
@@ -85,12 +70,12 @@ export function bestBundle(sets, qty) {
   };
 }
 
-/** セット価格（2個以上の価格）がある商品か */
+/** セット価格（2枚以上の価格）がある券種か */
 export const hasSetPrice = (p) => (p.sets || []).some((s) => s.qty > 1);
 
 /**
  * 「○○のセットに含める」の相手（リストにあるときだけ）。
- * 相手にセット価格がない（1個の価格しかない）場合は、まとめても意味がないので単独で売る。
+ * 相手にセット価格がない（1枚の価格しかない）場合は、まとめても意味がないので単独で売る。
  */
 function leaderOf(products, p) {
   if (!p.bundleWith) return null;
@@ -99,17 +84,17 @@ function leaderOf(products, p) {
 }
 
 /**
- * カート（{ 商品ID: 個数 }）の金額を計算する。
- * 「○○のセットに含める」商品は、相手の商品と本数を合わせて、相手のセットで組む。
- * 戻り値: { lines: [{ product, qty, packs, subtotal, members: [{ product, qty }] }], goods, containerUnits, fee, total, units }
- *   product はセットを決める商品（グループの代表）、qty はグループ全体の数、members は商品ごとの内訳
+ * カート（{ 券種ID: 枚数 }）の金額を計算する。
+ * 「○○のセットに含める」券種は、相手の券種と枚数を合わせて、相手のセットで組む。
+ * 戻り値: { lines: [{ product, qty, packs, subtotal, members: [{ product, qty }] }], goods, total, units }
+ *   product はセットを決める券種（グループの代表）、qty はグループ全体の枚数、members は券種ごとの内訳
  */
-export function priceCart(products, rule, cart) {
+export function priceCart(products, cart) {
   const lines = [];
-  let goods = 0, containerUnits = 0, units = 0;
+  let goods = 0, units = 0;
   const qtyOf = (p) => Math.max(0, Math.floor(Number(cart[p.id]) || 0));
   for (const p of products) {
-    if (leaderOf(products, p)) continue;   // 相手の商品の行でまとめて計算する
+    if (leaderOf(products, p)) continue;   // 相手の券種の行でまとめて計算する
     const group = [p, ...products.filter((x) => leaderOf(products, x) === p)];
     const members = group.map((x) => ({ product: x, qty: qtyOf(x) })).filter((m) => m.qty > 0);
     const qty = members.reduce((a, m) => a + m.qty, 0);
@@ -119,21 +104,19 @@ export function priceCart(products, rule, cart) {
     lines.push({ product: p, qty, packs: b.packs, subtotal: b.cost, members });
     goods += b.cost;
     units += qty;
-    for (const m of members) if (m.product.container) containerUnits += m.qty;
   }
-  const fee = containerFee(rule, containerUnits);
-  return { lines, goods, containerUnits, fee, total: goods + fee, units };
+  return { lines, goods, total: goods, units };
 }
 
 /**
- * ある商品をあと何個か足すと、会計全体（容器代込み）が同じか安くなるときの提案。
- * 戻り値: null または { qty: 提案する個数, total, save }
+ * ある券種をあと何枚か足すと、会計全体が同じか安くなるときの提案（例: 1枚1,000円・2枚1,800円で 1枚 → 2枚）。
+ * 戻り値: null または { qty: 提案する枚数, total, save }
  */
-export function upsell(products, rule, cart, productId, maxAdd = 4) {
+export function upsell(products, cart, productId, maxAdd = 4) {
   const now = Math.floor(Number(cart[productId]) || 0);
   if (!now) return null;
   const totalWith = (q) => {
-    try { return priceCart(products, rule, { ...cart, [productId]: q }).total; } catch { return Infinity; }
+    try { return priceCart(products, { ...cart, [productId]: q }).total; } catch { return Infinity; }
   };
   const base = totalWith(now);
   let best = null;
@@ -144,26 +127,26 @@ export function upsell(products, rule, cart, productId, maxAdd = 4) {
   return best;
 }
 
-/** セットの書き方（例: 「5本セット」「1本」） */
+/** セットの書き方（例: 「2枚セット」「1枚」） */
 export function packLabel(p, unit) {
   return p.qty === 1 ? `1${unit}` : `${p.qty}${unit}セット`;
 }
 
-/** セットの組み方の書き方（例: 「5本セット×1＋1本×1」） */
+/** セットの組み方の書き方（例: 「2枚セット×1＋1枚×1」） */
 export function packsText(packs, unit) {
   return packs.map((k) => packLabel(k, unit) + '×' + k.count).join('＋');
 }
 
 /**
  * 計算結果の行（priceCart の lines、または同じ形の明細）を、記録用の明細（sale_items の行）にする。
- * 混ぜたセットは、セットの金額を本数の割合で商品ごとに分け、pack_label にセットの組み方を残す。
+ * 混ぜたセットは、セットの金額を枚数の割合で券種ごとに分け、pack_label にセットの組み方を残す。
  */
 export function itemsFromLines(lines) {
   const rows = [];
   for (const l of lines) {
     const members = l.members && l.members.length ? l.members : [{ product: l.product, qty: l.qty }];
     if (members.length === 1) {
-      // 商品が 1 種類だけ：その商品のセットとして記録（相手のセットで組んでいても）
+      // 券種が 1 つだけ：その券種のセットとして記録（相手のセットで組んでいても）
       const m = members[0].product;
       for (const k of l.packs) rows.push({ product_id: m.id, name: m.name, unit: m.unit, set_qty: k.qty, set_price: k.price, count: k.count, pack_label: null });
       continue;
@@ -181,30 +164,7 @@ export function itemsFromLines(lines) {
   return rows;
 }
 
-/**
- * 味ごとの内訳を短い文字列に（例: 「みたらし3・あんこ2」、商品が複数なら「団子 みたらし3・あんこ2／焼きマシュマロ チョコ2」）
- * rows: [{ name: 商品名, flavor: 味（'' = 味の指定なし）, qty }]。味のない行は書かない。
- */
-export function describeFlavors(rows) {
-  const by = new Map();
-  for (const r of rows || []) {
-    if (!r.flavor || !(r.qty > 0)) continue;
-    if (!by.has(r.name)) by.set(r.name, new Map());
-    const m = by.get(r.name);
-    m.set(r.flavor, (m.get(r.flavor) || 0) + r.qty);
-  }
-  const parts = [...by.entries()].map(([name, m]) => ({ name, text: [...m.entries()].map(([f, q]) => f + q).join('・') }));
-  if (parts.length === 1) return parts[0].text;
-  return parts.map((p) => p.name + ' ' + p.text).join('／');
-}
-
-/** 明細の文字列に味の内訳を付け足す（例: 「団子5本（5本セット×1）〔みたらし3・あんこ2〕」） */
-export function withFlavors(desc, rows) {
-  const f = describeFlavors(rows);
-  return f ? `${desc}〔${f}〕` : desc;
-}
-
-/** 会計の明細を短い文字列に（例: 「団子5本（5本セット×1）・焼きマシュマロ2本」「団子3本・焼きマシュマロ2本（5本セット×1）」） */
+/** 会計の明細を短い文字列に（例: 「一般2枚（2枚セット×1）・学生1枚」「一般1枚・学生1枚（2枚セット×1）」） */
 export function describeItems(items) {
   // items: [{ name, unit, set_qty, set_price, count, pack_label }]（sale_items の行）
   const parts = [];
@@ -231,4 +191,9 @@ export function describeItems(items) {
       : '';
     return `${name}${g.qty}${g.unit}${detail}`;
   }).concat(parts).join('・');
+}
+
+/** 取り置きの券種の書き方（例: 「一般2枚・学生1枚」）。tickets: [{ name, unit, qty }] */
+export function describeTickets(tickets) {
+  return (tickets || []).filter((t) => t.qty > 0).map((t) => `${t.name}${t.qty}${t.unit || '枚'}`).join('・');
 }

@@ -1,397 +1,330 @@
 /**
  * サーバー（src/index.js）のテスト：本物の Worker を Miniflare で動かし、一時的な D1 を使う。
- *   - 移行：催し（プロジェクト）を入れる前の本番と同じ形のデータが、正しく「26岡山大学祭」にまとまるか
- *   - 催し：複製・切り替え・会計番号・リセット・削除
- *   - 会計の記録：サーバー側の料金計算、二重記録の防止、容器代・支払方法の設定
+ *   - 公演：作成・複製・切り替え・削除
+ *   - 当日券：サーバー側の料金計算、二重記録の防止、会計番号、販売終了、リセット
+ *   - 取り置き：CSV の取り込み（確認・追加・更新・置き換え・エラー）、受け渡し、集計、CSV の書き出し
  *   npm test
  */
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startWorker, tempDir, cleanup } from './helpers.js';
 
-const iso = (s) => new Date(s).toISOString();
 const nowIso = () => new Date().toISOString();
 let seq = 0;
 const cid = () => `test-${Date.now().toString(36)}-${(seq++).toString(36)}-xxxx`;
+const csvRows = (text) => text.replace(/^﻿/, '').trim().split('\r\n');
 
-/**
- * 催しを入れる前（2026年の学祭のとき）の本番と同じ形のテーブルとデータを作る。
- * Worker がまだ一度もリクエストを受けていない（＝移行前の）状態で呼ぶ。
- */
-async function seedLegacy(w) {
-  const stmts = [
-    `CREATE TABLE sales (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, s1 INTEGER NOT NULL DEFAULT 0, s3 INTEGER NOT NULL DEFAULT 0,
-      s5 INTEGER NOT NULL DEFAULT 0, sticks INTEGER NOT NULL, goods INTEGER NOT NULL, container INTEGER NOT NULL, container_auto INTEGER NOT NULL,
-      amount INTEGER NOT NULL, payment TEXT NOT NULL, cancelled INTEGER NOT NULL DEFAULT 0, staff TEXT NOT NULL DEFAULT '', client_id TEXT, kitchen_done_at TEXT)`,
-    `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
-    `CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, unit TEXT NOT NULL DEFAULT '本', sets TEXT NOT NULL,
-      container INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0, bundle_with INTEGER, flavors TEXT NOT NULL DEFAULT '[]')`,
-    `CREATE TABLE sale_items (id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER NOT NULL, product_id INTEGER NOT NULL, name TEXT NOT NULL, unit TEXT NOT NULL,
-      set_qty INTEGER NOT NULL, set_price INTEGER NOT NULL, count INTEGER NOT NULL, pack_label TEXT)`,
-    `CREATE TABLE sale_flavors (id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER NOT NULL, product_id INTEGER NOT NULL, name TEXT NOT NULL, unit TEXT NOT NULL,
-      flavor TEXT NOT NULL DEFAULT '', qty INTEGER NOT NULL)`,
-    `CREATE UNIQUE INDEX products_name ON products (name)`,
-    `CREATE UNIQUE INDEX sales_client_id ON sales (client_id)`,
-    `INSERT INTO settings (key, value) VALUES ('target', '92563'), ('container_rule', '{"freeUpTo":4,"per":4,"fee":10,"maxCount":1}'),
-      ('sales_closed_at', '2026-11-02T04:16:51.641Z'), ('sales_epoch', '3'), ('kitchen_rev', '13'), ('products_seeded', '1')`,
-    `INSERT INTO products (id, name, unit, sets, container, active, sort, bundle_with, flavors) VALUES
-      (1, '団子', '本', '[{"qty":1,"price":150},{"qty":3,"price":400},{"qty":5,"price":500}]', 1, 1, 1, NULL, '["みたらし","あんこ"]'),
-      (2, '焼きマシュマロ', '本', '[{"qty":1,"price":150}]', 0, 1, 2, 1, '[]')`,
-    // #1 団子4本（みたらし3・あんこ1）・現金・キッチンでできた
-    `INSERT INTO sales (id, created_at, sticks, goods, container, container_auto, amount, payment, staff, client_id, kitchen_done_at)
-      VALUES (1, '${iso('2026-11-01T01:00:00Z')}', 4, 550, 10, 10, 560, '現金', '学祭太郎', 'legacy-0001', '${iso('2026-11-01T01:05:00Z')}')`,
-    `INSERT INTO sale_items (sale_id, product_id, name, unit, set_qty, set_price, count, pack_label) VALUES (1, 1, '団子', '本', 3, 400, 1, NULL), (1, 1, '団子', '本', 1, 150, 1, NULL)`,
-    `INSERT INTO sale_flavors (sale_id, product_id, name, unit, flavor, qty) VALUES (1, 1, '団子', '本', 'みたらし', 3), (1, 1, '団子', '本', 'あんこ', 1)`,
-    // #2 団子3本＋焼きマシュマロ2本の混ぜたセット・PayPay
-    `INSERT INTO sales (id, created_at, sticks, goods, container, container_auto, amount, payment, staff, client_id)
-      VALUES (2, '${iso('2026-11-01T02:00:00Z')}', 5, 500, 10, 10, 510, 'PayPay', '学祭太郎', 'legacy-0002')`,
-    `INSERT INTO sale_items (sale_id, product_id, name, unit, set_qty, set_price, count, pack_label) VALUES
-      (2, 1, '団子', '本', 3, 300, 1, '5本セット×1'), (2, 2, '焼きマシュマロ', '本', 2, 200, 1, '5本セット×1')`,
-    `INSERT INTO sale_flavors (sale_id, product_id, name, unit, flavor, qty) VALUES (2, 1, '団子', '本', 'あんこ', 3), (2, 2, '焼きマシュマロ', '本', '', 2)`,
-    // #3 取り消した会計
-    `INSERT INTO sales (id, created_at, sticks, goods, container, container_auto, amount, payment, cancelled, staff, client_id)
-      VALUES (3, '${iso('2026-11-02T03:00:00Z')}', 1, 150, 0, 0, 150, 'd払い', 1, '学祭太郎', 'legacy-0003')`,
-    `INSERT INTO sale_items (sale_id, product_id, name, unit, set_qty, set_price, count, pack_label) VALUES (3, 1, '団子', '本', 1, 150, 1, NULL)`,
-    // #4 商品管理を入れる前のいちばん古い形（明細なし・s3 だけ）
-    `INSERT INTO sales (id, created_at, s1, s3, s5, sticks, goods, container, container_auto, amount, payment)
-      VALUES (4, '${iso('2026-11-02T04:00:00Z')}', 0, 1, 0, 3, 400, 10, 10, 410, '現金')`,
-  ];
-  for (const sql of stmts) await w.db.prepare(sql).run();
+/** 公演 1 に券種（一般 1枚1,000円・2枚1,800円／学生 500円／招待 0円・販売停止）を登録する */
+async function setupProducts(w, project = 1) {
+  const h = { 'X-Project': String(project) };
+  for (const body of [
+    { name: '一般', unit: '枚', sets: [{ qty: 1, price: 1000 }, { qty: 2, price: 1800 }] },
+    { name: '学生', unit: '枚', sets: [{ qty: 1, price: 500 }] },
+    { name: '招待', unit: '枚', sets: [{ qty: 1, price: 0 }], active: false },
+  ]) {
+    const r = await w.api('/api/master/products', { body, role: 'master', headers: h });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+  }
+  return (await w.api('/api/master/data', { role: 'master', headers: h })).body.allProducts;
 }
-const LEGACY = { orders: 3, total: 560 + 510 + 410, cancelled: 1 };
-
-describe('移行：催しを入れる前のデータ', () => {
-  let dir, w;
-  before(async () => {
-    dir = tempDir();
-    w = await startWorker(dir);
-    await seedLegacy(w);
-  });
-  after(async () => { await w?.dispose(); cleanup(dir); });
-
-  test('最初のリクエストで「26岡山大学祭」ができ、これまでの設定を引き継ぐ', async () => {
-    const r = await w.api('/api/summary');
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-    const [p] = await w.query('SELECT * FROM projects');
-    assert.equal(p.id, 1);
-    assert.equal(p.name, '26岡山大学祭');
-    assert.equal(p.shop_name, '混声合唱と学祭のための 団子');
-    assert.equal(p.start_date, '2026-11-01');   // 最初の会計の日（日本時間）
-    assert.equal(p.end_date, '2026-11-02');     // 最後の会計の日
-    assert.equal(p.open_hour, 9);
-    assert.equal(p.close_hour, 19);
-    assert.equal(p.target, 92563);
-    assert.deepEqual(JSON.parse(p.container_rule), { freeUpTo: 4, per: 4, fee: 10, maxCount: 1 });
-    assert.equal(p.closed_at, '2026-11-02T04:16:51.641Z');
-    assert.equal(p.epoch, 3);
-    assert.equal(p.kitchen_rev, 13);
-    const [active] = await w.query("SELECT value FROM settings WHERE key = 'active_project'");
-    assert.equal(active.value, '1');
-  });
-
-  test('会計と商品はすべて催し #1 に入り、会計番号はこれまでの番号のまま', async () => {
-    const sales = await w.query('SELECT id, project_id, order_no FROM sales ORDER BY id');
-    assert.equal(sales.length, 4);
-    for (const s of sales) {
-      assert.equal(s.project_id, 1);
-      assert.equal(s.order_no, s.id);
-    }
-    const products = await w.query('SELECT id, project_id FROM products');
-    assert.deepEqual(products.map((p) => p.project_id), [1, 1]);
-  });
-
-  test('集計は移行前と同じ（取消を除く）', async () => {
-    const d = (await w.api('/api/summary')).body;
-    assert.equal(d.project.name, '26岡山大学祭');
-    assert.equal(d.total, LEGACY.total);
-    assert.equal(d.orders, LEGACY.orders);
-    assert.equal(d.target, 92563);
-    assert.ok(d.closed);
-    assert.deepEqual(d.rule, { enabled: true, freeUpTo: 4, per: 4, fee: 10, maxCount: 1 });   // enabled は「取る」として補う
-    assert.deepEqual(d.payMethods, ['現金', 'PayPay', 'd払い']);
-    const dango = d.byProduct.find((g) => g.name === '団子');
-    assert.deepEqual(dango.flavors, [{ flavor: 'みたらし', qty: 3 }, { flavor: 'あんこ', qty: 1 + 3 }]);   // #1 と #2（取消の #3 は味の記録なし）
-  });
-
-  test('商品名の重複チェックが催しごとになる（古いインデックスは消える）', async () => {
-    const idx = (await w.query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'products'")).map((x) => x.name);
-    assert.ok(!idx.includes('products_name'), idx.join(','));
-    assert.ok(idx.includes('products_project_name'), idx.join(','));
-  });
-
-  test('何度起動し直しても同じ結果（催しが増えたり値が変わったりしない）', async () => {
-    const before = await w.query('SELECT * FROM projects');
-    const salesBefore = await w.query('SELECT id, project_id, order_no FROM sales ORDER BY id');
-    await w.dispose();
-    w = await startWorker(dir);   // 同じ D1 で起動し直す（移行がもう一度走る）
-    await w.api('/api/summary');
-    await w.dispose();
-    w = await startWorker(dir);
-    await w.api('/api/summary');
-    assert.deepEqual(await w.query('SELECT * FROM projects'), before);
-    assert.deepEqual(await w.query('SELECT id, project_id, order_no FROM sales ORDER BY id'), salesBefore);
-  });
-
-  test('移行した会計が CSV に出る（会計番号・味・混ぜたセット・いちばん古い形の会計）', async () => {
-    await w.loginRegister();
-    const csv = (await w.api('/api/admin/sales.csv', { role: 'register' })).body;
-    const rows = csv.replace(/^﻿/, '').trim().split('\r\n');
-    assert.match(rows[0], /^sale_id,project_id,order_no,/);
-    assert.equal(rows.length, 1 + LEGACY.orders);   // 取消は含めない
-    const items = (await w.api('/api/admin/sale_items.csv', { role: 'register' })).body;
-    assert.match(items, /,1,団子,みたらし,3,本/);
-    assert.match(items, /,2,焼きマシュマロ,,2,本/);
-    const ja = (await w.api('/api/admin/sales_ja.csv', { role: 'register' })).body;
-    assert.match(ja, /\r\n4,2026\/11\/02,13:00:00,現金,,/);   // #4 いちばん古い形（担当者なし）
-  });
-
-  test('移行後の会計は続きの番号（#5）で催し #1 に記録される', async () => {
-    await w.loginMaster();
-    const re = await w.api('/api/master/closed', { body: { closed: false }, role: 'master' });
-    assert.equal(re.status, 200);
-    const r = await w.api('/api/admin/sales', { role: 'register', body: { lite: true, clientId: cid(), createdAt: nowIso(), items: { 1: 1 }, flavors: { 1: { みたらし: 1 } }, payment: '現金' } });
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-    const [s] = await w.query('SELECT project_id, order_no, amount FROM sales ORDER BY id DESC LIMIT 1');
-    assert.deepEqual(s, { project_id: 1, order_no: 5, amount: 150 });
-  });
-
-  test('移行前の世代（epoch）の未送信の会計は捨てる／今の世代なら受け付ける', async () => {
-    const stale = await w.api('/api/admin/sales', { role: 'register', body: { lite: true, epoch: 2, clientId: cid(), createdAt: nowIso(), items: { 1: 1 }, payment: '現金' } });
-    assert.equal(stale.status, 200);
-    const ok = await w.api('/api/admin/sales', { role: 'register', body: { lite: true, epoch: 3, projectId: 1, clientId: cid(), createdAt: nowIso(), items: { 1: 1 }, payment: '現金' } });
-    assert.equal(ok.status, 200);
-    const [{ n }] = await w.query('SELECT COUNT(*) AS n FROM sales');
-    assert.equal(n, 6);   // 4（移行前）＋ #5 ＋ 今の世代の 1 件
-  });
-
-  test('ダッシュボード：ほかの日の 1 時間ごとの売上（取消を除く・日本時間で区切る）と、選べる日', async () => {
-    const hour = (d, h) => d.buckets.find((b) => b.hour === h);
-    const d1 = (await w.api('/api/hourly?date=2026-11-01')).body;
-    assert.equal(d1.date, '2026-11-01');
-    assert.equal(d1.today, false);
-    assert.equal(d1.nowHour, null);                       // 今日でなければ「集計中」の時間帯はない
-    assert.deepEqual([d1.open, d1.close], [9, 19]);
-    assert.deepEqual(hour(d1, 10), { hour: 10, amount: 560, orders: 1 });   // 01:00Z = 10時
-    assert.deepEqual(hour(d1, 11), { hour: 11, amount: 510, orders: 1 });
-    const d2 = (await w.api('/api/hourly?date=2026-11-02')).body;
-    assert.equal(hour(d2, 12).orders, 0);                 // 12時の会計は取消済み
-    assert.deepEqual(hour(d2, 13), { hour: 13, amount: 410, orders: 1 });
-    assert.equal((await w.api('/api/hourly?date=2026-10-31')).body.buckets.every((b) => b.orders === 0), true);
-
-    for (const bad of ['', '2026-11', '2026-02-30', 'x', '2026-11-01T00:00']) {
-      assert.equal((await w.api('/api/hourly?date=' + encodeURIComponent(bad))).status, 400, bad);
-    }
-
-    const s = (await w.api('/api/summary')).body;
-    const today = s.hourly.date;
-    assert.equal(s.hourly.today, true);
-    assert.equal(typeof s.hourly.nowHour, 'number');
-    assert.deepEqual(s.hourlyDays.slice(0, 2), ['2026-11-01', '2026-11-02']);   // 催しの期間・会計のある日（古い順）
-    assert.equal(s.hourlyDays.at(-1), today);                                  // 今日はいつも入る
-    assert.equal(new Set(s.hourlyDays).size, s.hourlyDays.length);
-  });
-});
 
 describe('新しく作った環境', () => {
-  let dir, w;
-  before(async () => { dir = tempDir(); w = await startWorker(dir); });
-  after(async () => { await w?.dispose(); cleanup(dir); });
+  let w, dir;
+  before(async () => { dir = tempDir(); w = await startWorker(dir); await w.loginMaster(); });
+  after(async () => { await w.dispose(); cleanup(dir); });
 
-  test('空の「最初の催し」が 1 つでき、商品は入らない（団子の初期商品はない）', async () => {
-    const d = (await w.api('/api/summary')).body;
-    assert.equal(d.project.name, '最初の催し');
-    assert.equal(d.products.length, 0);
-    assert.equal(d.total, 0);
-    const projects = await w.query('SELECT * FROM projects');
-    assert.equal(projects.length, 1);
+  test('空の「最初の公演」が 1 つでき、当日に使う公演になる。支払方法の初期値は現金だけ', async () => {
+    const r = await w.api('/api/master/projects', { role: 'master' });
+    assert.equal(r.body.projects.length, 1);
+    assert.equal(r.body.projects[0].name, '最初の公演');
+    assert.equal(r.body.active, r.body.projects[0].id);
+    assert.deepEqual(r.body.projects[0].payments, ['現金']);
+    assert.equal(r.body.projects[0].products, 0);
+  });
+  test('ダッシュボードの API はない', async () => {
+    assert.equal((await w.api('/api/summary')).status, 404);
+  });
+  test('ログインしないとレジ・受付の API は使えない', async () => {
+    assert.equal((await w.api('/api/admin/reservations')).status, 401);
+    assert.equal((await w.api('/api/admin/data')).status, 401);
   });
 });
 
-describe('催し（プロジェクト）', () => {
-  let dir, w;
+describe('当日券（レジ）', () => {
+  let w, dir, prods;
   before(async () => {
-    dir = tempDir();
-    w = await startWorker(dir);
-    await seedLegacy(w);
-    await w.api('/api/summary');
-    await w.loginMaster();
-    await w.loginRegister();
-    await w.api('/api/master/closed', { body: { closed: false }, role: 'master' });
+    dir = tempDir(); w = await startWorker(dir);
+    await w.loginMaster(); await w.loginRegister('受付太郎');
+    prods = await setupProducts(w);
   });
-  after(async () => { await w?.dispose(); cleanup(dir); });
+  after(async () => { await w.dispose(); cleanup(dir); });
+  const id = (name) => prods.find((p) => p.name === name).id;
 
-  const master = (path, body, project) => w.api('/api/master/' + path, { body, role: 'master', headers: project ? { 'X-Project': String(project) } : {} });
-  const sale = (body) => w.api('/api/admin/sales', { role: 'register', body: { lite: true, clientId: cid(), createdAt: nowIso(), payment: '現金', ...body } });
+  test('レジには販売中の券種だけが出る', async () => {
+    const d = (await w.api('/api/admin/data', { role: 'register' })).body;
+    assert.deepEqual(d.products.map((p) => p.name), ['一般', '学生']);
+  });
+  test('サーバーでセットを組み直して記録（一般3枚 = 2,800円）。会計番号は #1 から', async () => {
+    const r = await w.api('/api/admin/sales', { role: 'register', body: { items: { [id('一般')]: 3 }, payment: '現金', clientId: cid(), createdAt: nowIso() } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.total, 2800);
+    assert.equal(r.body.units, 3);
+    assert.equal(r.body.recent[0].order_no, 1);
+    assert.equal(r.body.recent[0].desc, '一般3枚（2枚セット×1＋1枚×1）');
+    assert.equal(r.body.recent[0].staff, '受付太郎');
+  });
+  test('同じ会計 ID は 2 回送っても 1 件', async () => {
+    const c = cid();
+    const body = { items: { [id('学生')]: 1 }, payment: '現金', clientId: c, createdAt: nowIso(), lite: true };
+    await w.api('/api/admin/sales', { role: 'register', body });
+    await w.api('/api/admin/sales', { role: 'register', body });
+    const rows = await w.query('SELECT COUNT(*) AS n FROM sales WHERE client_id = ?', c);
+    assert.equal(rows[0].n, 1);
+  });
+  test('販売停止の券種・選んでいない支払方法は受け付けない', async () => {
+    let r = await w.api('/api/admin/sales', { role: 'register', body: { items: { [id('招待')]: 1 }, payment: '現金', clientId: cid(), createdAt: nowIso() } });
+    assert.equal(r.status, 409);
+    r = await w.api('/api/admin/sales', { role: 'register', body: { items: { [id('一般')]: 1 }, payment: 'PayPay', clientId: cid(), createdAt: nowIso() } });
+    assert.equal(r.status, 409);
+  });
+  test('取消すると売上から外れ、戻すと元に戻る', async () => {
+    const before = (await w.api('/api/admin/data', { role: 'register' })).body;
+    const sale = before.recent[0];
+    await w.api('/api/admin/sales/set-cancel', { role: 'register', body: { id: sale.id, cancelled: true } });
+    let d = (await w.api('/api/admin/data', { role: 'register' })).body;
+    assert.equal(d.total, before.total - sale.amount);
+    await w.api('/api/admin/sales/set-cancel', { role: 'register', body: { id: sale.id, cancelled: false } });
+    d = (await w.api('/api/admin/data', { role: 'register' })).body;
+    assert.equal(d.total, before.total);
+  });
+  test('価格が変わる前に端末で打った会計は、端末の金額で記録して操作の記録に残す', async () => {
+    const lines = [{ productId: id('学生'), name: '学生', unit: '枚', packs: [{ qty: 1, price: 400, count: 1 }] }];
+    const r = await w.api('/api/admin/sales', { role: 'register', body: { items: { [id('学生')]: 1 }, lines, payment: '現金', clientId: cid(), createdAt: nowIso() } });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.recent[0].amount, 400);
+    assert.ok(r.body.audit.some((a) => a.action === '今の価格と違う会計を記録'));
+  });
+  test('手集計用 CSV：券種ごとの枚数の列と合計。取消は含めない', async () => {
+    const csv = (await w.api('/api/master/sales_ja.csv', { role: 'master' })).body;
+    const rows = csvRows(csv);
+    assert.equal(rows[0], '会計番号,日付,時刻,支払方法,担当者,一般(枚),学生(枚),枚数計(枚),合計(円),内容（参考）');
+    assert.match(rows[1], /^1,\d{4}\/\d{2}\/\d{2},\d{2}:\d{2}:\d{2},現金,受付太郎,3,0,3,2800,/);
+    const sales = csvRows((await w.api('/api/master/sales.csv', { role: 'master' })).body);
+    assert.equal(sales[0], 'sale_id,project_id,order_no,sold_at,business_date,payment_method,ticket_quantity,total_amount_yen,staff_name');
+  });
+  test('販売終了後に打った会計は受け付けない（受付はそのまま使える）', async () => {
+    await w.api('/api/master/closed', { role: 'master', body: { closed: true } });
+    const r = await w.api('/api/admin/sales', { role: 'register', body: { items: { [id('一般')]: 1 }, payment: '現金', clientId: cid(), createdAt: nowIso() } });
+    assert.equal(r.status, 423);
+    assert.equal((await w.api('/api/admin/reservations', { role: 'register' })).status, 200);
+    await w.api('/api/master/closed', { role: 'master', body: { closed: false } });
+  });
+  test('リセットは当日券の会計だけ。古い世代の未送信の会計は捨てる', async () => {
+    const d0 = (await w.api('/api/admin/data', { role: 'register' })).body;
+    const r = await w.api('/api/master/reset-sales', { role: 'master', body: { confirm: 'リセット', password: 'master-pass-1234' } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.total, 0);
+    const stale = await w.api('/api/admin/sales', { role: 'register', body: { items: { [id('一般')]: 1 }, payment: '現金', clientId: cid(), createdAt: nowIso(), epoch: d0.epoch } });
+    assert.equal(stale.body.total, 0);
+    const ok = await w.api('/api/admin/sales', { role: 'register', body: { items: { [id('一般')]: 1 }, payment: '現金', clientId: cid(), createdAt: nowIso(), epoch: d0.epoch + 1 } });
+    assert.equal(ok.body.total, 1000);
+    assert.equal(ok.body.recent[0].order_no, 1);
+  });
+});
+
+describe('取り置き（CSV の取り込みと受け渡し）', () => {
+  let w, dir, prods;
+  before(async () => {
+    dir = tempDir(); w = await startWorker(dir);
+    await w.loginMaster(); await w.loginRegister('受付花子');
+    prods = await setupProducts(w);
+  });
+  after(async () => { await w.dispose(); cleanup(dir); });
+  const imp = (csv, opts = {}) => w.api('/api/master/reservations/import', { role: 'master', body: { csv, mode: 'append', ...opts } });
+
+  const CSV1 = '﻿番号,氏名,フリガナ,券種,枚数,支払,金額,備考\r\n'
+    + '1,岡大 太郎,オカダイ タロウ,一般,3,当日,,\r\n'
+    + '2,グリー 花子,グリー ハナコ,一般,1,済,,振込済み\r\n'
+    + '2,グリー 花子,グリー ハナコ,学生,1,済,,\r\n'
+    + '3,"合唱, 次郎",,招待,2,,,"関係者\n2階席"\r\n'
+    + '\r\n';
+
+  test('確認（dryRun）では何も書き込まず、件数・金額・枚数を返す。同じ番号の行は 1 件にまとめる', async () => {
+    const r = await imp(CSV1, { dryRun: true });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const p = r.body.preview;
+    assert.deepEqual(p.errors, []);
+    assert.equal(p.counts.created, 3);
+    assert.equal(p.items.length, 3);
+    const [a, b, c] = p.items;
+    assert.deepEqual([a.no, a.name, a.qty, a.amount, a.due, a.paid], ['1', '岡大 太郎', 3, 2800, 2800, false]);
+    assert.deepEqual([b.ticketsText, b.amount, b.due, b.note], ['一般1枚・学生1枚', 1500, 0, '振込済み']);
+    assert.deepEqual([c.name, c.ticketsText, c.amount, c.note], ['合唱, 次郎', '招待2枚', 0, '関係者\n2階席']);
+    assert.equal((await w.query('SELECT COUNT(*) AS n FROM reservations'))[0].n, 0);
+  });
+  test('取り込むと受付の画面に出る。集計（件数・枚数・当日精算の額）', async () => {
+    const r = await imp(CSV1);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.reservations.count, 3);
+    assert.equal(r.body.reservations.qty, 7);
+    assert.equal(r.body.reservations.dueTotal, 2800);
+    const rec = (await w.api('/api/admin/reservations', { role: 'register' })).body;
+    assert.equal(rec.reservations.length, 3);
+    assert.equal(rec.reservations[0].name, '岡大 太郎');
+    assert.deepEqual(rec.reservations[1].tickets.map((t) => [t.name, t.qty]), [['一般', 1], ['学生', 1]]);
+    // 変化がなければ一覧は返さない
+    const same = (await w.api(`/api/admin/reservations?project=${rec.project.id}&rev=${rec.rev}`, { role: 'register' })).body;
+    assert.equal(same.same, true);
+  });
+  test('受け渡し済みにすると、当日精算の額が「受け取った額」に入り、レジの売上合計にも足される', async () => {
+    const rec = (await w.api('/api/admin/reservations', { role: 'register' })).body;
+    const taro = rec.reservations.find((x) => x.no === '1');
+    const r = await w.api('/api/admin/reservations/handed', { role: 'register', body: { id: taro.id, handed: true, at: nowIso() } });
+    assert.equal(r.status, 200);
+    // 何度送っても同じ
+    await w.api('/api/admin/reservations/handed', { role: 'register', body: { id: taro.id, handed: true, at: nowIso() } });
+    const d = (await w.api('/api/admin/data', { role: 'register' })).body;
+    assert.equal(d.reservations.handed, 1);
+    assert.equal(d.reservations.collected, 2800);
+    assert.equal(d.reservations.uncollected, 0);
+    assert.equal(d.grandTotal, d.total + 2800);
+    const after = (await w.api(`/api/admin/reservations?project=${rec.project.id}&rev=${rec.rev}`, { role: 'register' })).body;
+    assert.notEqual(after.rev, rec.rev);
+    const t = after.reservations.find((x) => x.no === '1');
+    assert.ok(t.handedAt);
+    assert.equal(t.handedBy, '受付花子');
+  });
+  test('同じ番号を取り込み直すと内容だけ更新し、受け渡しの記録は残す（追加・更新）', async () => {
+    const csv = '番号,氏名,券種,枚数,支払\n1,岡大 太郎,一般,4,当日\n4,新しい 人,学生,2,当日\n';
+    const pre = (await imp(csv, { dryRun: true })).body.preview;
+    assert.deepEqual([pre.counts.created, pre.counts.updated, pre.counts.removed], [1, 1, 0]);
+    const r = await imp(csv);
+    assert.equal(r.status, 200);
+    const list = r.body.reservationList;
+    assert.equal(list.length, 4);
+    const taro = list.find((x) => x.no === '1');
+    assert.equal(taro.qty, 4);
+    assert.equal(taro.amount, 3600);
+    assert.ok(taro.handedAt, '受け渡しの記録が残る');
+    assert.equal(taro.kana, 'オカダイ タロウ', 'CSV に列がない項目（フリガナ）は今の値を残す');
+  });
+  test('置き換えると CSV にない取り置きは消え、受け渡し済みが消えるときは警告を出す', async () => {
+    const csv = '番号,氏名,券種,枚数,支払\n2,グリー 花子,一般,1,済\n2,グリー 花子,学生,1,済\n';
+    let pre = (await imp(csv, { dryRun: true, mode: 'replace' })).body.preview;
+    assert.equal(pre.counts.removed, 3);
+    assert.equal(pre.counts.removedHanded, 1);
+    assert.ok(pre.warnings.some((x) => x.includes('受け渡し済み')));
+    pre = (await imp(csv, { dryRun: true, mode: 'append' })).body.preview;
+    assert.equal(pre.counts.removed, 0);
+    assert.equal(pre.counts.unchanged, 1);
+  });
+  test('券種ごとの列（横持ち）の CSV と、番号のない行への自動の番号付け', async () => {
+    const csv = '氏名,一般(枚),学生,支払\n横持ち 一郎,2,1,当日\n横持ち 二郎,,3,済\n';
+    const p = (await imp(csv, { dryRun: true })).body.preview;
+    assert.deepEqual(p.errors, []);
+    assert.deepEqual(p.items.map((x) => [x.no, x.ticketsText, x.amount]), [['5', '一般2枚・学生1枚', 2300], ['6', '学生3枚', 1500]]);
+    assert.ok(p.warnings.some((x) => x.includes('番号を自動で付けます')));
+  });
+  test('間違いのある CSV は行番号つきでエラーを返し、取り込まない', async () => {
+    const csv = '番号,氏名,券種,枚数,支払,金額\n10,,一般,1,当日,\n11,誤字 さん,一船,1,当日,\n12,枚数 さん,一般,ニ,当日,\n13,支払 さん,一般,1,たぶん,\n14,金額 さん,一般,1,当日,abc\n';
+    const p = (await imp(csv, { dryRun: true })).body.preview;
+    assert.deepEqual(p.errors.map((e) => e.line), [2, 3, 4, 5, 6]);
+    assert.match(p.errors[1].message, /券種「一船」は登録されていません/);
+    const r = await imp(csv);
+    assert.equal(r.status, 400);
+    assert.equal((await w.query("SELECT COUNT(*) AS n FROM reservations WHERE res_no IN ('10', '11', '12', '13', '14')"))[0].n, 0);
+  });
+  test('必要な列がない CSV', async () => {
+    let p = (await imp('名前だけ\nあ\n', { dryRun: true })).body.preview;
+    assert.match(p.errors[0].message, /「氏名」の列がありません/);
+    p = (await imp('氏名,枚数\nあ,1\n', { dryRun: true })).body.preview;
+    assert.match(p.errors[0].message, /「券種」の列がありません/);
+  });
+  test('金額の列があればその金額を使う（割引など）', async () => {
+    const p = (await imp('番号,氏名,券種,枚数,支払,金額\n20,割引 さん,一般,2,当日,"1,500円"\n', { dryRun: true })).body.preview;
+    assert.equal(p.items[0].amount, 1500);
+  });
+  test('取り置きの一覧の CSV は、そのまま取り込み直せる（変更なし）', async () => {
+    const csv = (await w.api('/api/master/reservations.csv', { role: 'master' })).body;
+    const rows = csvRows(csv);
+    assert.equal(rows[0], '番号,氏名,フリガナ,一般(枚),学生(枚),招待(枚),枚数計,支払,金額(円),受付で受け取る額(円),受け取った額(円),受け渡し,受け渡し日時,受け渡した人,備考');
+    assert.match(rows[1], /^1,岡大 太郎,オカダイ タロウ,4,0,0,4,当日,3600,3600,3600,済,\d{4}-\d{2}-\d{2}T[\d:]+\+09:00,受付花子,$/);
+    const p = (await imp(csv, { dryRun: true })).body.preview;
+    assert.deepEqual(p.errors, []);
+    assert.deepEqual(p.warnings, []);
+    assert.equal(p.counts.unchanged, p.counts.rows);
+  });
+  test('様式の CSV（見出しと記入例）は登録済みの券種名で、そのまま取り込める', async () => {
+    const csv = (await w.api('/api/master/reservations_template.csv', { role: 'master' })).body;
+    assert.equal(csvRows(csv)[0], '番号,氏名,フリガナ,券種,枚数,支払,金額,備考');
+    const p = (await imp(csv, { dryRun: true, mode: 'replace' })).body.preview;
+    assert.deepEqual(p.errors, []);
+    assert.equal(p.items.length, 2);
+  });
+  test('受け渡しを戻すと操作の記録に残る。取り置きのある券種は削除できない', async () => {
+    const list = (await w.api('/api/admin/reservations', { role: 'register' })).body.reservations;
+    const taro = list.find((x) => x.no === '1');
+    await w.api('/api/admin/reservations/handed', { role: 'register', body: { id: taro.id, handed: false } });
+    const d = (await w.api('/api/master/data', { role: 'master' })).body;
+    assert.ok(d.audit.some((a) => a.action === '受け渡しを取り消し'));
+    assert.equal(d.reservations.handed, 0);
+    const gen = prods.find((p) => p.name === '学生');
+    const r = await w.api(`/api/master/products/${gen.id}/delete`, { role: 'master', body: {} });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /取り置き/);
+  });
+  test('受け渡しの記録だけを未に戻す・すべて削除（確認の文字が必要）', async () => {
+    const list = (await w.api('/api/admin/reservations', { role: 'register' })).body.reservations;
+    await w.api('/api/admin/reservations/handed', { role: 'register', body: { id: list[0].id, handed: true } });
+    assert.equal((await w.api('/api/master/reservations/reset', { role: 'master', body: { what: 'handed', confirm: 'はい' } })).status, 400);
+    let r = await w.api('/api/master/reservations/reset', { role: 'master', body: { what: 'handed', confirm: '未に戻す' } });
+    assert.equal(r.body.reservations.handed, 0);
+    assert.equal(r.body.reservations.count, list.length);
+    r = await w.api('/api/master/reservations/reset', { role: 'master', body: { what: 'all', confirm: '削除' } });
+    assert.equal(r.body.reservations.count, 0);
+  });
+});
+
+describe('公演', () => {
+  let w, dir;
+  before(async () => {
+    dir = tempDir(); w = await startWorker(dir);
+    await w.loginMaster(); await w.loginRegister();
+    await setupProducts(w);
+    await w.api('/api/master/payments', { role: 'master', body: { payments: ['現金', 'PayPay'] } });
+  });
+  after(async () => { await w.dispose(); cleanup(dir); });
 
   test('入力のチェック', async () => {
-    assert.equal((await master('projects', { name: '', startDate: '2027-11-01', endDate: '2027-11-01' })).status, 400);
-    assert.equal((await master('projects', { name: 'x', startDate: '2027-11-03', endDate: '2027-11-01' })).status, 400);
-    assert.equal((await master('projects', { name: 'x', startDate: '2027-11-01', endDate: '2027-11-01', openHour: 10, closeHour: 10 })).status, 400);
-    assert.equal((await master('projects', { name: 'x', startDate: '2027-13-01', endDate: '2027-13-01' })).status, 400);
+    assert.equal((await w.api('/api/master/projects', { role: 'master', body: { name: '', startDate: '2027-06-01' } })).status, 400);
+    assert.equal((await w.api('/api/master/projects', { role: 'master', body: { name: 'x', startDate: '2027-06-02', endDate: '2027-06-01' } })).status, 400);
   });
-
-  let p2;
-  test('前の催しから複製：商品・味・「セットに含める」の相手・容器代のルール・目標・支払方法', async () => {
-    await master('payments', { payments: ['現金', 'PayPay', '交通系IC'] }, 1);
-    const r = await master('projects', { name: '27岡山大学祭', startDate: '2027-11-01', endDate: '2027-11-03', openHour: 10, closeHour: 17,
-      copyFrom: 1, copy: { products: true, rule: true, target: true, payments: true } });
+  test('前の公演から複製（券種・セットに含める相手・支払方法）。取り置きと会計は複製しない', async () => {
+    const r = await w.api('/api/master/projects', { role: 'master', body: { name: '第61回定期演奏会', startDate: '2027-06-01', copyFrom: 1, copy: { products: true, payments: true } } });
     assert.equal(r.status, 200, JSON.stringify(r.body));
-    p2 = r.body.created;
-    const d = (await master('data', undefined, p2)).body;
-    assert.equal(d.projectSettings.name, '27岡山大学祭');
-    assert.equal(d.target, 92563);
-    assert.deepEqual(d.rule, { enabled: true, freeUpTo: 4, per: 4, fee: 10, maxCount: 1 });
-    assert.deepEqual(d.payMethods, ['現金', 'PayPay', '交通系IC']);
-    const [dango, mallow] = d.allProducts;
-    assert.notEqual(dango.id, 1);                     // 新しい商品
-    assert.deepEqual(dango.flavors, ['みたらし', 'あんこ']);
-    assert.equal(mallow.bundleWith, dango.id);         // 相手は新しい催しの団子に付け替わる
-    assert.equal(d.total, 0);                          // 会計は複製しない
+    const p = r.body.projects.find((x) => x.id === r.body.created);
+    assert.equal(p.products, 3);
+    assert.equal(p.reservations, 0);
+    assert.deepEqual(p.payments, ['現金', 'PayPay']);
+    assert.equal(p.endDate, '2027-06-01', '最終日を省くと公演日と同じ');
   });
-
-  test('複製しないで作ると、商品は空・容器代なし（指定がなければ）・支払方法は初期値', async () => {
-    const r = await master('projects', { name: '空の催し', startDate: '2027-04-01', endDate: '2027-04-01' });
-    const d = (await master('data', undefined, r.body.created)).body;
-    assert.equal(d.allProducts.length, 0);
-    assert.deepEqual(d.payMethods, ['現金', 'PayPay', 'd払い']);
-    const off = await master('projects', { name: '容器なし', startDate: '2027-04-01', endDate: '2027-04-01', containerEnabled: false });
-    assert.equal((await master('data', undefined, off.body.created)).body.rule.enabled, false);
+  test('「当日に使う」を切り替えると、レジ・受付はその公演になる', async () => {
+    const list = (await w.api('/api/master/projects', { role: 'master' })).body.projects;
+    const next = list.find((x) => x.name === '第61回定期演奏会');
+    await w.api(`/api/master/projects/${next.id}/activate`, { role: 'master', body: {} });
+    const d = (await w.api('/api/admin/data', { role: 'register' })).body;
+    assert.equal(d.project.id, next.id);
+    const rec = (await w.api('/api/admin/reservations', { role: 'register' })).body;
+    assert.equal(rec.project.id, next.id);
   });
-
-  test('「レジで使う」を切り替えると、レジ・ダッシュボードはその催しになり、会計番号は #1 から', async () => {
-    await master(`projects/${p2}/activate`, {});
-    const reg = (await w.api('/api/admin/data', { role: 'register' })).body;
-    assert.equal(reg.project.id, p2);
-    const pid = reg.products[0].id;
-    const r = await sale({ projectId: p2, items: { [pid]: 3 }, flavors: { [pid]: { あんこ: 3 } } });
+  test('削除：当日に使っている公演は不可、取り置きがあれば公演名とパスワードが必要', async () => {
+    const list = (await w.api('/api/master/projects', { role: 'master' })).body.projects;
+    const active = list.find((x) => x.active);
+    assert.equal((await w.api(`/api/master/projects/${active.id}/delete`, { role: 'master', body: {} })).status, 400);
+    await w.api('/api/master/reservations/import', { role: 'master', headers: { 'X-Project': '1' }, body: { csv: '氏名,券種,枚数\nあ,一般,1\n' } });
+    assert.equal((await w.api('/api/master/projects/1/delete', { role: 'master', body: {} })).status, 400);
+    const r = await w.api('/api/master/projects/1/delete', { role: 'master', body: { confirm: '最初の公演', password: 'master-pass-1234' } });
     assert.equal(r.status, 200, JSON.stringify(r.body));
-    const [s] = await w.query('SELECT project_id, order_no, goods, container FROM sales ORDER BY id DESC LIMIT 1');
-    assert.deepEqual(s, { project_id: p2, order_no: 1, goods: 400, container: 0 });   // 容器代は 4 個まで無料のルール
-    assert.equal((await w.api('/api/summary')).body.project.id, p2);
-  });
-
-  test('切り替える前にオフラインで打った会計は、あとで届いても打ったときの催しに記録', async () => {
-    const r = await sale({ projectId: 1, epoch: 3, items: { 1: 5 }, flavors: { 1: { みたらし: 5 } } });
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-    const [s] = await w.query('SELECT project_id, order_no, goods FROM sales ORDER BY id DESC LIMIT 1');
-    assert.equal(s.project_id, 1);
-    assert.equal(s.goods, 500);
-    assert.ok(s.order_no > 4);
-  });
-
-  test('リセットはその催しの会計だけ。古い世代の取消は捨てる', async () => {
-    const before1 = (await w.query('SELECT COUNT(*) AS n FROM sales WHERE project_id = 1'))[0].n;
-    const bad = await master('reset-sales', { confirm: 'リセット', password: 'wrong' }, p2);
-    assert.equal(bad.status, 401);
-    const r = await master('reset-sales', { confirm: 'リセット', password: 'master-pass-1234' }, p2);
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-    assert.equal((await w.query('SELECT COUNT(*) AS n FROM sales WHERE project_id = ?', p2))[0].n, 0);
-    assert.equal((await w.query('SELECT COUNT(*) AS n FROM sales WHERE project_id = 1'))[0].n, before1);
-    const [p] = await w.query('SELECT epoch FROM projects WHERE id = ?', p2);
-    assert.equal(p.epoch, 2);
-    const stale = await w.api('/api/admin/sales/set-cancel', { role: 'register', body: { projectId: p2, epoch: 1, clientId: 'nothing-here-0001', cancelled: true } });
-    assert.equal(stale.body.stale, true);
-  });
-
-  test('削除：レジで使用中は不可、会計があれば催し名とパスワードが必要、消したあとに明細が残らない', async () => {
-    assert.equal((await master(`projects/${p2}/delete`, {})).status, 400);   // レジで使用中
-    await master('projects/1/activate', {});
-    // p2 に会計を 1 件作ってから消す
-    await master(`projects/${p2}/activate`, {});
-    const pid = (await w.api('/api/admin/data', { role: 'register' })).body.products[0].id;
-    await sale({ projectId: p2, epoch: 2, items: { [pid]: 1 }, flavors: { [pid]: { みたらし: 1 } } });
-    await master('projects/1/activate', {});
-    assert.equal((await master(`projects/${p2}/delete`, {})).status, 400);                                      // 名前なし
-    assert.equal((await master(`projects/${p2}/delete`, { confirm: '27岡山大学祭', password: 'wrong' })).status, 401);
-    const r = await master(`projects/${p2}/delete`, { confirm: '27岡山大学祭', password: 'master-pass-1234' });
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-    assert.ok(!r.body.projects.some((p) => p.id === p2));
-    const left = await w.query(`SELECT
-        (SELECT COUNT(*) FROM sales WHERE project_id = ?1) AS sales,
-        (SELECT COUNT(*) FROM products WHERE project_id = ?1) AS products,
-        (SELECT COUNT(*) FROM sale_items WHERE sale_id NOT IN (SELECT id FROM sales)) AS items,
-        (SELECT COUNT(*) FROM sale_flavors WHERE sale_id NOT IN (SELECT id FROM sales)) AS flavors`, p2);
-    assert.deepEqual(left[0], { sales: 0, products: 0, items: 0, flavors: 0 });
-    assert.ok((await w.query('SELECT COUNT(*) AS n FROM sales WHERE project_id = 1'))[0].n > 0);   // ほかの催しは残る
-  });
-});
-
-describe('会計の記録（サーバー側の計算と設定）', () => {
-  let dir, w, P;
-  before(async () => {
-    dir = tempDir();
-    w = await startWorker(dir);
-    await seedLegacy(w);
-    await w.api('/api/summary');
-    await w.loginMaster();
-    await w.loginRegister();
-    await w.api('/api/master/closed', { body: { closed: false }, role: 'master' });
-    P = 1;
-  });
-  after(async () => { await w?.dispose(); cleanup(dir); });
-  const master = (path, body) => w.api('/api/master/' + path, { body, role: 'master', headers: { 'X-Project': String(P) } });
-  const sale = (body) => w.api('/api/admin/sales', { role: 'register', body: { lite: true, clientId: cid(), createdAt: nowIso(), payment: '現金', ...body } });
-  const last = async () => (await w.query('SELECT * FROM sales ORDER BY id DESC LIMIT 1'))[0];
-
-  test('サーバーでセットを組み直す（画面の計算は信用しない）', async () => {
-    const r = await sale({ items: { 1: 7 }, flavors: { 1: { みたらし: 7 } } });
-    assert.equal(r.status, 200);
-    const s = await last();
-    assert.equal(s.goods, 800);       // 5本セット＋1本×2
-    assert.equal(s.container, 10);    // 7本 > 4本 → 容器 1 個（上限 1 個）
-    assert.equal(s.amount, 810);
-  });
-
-  test('同じ会計 ID は 2 回送っても 1 件', async () => {
-    const id = cid();
-    await sale({ clientId: id, items: { 1: 1 }, flavors: { 1: { あんこ: 1 } } });
-    await sale({ clientId: id, items: { 1: 1 }, flavors: { 1: { あんこ: 1 } } });
-    assert.equal((await w.query('SELECT COUNT(*) AS n FROM sales WHERE client_id = ?', id))[0].n, 1);
-  });
-
-  test('味ごとの数と合計が合わない会計は受け付けない', async () => {
-    const r = await sale({ items: { 1: 3 }, flavors: { 1: { みたらし: 2 } } });
-    assert.equal(r.status, 400);
-  });
-
-  test('価格が変わる前に端末で打った会計は、端末の金額で記録して操作の記録に残す', async () => {
-    const lines = [{ productId: 1, name: '団子', unit: '本', packs: [{ qty: 1, price: 120, count: 2 }] }];
-    const r = await sale({ items: { 1: 2 }, lines, containerAuto: 0, flavors: { 1: { みたらし: 2 } } });
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-    assert.equal((await last()).goods, 240);
-    const [a] = await w.query('SELECT action FROM audit ORDER BY id DESC LIMIT 1');
-    assert.equal(a.action, '今の価格と違う会計を記録');
-  });
-
-  test('容器代を取らない催しでは、手で入れた容器代も 0 円', async () => {
-    await master('container-rule', { enabled: false, freeUpTo: 4, per: 4, fee: 10, maxCount: 1 });
-    await sale({ items: { 1: 7 }, flavors: { 1: { みたらし: 7 } }, container: 20 });
-    const s = await last();
-    assert.equal(s.container, 0);
-    assert.equal(s.amount, 800);
-    await master('container-rule', { enabled: true, freeUpTo: 4, per: 4, fee: 10, maxCount: 1 });
-  });
-
-  test('支払方法：選んでいない支払方法は、古い画面からは受け付けず、明細つき（オフライン対応）の画面からは記録して残す', async () => {
-    const bad = await master('payments', { payments: [] });
-    assert.equal(bad.status, 400);
-    await master('payments', { payments: ['PayPay', 'Airペイ'] });
-    const old = await sale({ items: { 1: 1 }, flavors: { 1: { みたらし: 1 } }, payment: '現金' });
-    assert.equal(old.status, 409);
-    const lines = [{ productId: 1, name: '団子', unit: '本', packs: [{ qty: 1, price: 150, count: 1 }] }];
-    const queued = await sale({ items: { 1: 1 }, lines, flavors: { 1: { みたらし: 1 } }, payment: '現金' });
-    assert.equal(queued.status, 200, JSON.stringify(queued.body));
-    assert.equal((await last()).payment, '現金');
-    const air = await sale({ items: { 1: 1 }, flavors: { 1: { みたらし: 1 } }, payment: 'Airペイ' });
-    assert.equal(air.status, 200);
-    const d = (await w.api('/api/summary')).body;
-    assert.deepEqual(d.payMethods, ['PayPay', 'Airペイ']);
-    assert.ok(d.payments.includes('現金'));   // 記録にある支払方法は集計に残る
-  });
-
-  test('営業終了後に打った会計は受け付けない', async () => {
-    await master('closed', { closed: true });
-    const r = await sale({ items: { 1: 1 }, flavors: { 1: { みたらし: 1 } }, payment: 'PayPay' });
-    assert.equal(r.status, 423);
+    assert.equal((await w.query('SELECT COUNT(*) AS n FROM reservations WHERE project_id = 1'))[0].n, 0);
   });
 });

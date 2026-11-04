@@ -1,5 +1,5 @@
 /*
- * 岡大グリー模擬店システム：全画面で共通のデザイン（ダッシュボード・レジ・キッチン・管理画面・会計の一覧）
+ * 定演チケットシステム：全画面で共通のデザイン（入口・受付・レジ・管理画面・会計の一覧）
  *
  * デザインシステムの考え方は docs/design-system.md。ここはその実装。
  *   - 土台はデジタル庁デザインシステム（DADS）。値は /tokens.css（DADS のトークンをそのまま写したもの）
@@ -149,7 +149,7 @@
   --mg-chart-grid: var(--mg-cream-400);
 
   /* 文字（DADS のタイポグラフィ。大きさは 12〜64px の段階から選ぶ） */
-  --mg-font: var(--font-family-sans);
+  --mg-font: 'BIZ UDPGothic', var(--font-family-sans);   /* 読みやすさのため BIZ UDP ゴシックを優先（Google Fonts。読めなければ DADS の既定） */
   --mg-text-xs: calc(12 / 16 * 1rem);   /* 最小。補足・タグ */
   --mg-text-sm: calc(14 / 16 * 1rem);   /* 業務画面の本文（Dense） */
   --mg-text-md: calc(16 / 16 * 1rem);   /* 本文（Standard）・ボタン・入力 */
@@ -233,7 +233,7 @@ a:active { color: var(--mg-primary-active); text-decoration-thickness: 1px; }
 .app-header .screen-links { flex: 1; }
 .app-header .btn-help { flex-shrink: 0; }
 
-/* システムのマーク（模擬店の屋台）。全画面の左上とログイン画面で共通。絵は CSS のマスクで描くので HTML は空の span */
+/* システムのマーク（チケット）。全画面の左上とログイン画面で共通。絵は CSS のマスクで描くので HTML は空の span */
 .app-mark {
   flex-shrink: 0;
   width: 40px; height: 40px;
@@ -249,7 +249,7 @@ a:active { color: var(--mg-primary-active); text-decoration-thickness: 1px; }
   mask: var(--mark-icon) center / contain no-repeat;
 }
 :root {
-  --mark-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 9.5 4.6 4h14.8L21 9.5'/%3E%3Cpath d='M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0'/%3E%3Cpath d='M5 12.5V20h14v-7.5'/%3E%3Cpath d='M10 20v-4.5h4V20'/%3E%3C/svg%3E");
+  --mark-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
 }
 
 /* ほかの画面へのリンク */

@@ -13,7 +13,7 @@ export const PASSWORDS = { register: 'reg-pass-1234', master: 'master-pass-1234'
 
 /** 一時的な D1 の保存先（同じ保存先で Worker を起動し直すと、データが残った状態で再起動できる） */
 export function tempDir() {
-  return mkdtempSync(join(tmpdir(), 'mogiten-test-'));
+  return mkdtempSync(join(tmpdir(), 'teien-test-'));
 }
 
 export async function startWorker(persistDir) {
@@ -21,7 +21,7 @@ export async function startWorker(persistDir) {
   const mf = new Miniflare(convertV4MiniflareOptions({
     resourcePersistencePath: persistDir,   // D1 の保存先
     workers: [{
-      name: 'mogiten',
+      name: 'teien-ticket',
       modules: [
         { type: 'ESModule', path: join(root, 'src/index.js') },
         { type: 'ESModule', path: join(root, 'public/pricing.js') },

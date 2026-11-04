@@ -1,5 +1,5 @@
 {
-  "name": "mogiten",
+  "name": "teien-ticket",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",

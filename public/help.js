@@ -1,4 +1,4 @@
-// ヘルプ（使い方・FAQ）ダイアログの開閉。3画面で共通。
+// ヘルプ（使い方・FAQ）ダイアログの開閉。各画面で共通。
 // [data-help-open] のボタンで開き、「閉じる」・背景タップ・Esc で閉じる。
 (() => {
   const dialog = document.getElementById('help-dialog');

@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>管理画面｜岡大グリー模擬店システム</title>
+<title>管理画面｜定演チケットシステム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
@@ -15,7 +15,6 @@
   /* 色・文字・見出し・カード・ボタン・ログイン・トーストの共通部分は /app.css */
   .wrap { max-width: 720px; margin: 0 auto; padding: 14px 14px 48px; }
   h2 { font-size: 15px; margin: 0 0 10px; }
-  #mSticks { font-size: 15px; line-height: 1.35; padding-top: 3px; white-space: pre-line; }   /* 商品ごとの本数（長くなるので小さめ） */
   .mini { display: flex; gap: 8px; text-align: center; }
   .mini > div { flex: 1; }
   .mini .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -37,7 +36,7 @@
   table.sessions td, table.sessions th { white-space: nowrap; }
   table.sessions td:nth-child(3) { white-space: normal; min-width: 7em; }
 
-  /* 商品の編集 */
+  /* 券種の編集 */
   .pcard { border: 1px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 12px; margin-bottom: 10px; background: var(--mg-surface-alt); }
   .pcard.dirty { border-color: var(--mg-caution); background: var(--mg-warning-bg); }
   .pcard.off { opacity: .7; }
@@ -51,8 +50,6 @@
   .set-row .su { white-space: nowrap; letter-spacing: 0; }
   .set-row .x { background: none; color: var(--mg-text-sub); font-size: 18px; padding: 0 6px; }
   .checks { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; margin: 8px 0; }
-  .flv-edit { display: block; font-size: 13px; color: var(--mg-text-sub); margin: 10px 0 4px; }
-  .flv-edit input { display: block; width: 100%; margin-top: 4px; color: var(--mg-text); }
   .checks label { display: flex; gap: 6px; align-items: center; }
   .checks select { padding: 6px; font-size: 14px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); max-width: 100%; }
   .checks label.bundle { width: 100%; min-width: 0; }
@@ -60,11 +57,9 @@
   .pactions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pactions .sp { flex: 1; }
   .dirty-badge { font-size: var(--mg-text-xs); color: var(--mg-warning-text); background: var(--mg-warning-bg-strong); padding: 1px 7px; border-radius: var(--mg-radius-xs); }
-  .rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
-  .rule input { width: 5em; }
   .danger-zone { border-color: var(--mg-error-border); }
 
-  /* 催し */
+  /* 公演 */
   .pj-item { border: 1px solid var(--mg-border); border-radius: var(--mg-radius-lg); padding: 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .pj-item.active { border-color: var(--mg-success); background: var(--mg-success-bg); }
   .pj-item .info { flex: 1; min-width: 12em; }
@@ -85,13 +80,12 @@
   .pay-opts .dot { width: 10px; height: 10px; border-radius: var(--mg-radius-full); flex-shrink: 0; }
   .pay-opts input { accent-color: var(--mg-primary); }
 
-  /* 容器代を取る／取らない */
+  /* 2 つから選ぶ（取り込み方） */
   .seg { display: inline-flex; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); overflow: hidden; margin-bottom: 8px; }
   .seg label { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--mg-text-sub); }
   .seg label + label { border-left: 1px solid var(--mg-border-field); }
   .seg input { accent-color: var(--mg-primary); }
   .seg label:has(input:checked) { background: var(--mg-primary-bg); color: var(--mg-primary); }
-  #app.no-container .pcont-label { display: none; }   /* 容器代を取らない催しでは「容器代の対象」を出さない */
   .pj-add { border: 1.5px dashed var(--mg-border-strong); border-radius: var(--mg-radius-lg); margin-bottom: 10px; }
   .pj-add.open { border-style: solid; border-color: var(--mg-primary); }
   .pj-add-row { display: flex; align-items: center; gap: 8px; width: 100%; background: none; padding: 14px 12px; font-size: 16px; font-weight: 700; color: var(--mg-primary); text-align: left; }
@@ -112,6 +106,17 @@
   #pjSettings[open] summary::before { content: '▾ '; }
   #pjSettings summary .note { display: inline; }
   .danger-zone h2 { color: var(--mg-error); }
+  /* 取り置きの取り込み */
+  .sub-h { font-size: 14px; margin: 14px 0 6px; }
+  .file-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .file-pick { cursor: pointer; }
+  .file-pick:focus-within { outline: 3px solid var(--mg-focus, #f5a623); outline-offset: 2px; }
+  .pv-err { background: var(--mg-error-bg); border: 1px solid var(--mg-error-border); color: var(--mg-error-text); border-radius: var(--mg-radius-md); padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+  .pv-warn { background: var(--mg-warning-bg); border: 1px solid var(--mg-warning-border); color: var(--mg-warning-text); border-radius: var(--mg-radius-md); padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+  .pv-err ul, .pv-warn ul { margin: 4px 0; padding-left: 1.2em; }
+  .pv-sum { font-size: 14px; margin: 8px 0 4px; }
+  .danger-text { color: var(--mg-error); }
+  #resvList table td, #resvPreview table td { vertical-align: top; }
 
 </style>
 </head>
@@ -119,59 +124,51 @@
 
 <div id="login" class="card login-card hidden" role="main">
   <span class="app-mark" aria-hidden="true"></span>
-  <div class="login-system">岡大グリー模擬店システム</div>
+  <div class="login-system">定演チケットシステム</div>
   <h2>管理画面</h2>
-  <p class="login-lead">店の責任者用の画面です。<br>マスターパスワードを入力してください</p>
+  <p class="login-lead">責任者用の画面です。<br>マスターパスワードを入力してください</p>
   <input id="pw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
   <button class="btn big block login-go" id="loginBtn">ログイン</button>
   <div class="login-note">ログインは12時間有効です</div>
   <button class="btn-help" type="button" data-help-open><span class="help-badge" aria-hidden="true">?</span>使い方</button>
 </div>
 
-<!-- 催しの一覧（ログインしたら最初にこの画面。催しを選ぶと、いつもの管理画面に入る） -->
+<!-- 公演の一覧（ログインしたら最初にこの画面。公演を選ぶと、いつもの管理画面に入る） -->
 <div id="projectsView" class="wrap hidden">
   <header class="app-header">
-    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>管理画面</h1><span class="app-sub">催しを選んでください</span></div></div>
-    <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav>
+    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>管理画面</h1><span class="app-sub">公演を選んでください</span></div></div>
+    <nav class="screen-links" aria-label="ほかの画面"><a href="/admin" target="_blank">レジ ↗</a><a href="/reception" target="_blank">受付 ↗</a></nav>
     <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
   </header>
 
   <section class="card">
-    <h2>催しの一覧</h2>
+    <h2>公演の一覧</h2>
     <div id="projectList"></div>
-    <!-- 新しい催しを追加：押すと、この下に入力欄が開く -->
+    <!-- 新しい公演を追加：押すと、この下に入力欄が開く -->
     <div class="pj-add" id="newProjectCard">
-      <button class="pj-add-row" id="npToggle" type="button" aria-expanded="false" aria-controls="npForm"><span class="plus" aria-hidden="true">＋</span>新しい催しを追加<span class="chev" aria-hidden="true"></span></button>
+      <button class="pj-add-row" id="npToggle" type="button" aria-expanded="false" aria-controls="npForm"><span class="plus" aria-hidden="true">＋</span>新しい公演を追加<span class="chev" aria-hidden="true"></span></button>
       <div class="pj-add-form" id="npForm" hidden>
       <div class="pj-grid">
-        <label class="pj-wide"><span class="lb">催し名 <span class="req">必須</span></span><input id="npName" type="text" maxlength="40" placeholder="例: 27岡山大学祭"></label>
-        <label class="pj-wide"><span class="lb">模擬店の名前（ダッシュボードに表示・任意）</span><input id="npShop" type="text" maxlength="40" placeholder="例: 混声合唱と学祭のための 団子"></label>
-        <label><span class="lb">開始日 <span class="req">必須</span></span><input id="npStart" type="date"></label>
-        <label><span class="lb">終了日 <span class="req">必須</span></span><input id="npEnd" type="date"></label>
-        <label><span class="lb">営業開始</span><select id="npOpen"><option value="0">0:00</option><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option></select></label>
-        <label><span class="lb">営業終了</span><select id="npClose"><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option><option value="24">24:00</option></select></label>
+        <label class="pj-wide"><span class="lb">公演名 <span class="req">必須</span></span><input id="npName" type="text" maxlength="40" placeholder="例: 第61回定期演奏会"></label>
+        <label><span class="lb">公演日 <span class="req">必須</span></span><input id="npStart" type="date"></label>
+        <label><span class="lb">最終日（2日以上のとき）</span><input id="npEnd" type="date"></label>
       </div>
-      <label class="pj-line"><span class="lb">目標金額（円）</span><input id="npTarget" type="number" inputmode="numeric" min="1" placeholder="例: 30000"></label>
-      <label class="pj-check"><input type="checkbox" id="npContainer"> 容器代を取る<span class="note" style="margin:0">（金額のルールは、催しを開いて「容器代」で決めます）</span></label>
       <div class="pj-copy">
-        <label class="pj-line">前の催しから設定を複製
-          <select id="npFrom"><option value="">複製しない（商品は空から作る）</option></select>
+        <label class="pj-line">前の公演から設定を複製
+          <select id="npFrom"><option value="">複製しない（券種は空から作る）</option></select>
         </label>
         <div id="npCopyWhat" class="checks hidden">
-          <label><input type="checkbox" id="npCopyProducts" checked> 商品・価格・セット・味</label>
-          <label><input type="checkbox" id="npCopyRule" checked> 容器代のルール</label>
+          <label><input type="checkbox" id="npCopyProducts" checked> 券種・価格・セット</label>
           <label><input type="checkbox" id="npCopyPayments" checked> 支払方法</label>
-          <label><input type="checkbox" id="npCopyTarget"> 目標金額（上の欄が空のとき）</label>
         </div>
       </div>
-      <label class="pj-check"><input type="checkbox" id="npActivate" checked> 作ったら、この催しをレジで使う</label>
+      <label class="pj-check"><input type="checkbox" id="npActivate" checked> 作ったら、この公演を当日に使う（レジ・受付）</label>
       <div class="pj-add-btns"><button class="btn" id="npBtn">作成して開く</button><button class="btn sub" id="npCancel" type="button">やめる</button></div>
-      <div class="note">会計（売上）は複製されません。新しい催しの会計番号は #1 から始まります。</div>
+      <div class="note">取り置きと当日券の会計は複製されません。新しい公演の会計番号は #1 から始まります。</div>
       </div>
     </div>
-    <div class="note">「開く」で、その催しの商品・価格・目標などを設定する画面に入ります。レジ・キッチン・ダッシュボードで使われるのは「レジで使用中」の催しだけです。</div>
+    <div class="note">「開く」で、その公演の券種・価格・取り置きなどを設定する画面に入ります。レジと受付で使われるのは「当日に使う」公演だけです。</div>
   </section>
-
 
   <button class="btn sub" id="logoutBtn2">ログアウト</button>
 </div>
@@ -179,83 +176,95 @@
 <div id="app" class="wrap hidden" role="main">
   <header class="app-header">
     <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>管理画面</h1><span class="app-sub" id="projSub"></span></div></div>
-    <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/admin" target="_blank">レジ ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a></nav>
+    <nav class="screen-links" aria-label="ほかの画面"><a href="/admin" target="_blank">レジ ↗</a><a href="/reception" target="_blank">受付 ↗</a></nav>
     <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
   </header>
 
   <div class="pj-bar">
-    <button class="btn sub small" id="backToList">← 催しの一覧</button>
+    <button class="btn sub small" id="backToList">← 公演の一覧</button>
     <span class="pj-title" id="pjTitle"></span>
     <span class="badge" id="pjActive"></span>
-    <button class="btn small hidden" id="pjActivateBtn">この催しをレジで使う</button>
+    <button class="btn small hidden" id="pjActivateBtn">この公演を当日に使う</button>
   </div>
 
   <section class="card">
     <details id="pjSettings">
-      <summary><h2 style="display:inline">催しの設定</h2> <span class="note" id="pjSummary"></span></summary>
+      <summary><h2 style="display:inline">公演の設定</h2> <span class="note" id="pjSummary"></span></summary>
       <div class="pj-grid">
-        <label class="pj-wide"><span class="lb">催し名 <span class="req">必須</span></span><input id="psName" type="text" maxlength="40" placeholder="例: 27岡山大学祭"></label>
-        <label class="pj-wide"><span class="lb">模擬店の名前（ダッシュボードに表示・任意）</span><input id="psShop" type="text" maxlength="40" placeholder="例: 混声合唱と学祭のための 団子"></label>
-        <label><span class="lb">開始日 <span class="req">必須</span></span><input id="psStart" type="date"></label>
-        <label><span class="lb">終了日 <span class="req">必須</span></span><input id="psEnd" type="date"></label>
-        <label><span class="lb">営業開始</span><select id="psOpen"><option value="0">0:00</option><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option></select></label>
-        <label><span class="lb">営業終了</span><select id="psClose"><option value="1">1:00</option><option value="2">2:00</option><option value="3">3:00</option><option value="4">4:00</option><option value="5">5:00</option><option value="6">6:00</option><option value="7">7:00</option><option value="8">8:00</option><option value="9">9:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option><option value="24">24:00</option></select></label>
+        <label class="pj-wide"><span class="lb">公演名 <span class="req">必須</span></span><input id="psName" type="text" maxlength="40" placeholder="例: 第61回定期演奏会"></label>
+        <label><span class="lb">公演日 <span class="req">必須</span></span><input id="psStart" type="date"></label>
+        <label><span class="lb">最終日（2日以上のとき）</span><input id="psEnd" type="date"></label>
       </div>
       <button class="btn" id="psBtn">保存</button>
-      <span class="sp"></span>
-      <div class="note">目標金額は下の「目標金額」で変えます。営業時間は、ダッシュボードの「1時間ごとの売上」と「目標達成の目安」に使います。</div>
     </details>
   </section>
 
   <section class="card">
+    <h2>売上</h2>
     <div class="mini">
-      <div><div class="v" id="mTotal">—</div><div class="k">売上</div></div>
-      <div><div class="v" id="mOrders">—</div><div class="k">会計数</div></div>
-      <div><div class="v" id="mSticks">—</div><div class="k">販売数</div></div>
+      <div><div class="v" id="mGrand">—</div><div class="k">受け取った額の合計</div></div>
+      <div><div class="v" id="mTotal">—</div><div class="k" id="mTotalK">当日券</div></div>
+      <div><div class="v" id="mCollected">—</div><div class="k">取り置き精算</div></div>
     </div>
-    <div class="note" id="mRate" style="text-align:center"></div>
+    <div class="note" id="mDetail" style="text-align:center"></div>
     <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
-      <a class="btn" href="/api/master/sales_ja.csv" data-csv download>⬇ 手集計用CSV（Excel）</a>
-      <a class="btn sub" href="/api/master/sales.csv" data-csv download>⬇ 会計CSV</a>
-      <a class="btn sub" href="/api/master/sale_items.csv" data-csv download>⬇ 明細CSV（商品・味ごと）</a>
-      <a class="btn sub" href="/api/master/sale_packs.csv" data-csv download>⬇ セットの内訳CSV</a>
+      <a class="btn" href="/api/master/sales_ja.csv" data-csv download>⬇ 当日券の売上（Excel・手集計用）</a>
+      <a class="btn" href="/api/master/reservations.csv" data-csv download>⬇ 取り置きの一覧と受け渡し</a>
+      <a class="btn sub" href="/api/master/sales.csv" data-csv download>⬇ 当日券の会計（データ分析用）</a>
+      <a class="btn sub" href="/api/master/sale_items.csv" data-csv download>⬇ 当日券の明細（データ分析用）</a>
     </div>
-    <div class="note">取り消した会計は含みません。手集計用は Excel で人が集計する向け（日本語の見出し、味ごとの本数が1列ずつ）。ほかの3つはデータ分析用で、sale_id（会計ID）でつながります。</div>
+    <div class="note">当日券の CSV に取り消した会計は含みません。手集計用は Excel で人が集計する向け（日本語の見出し、券種ごとの枚数が1列ずつ）。取り置きの一覧は、受け渡し済みかどうか・受け取った額・渡した時刻と人つきです（そのまま取り込み直すこともできます）。</div>
+  </section>
+
+  <section class="card" id="resvCard">
+    <h2>取り置き</h2>
+    <div class="mini">
+      <div><div class="v" id="rCount">—</div><div class="k">件数</div></div>
+      <div><div class="v" id="rHanded">—</div><div class="k">受け渡し済み</div></div>
+      <div><div class="v" id="rDue">—</div><div class="k">当日精算（未収）</div></div>
+    </div>
+
+    <h3 class="sub-h">CSV を取り込む</h3>
+    <div class="note" style="margin:0 0 8px">所定の様式の CSV（見出し：<b>番号・氏名・フリガナ・券種・枚数・支払・金額・備考</b>）を選ぶと、取り込む前に内容を確認できます。様式はこの下の「様式」で保存できます（Excel で開いて記入し、CSV で保存）。</div>
+    <div class="file-row">
+      <label class="btn sub file-pick">📄 CSV ファイルを選ぶ<input type="file" id="resvFile" accept=".csv,text/csv,text/plain" class="visually-hidden"></label>
+      <a class="btn sub" href="/api/master/reservations_template.csv" data-csv download>⬇ 様式（記入例つき）</a>
+    </div>
+    <div id="resvFileName" class="note"></div>
+    <div class="seg" role="radiogroup" aria-label="取り込み方">
+      <label><input type="radio" name="resvMode" value="append" checked> 追加・更新</label>
+      <label><input type="radio" name="resvMode" value="replace"> この CSV に置き換える</label>
+    </div>
+    <div class="note" id="resvModeNote" style="margin-top:0"></div>
+    <div id="resvPreview"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="resvImportBtn" disabled>取り込む</button>
+      <button class="btn sub hidden" id="resvCancelBtn">やめる</button>
+    </div>
+
+    <details id="resvListBox" style="margin-top:14px">
+      <summary><span id="resvListSum">取り込んだ取り置きの一覧</span></summary>
+      <input id="resvSearch" type="search" class="field" placeholder="名前・フリガナ・番号で絞り込む" aria-label="取り置きを絞り込む" style="margin:8px 0;width:100%">
+      <div class="scroll" id="resvList" tabindex="0" role="region" aria-label="取り置きの一覧"></div>
+    </details>
   </section>
 
   <section class="card">
-    <h2>商品・価格</h2>
+    <h2>券種・価格</h2>
     <div id="prodList"></div>
-    <button class="btn sub" id="addProdBtn">＋ 商品を追加</button>
+    <button class="btn sub" id="addProdBtn">＋ 券種を追加</button>
     <div class="note">
-      ・数量ごとの価格（セット）を登録すると、レジでは個数を入れるだけで一番安い組み合わせを自動で選びます。1個（1本）の価格は必須です。<br>
-      ・「容器代の対象」にした商品の数の合計で、容器代を計算します。<br>
-      ・販売の記録がある商品は削除できません。「販売中」を外すとレジに出なくなります。<br>
-      ・価格を変えても、すでに記録した会計の金額は変わりません。
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>容器代</h2>
-    <div class="seg" role="radiogroup" aria-label="容器代を取るか">
-      <label><input type="radio" name="feeOn" value="1" id="feeOnYes"> 容器代を取る</label>
-      <label><input type="radio" name="feeOn" value="0" id="feeOnNo"> 容器代を取らない</label>
-    </div>
-    <div class="note" id="feeOffNote">この催しでは容器代を取りません。レジに容器代の行は出ず、容器代はいつも0円です。</div>
-    <div id="ruleBody">
-    <div class="rule">
-      容器代の対象が <input id="ruleFree" aria-label="無料の個数" type="number" inputmode="numeric" min="0"> 個までは無料、それより多いときは
-      <input id="rulePer" aria-label="何個ごとに" type="number" inputmode="numeric" min="1"> 個ごとに <input id="ruleFee" aria-label="容器代（円）" type="number" inputmode="numeric" min="0"> 円。
-      容器は最大 <input id="ruleMax" aria-label="容器の上限の個数" type="number" inputmode="numeric" min="0"> 個まで（0 = 上限なし）
-      <button class="btn" id="ruleBtn">変更する</button>
-    </div>
-    <div class="note" id="rulePreview"></div>
+      ・券種（例: 一般・学生・招待）ごとに価格を登録します。1枚の価格は必須です。ペア券のように2枚以上の価格（セット）を登録すると、レジでは枚数を入れるだけで一番安い組み合わせを自動で選びます。<br>
+      ・取り置きの CSV の「券種」には、ここの券種名と同じ名前を書きます。<br>
+      ・「販売中」を外すと、レジ（当日券）に出なくなります（取り置きでは使えます。例: 招待券・前売り券）。<br>
+      ・当日券の販売の記録や取り置きがある券種は削除できません。<br>
+      ・価格を変えても、すでに記録した会計や取り込んだ取り置きの金額は変わりません。
     </div>
   </section>
 
   <section class="card" id="payCard">
-    <h2>支払方法</h2>
-    <div class="note" style="margin:0 0 8px">この催しのレジに出す支払方法を選んで「保存」を押します（1〜8種類）。「現金」を選ぶと、レジでお預かり金額とおつりを入れます。現金を扱わない催しでは「現金」を外します。</div>
+    <h2>支払方法（レジ）</h2>
+    <div class="note" style="margin:0 0 8px">この公演のレジに出す支払方法を選んで「保存」を押します（1〜8種類）。「現金」を選ぶと、レジでお預かり金額とおつりを入れます。</div>
     <div class="pay-opts" id="payOpts"></div>
     <div class="row" style="margin:8px 0">
       <input id="payNew" type="text" maxlength="20" aria-label="ほかの支払方法を追加" placeholder="ほかの支払方法を追加（例: Airペイ）" class="field" style="flex:1;min-width:0">
@@ -266,25 +275,16 @@
   </section>
 
   <section class="card" id="closedCard">
-    <h2>営業の状態 <span class="badge" id="closedState"></span></h2>
-    <button class="btn danger" id="closeBtn">営業終了（レジの会計を止める）</button>
-    <div class="note">営業終了にすると、レジでは新しい会計を記録できなくなり、ダッシュボードは自動更新を止めて終了時点の集計を表示します。終了前に電波がなくて送れていなかった会計は、あとから届いても記録されます。取消はそのままできます。もう一度押すと営業を再開できます。</div>
-  </section>
-
-  <section class="card">
-    <h2>目標金額</h2>
-    <div class="row">
-      <input id="targetInput" aria-label="目標金額（円）" type="number" inputmode="numeric" min="1" class="field" style="flex:1;min-width:0">
-      <button class="btn" id="targetBtn">変更する</button>
-    </div>
-    <div class="note">ダッシュボードとレジの「目標まで」に反映されます。</div>
+    <h2>当日券の販売 <span class="badge" id="closedState"></span></h2>
+    <button class="btn danger" id="closeBtn">販売終了（レジの会計を止める）</button>
+    <div class="note">販売終了にすると、レジでは新しい会計を記録できなくなります（受付の取り置きの受け渡しはそのまま使えます）。終了前に電波がなくて送れていなかった会計は、あとから届いても記録されます。取消はそのままできます。もう一度押すと販売を再開できます。</div>
   </section>
 
   <section class="card">
     <h2>ログイン中の端末</h2>
     <div id="sessions"></div>
     <div class="row" style="margin-top:12px">
-      <button class="btn danger" id="revokeRegBtn">レジ端末をすべて締め出す</button>
+      <button class="btn danger" id="revokeRegBtn">レジ・受付の端末をすべて締め出す</button>
       <button class="btn sub" id="revokeMasterBtn">ほかのマスター端末を締め出す</button>
     </div>
     <div class="note">締め出された端末は、次の操作でログイン画面に戻ります。パスワードを知っていれば再ログインできるので、端末をなくしたときなどは下でパスワードも変えてください。</div>
@@ -293,16 +293,16 @@
   <section class="card">
     <h2>ログイン制限 <span class="badge" id="lockState"></span></h2>
     <button class="btn sub" id="unlockBtn">ログイン制限を解除</button>
-    <div class="note">同じ接続元から10分間に5回パスワードを間違えると、その接続元からは10分間ログインできなくなります。学校の Wi-Fi などでは全員が同じ接続元になるため、打ち間違いで巻き込まれたときはここで解除してください（ログイン済みの端末には影響しません）。</div>
+    <div class="note">同じ接続元から10分間に5回パスワードを間違えると、その接続元からは10分間ログインできなくなります。会場の Wi-Fi などでは全員が同じ接続元になるため、打ち間違いで巻き込まれたときはここで解除してください（ログイン済みの端末には影響しません）。</div>
   </section>
 
   <section class="card form">
-    <h2>レジのパスワードを変更 <span class="badge" id="regPwState"></span></h2>
+    <h2>レジ・受付のパスワードを変更 <span class="badge" id="regPwState"></span></h2>
     <input id="regNew" type="password" autocomplete="new-password" aria-label="新しいレジ用パスワード" placeholder="新しいレジ用パスワード（8文字以上）">
     <input id="regNew2" type="password" autocomplete="new-password" aria-label="新しいレジ用パスワード" placeholder="新しいレジ用パスワード（確認）">
-    <label><input type="checkbox" id="regRevoke"> 同時にレジ端末をすべて締め出す</label>
+    <label><input type="checkbox" id="regRevoke"> 同時にレジ・受付の端末をすべて締め出す</label>
     <button class="btn" id="regBtn">変更する</button>
-    <div class="note">今のパスワードを知らなくても変更できます（マスターだけの操作）。</div>
+    <div class="note">レジと受付は同じパスワードです。今のパスワードを知らなくても変更できます（マスターだけの操作）。</div>
   </section>
 
   <section class="card form">
@@ -315,31 +315,46 @@
   </section>
 
   <section class="card form danger-zone">
-    <h2>この催しの売上記録を全リセット（テスト用）</h2>
+    <h2>取り置きの記録を消す（リハーサル・やり直し用）</h2>
+    <div class="note" id="resvResetInfo"></div>
+    <input id="resvResetConfirm" type="text" autocomplete="off" aria-label="確認の文字" placeholder="確認のため「未に戻す」または「削除」と入力" class="field" style="margin:8px 0;width:100%">
+    <div class="row">
+      <button class="btn sub" id="resvUnhandBtn">受け渡しの記録をすべて未に戻す</button>
+      <button class="btn danger" id="resvDeleteBtn">取り置きをすべて削除</button>
+    </div>
+    <div class="note">
+      ・「未に戻す」：取り置きはそのままで、受け渡し済みの印（時刻・渡した人）だけを消します。受付のリハーサルのあとに使います（入力欄に「未に戻す」）。<br>
+      ・「削除」：この公演の取り置きをすべて消します（入力欄に「削除」）。CSV を取り込み直すときは、ふつうは「この CSV に置き換える」で足ります。<br>
+      ・<strong>どちらも元に戻せません。</strong>必要なら先に「取り置きの一覧と受け渡し」の CSV を保存してください。
+    </div>
+  </section>
+
+  <section class="card form danger-zone">
+    <h2>当日券の売上記録を全リセット（テスト用）</h2>
     <div class="note" id="resetInfo"></div>
     <input id="resetConfirm" type="text" autocomplete="off" aria-label="「リセット」の確認" placeholder="確認のため「リセット」と入力" class="field" style="margin:8px 0">
     <input id="resetPw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
-    <button class="btn danger" id="resetBtn">すべての会計を削除する</button>
+    <button class="btn danger" id="resetBtn">当日券の会計をすべて削除する</button>
     <div class="note">
-      ・<b>この催しの</b>、取消済みも含めたすべての会計と明細を削除し、会計番号を #1 に戻します（ほかの催しの会計はそのまま）。<strong>元に戻せません。</strong><br>
-      ・商品・価格、目標金額、パスワード、ログイン中の端末はそのままです。<br>
+      ・<b>この公演の</b>、取消済みも含めたすべての当日券の会計と明細を削除し、会計番号を #1 に戻します（取り置きとほかの公演はそのまま）。<strong>元に戻せません。</strong><br>
+      ・券種・価格、パスワード、ログイン中の端末はそのままです。<br>
       ・レジ端末に残っているリセット前の未送信の会計は、送られてきても記録されずに破棄されます。<br>
-      ・本番の営業が始まったら使わないでください。必要なら先に CSV を保存してください。
+      ・本番が始まったら使わないでください。必要なら先に CSV を保存してください。
     </div>
   </section>
 
   <section class="card form danger-zone" id="pjDeleteCard">
-    <h2>この催しを削除</h2>
+    <h2>この公演を削除</h2>
     <div class="note" id="pjDeleteInfo"></div>
     <div id="pjDeleteInputs">
-      <input id="pjDelName" type="text" autocomplete="off" aria-label="削除する催し名の確認" placeholder="確認のため催し名を入力" class="field" style="margin:8px 0">
+      <input id="pjDelName" type="text" autocomplete="off" aria-label="削除する公演名の確認" placeholder="確認のため公演名を入力" class="field" style="margin:8px 0">
       <input id="pjDelPw" type="password" autocomplete="current-password" aria-label="マスターパスワード" placeholder="マスターパスワード">
     </div>
-    <button class="btn danger" id="pjDelBtn">この催しを削除する</button>
+    <button class="btn danger" id="pjDelBtn">この公演を削除する</button>
     <div class="note">
-      ・この催しの会計（売上の記録）・商品・設定を<b>すべて削除</b>し、催しの一覧から消えます。<strong>元に戻せません。</strong>売上を残したいときは、先に上の CSV を保存してください。<br>
-      ・<b>レジで使用中の催しは削除できません。</b>先にほかの催しを「レジで使う」にしてください。<br>
-      ・ほかの催しの会計・商品はそのままです。
+      ・この公演の当日券の会計・取り置き・券種・設定を<b>すべて削除</b>し、公演の一覧から消えます。<strong>元に戻せません。</strong>記録を残したいときは、先に上の CSV を保存してください。<br>
+      ・<b>当日に使っている公演は削除できません。</b>先にほかの公演を「当日に使う」にしてください。<br>
+      ・ほかの公演の記録はそのままです。
     </div>
   </section>
 
@@ -362,130 +377,95 @@
 
   <details open>
     <summary>管理画面でできること</summary>
-    <p>岡大グリー模擬店システムの、店の責任者向けの画面です。模擬店は<b>催し</b>（例：26岡山大学祭）ごとに管理します。ログインすると、まず催しの一覧が出ます。催しを「開く」と、その催しの商品・価格・味と容器代のルールの変更、目標金額の変更、レジのパスワードの変更、ログイン中の端末の締め出し、ログイン制限の解除、テスト用の売上記録の全リセットができます。入るにはマスターパスワードが必要で、ログインは<b>12時間</b>有効です。</p>
-    <p>会計の入力や取り消しは、ここではなくレジ画面で行います。注文の調理の管理は、キッチン画面（<code>/kitchen</code>・レジのパスワードでログイン）で行います。</p>
-  </details>
-
-  <h3 class="help-group">催し（学祭ごとの管理）</h3>
-
-  <details>
-    <summary>催しとは？</summary>
-    <figure class="narrow"><img src="/help/master-projects.webp" width="390" height="560" loading="lazy" alt="催しの一覧。27岡山大学祭と、レジで使用中の26岡山大学祭。それぞれ期間・営業時間・売上・目標・商品の数と、開く・レジで使うのボタン。いちばん下に「新しい催しを追加」の行"></figure>
-    <p>「26岡山大学祭」「27岡山大学祭」のような、模擬店を出す1回ごとのまとまりです。催しごとに、商品・価格・味・セット、目標金額、容器代のルール、営業時間、会計（売上）が別々に記録されます。会計番号（#）も催しごとに #1 から始まります。</p>
-    <p>レジ・キッチン・ダッシュボード・会計の一覧で使われるのは、<b>「レジで使用中」の催し1つだけ</b>です。前の催しの売上や商品は、催しを切り替えても消えずに残ります。</p>
+    <p>定演チケットシステムの、責任者向けの画面です。<b>公演</b>（例：第61回定期演奏会）ごとに、券種・価格、取り置き、当日券の売上を管理します。ログインすると、まず公演の一覧が出ます。公演を「開く」と、取り置きの CSV の取り込み、券種・価格の変更、売上の CSV のダウンロード、パスワードの変更、端末の締め出しなどができます。ログインは<b>12時間</b>有効です。</p>
+    <p>当日券の販売は<b>レジ</b>（<code>/admin</code>）、取り置きの受け渡しは<b>受付</b>（<code>/reception</code>）で行います。どちらもレジ用パスワードでログインします。</p>
   </details>
 
   <details>
-    <summary>新しい催しを作る（次の学祭の準備）</summary>
-    <figure class="narrow"><img src="/help/master-newproject.webp" width="328" height="718" loading="lazy" alt="「新しい催しを追加」を押して開いた入力欄。催し名、模擬店の名前、開始日、終了日、営業開始、営業終了、目標金額、容器代を取るのチェック（初期はオフ）、前の催しから設定を複製（初期は「複製しない」）、作ったらこの催しをレジで使うのチェック、作成して開くボタン"></figure>
-    <p>催しの一覧のいちばん下の「＋ 新しい催しを追加」を押すと、入力欄が開きます。催し名・開始日・終了日・営業時間を入れて「作成して開く」を押します（「やめる」で閉じます）。模擬店の名前（例：混声合唱と学祭のための 団子）を入れると、ダッシュボードに表示されます。</p>
-    <p><b>前の催しから設定を複製</b>で前の催しを選ぶと、商品・価格・セット・味と容器代のルールをそのまま引き継げます（目標金額も選べます）。売上は複製されません。複製したあとで、値段や味を今年の分に直してください。</p>
-    <p>「作ったら、この催しをレジで使う」を外しておくと、今の催しの営業を続けたまま、次の催しの準備だけできます。</p>
+    <summary>本番までの準備の流れ</summary>
+    <ol>
+      <li>公演を作る（前の公演があれば「設定を複製」で券種と価格を引き継げる）</li>
+      <li>「券種・価格」で券種を登録する（例：一般 1,000円、学生 500円、招待 0円（販売中を外す））</li>
+      <li>取り置きの一覧を様式の CSV にまとめ、「取り置き」で取り込む</li>
+      <li>受付のスマホ・タブレットで <code>/reception</code>、レジで <code>/admin</code> を開いてログインしておく</li>
+      <li>リハーサルで受け渡しを試したら、「取り置きの記録を消す」で<b>未に戻す</b>。テストで打った当日券は「全リセット」で消す</li>
+    </ol>
+  </details>
+
+  <h3 class="help-group">取り置き</h3>
+
+  <details>
+    <summary>CSV の様式は？</summary>
+    <p>1行目が見出し、2行目から1行に1件（または1件の1券種）です。「様式（記入例つき）」で、登録済みの券種名を使った記入例の CSV を保存できます。</p>
+    <ul>
+      <li><b>番号</b>：取り置きの番号（例: 1, 2, A-12）。<b>入れておくのがおすすめ</b>です。同じ番号の行は1件にまとめ、取り込み直したときは同じ取り置きとして更新します。空欄なら続きの番号を自動で付けます</li>
+      <li><b>氏名</b>（必須）、<b>フリガナ</b>：受付での検索と名前順の並びに使います</li>
+      <li><b>券種</b>・<b>枚数</b>：券種は「券種・価格」の券種名と同じに。1人で一般2枚と学生1枚のように複数の券種があるときは、同じ番号で2行に分けて書きます。券種名を見出しにした列（「一般」「学生」の列に枚数）でもかまいません</li>
+      <li><b>支払</b>：「済」（事前に支払済み）か「当日」（受付で受け取る）。空欄は「当日」として扱います</li>
+      <li><b>金額</b>：空欄なら券種の価格から計算します。割引などで違う金額のときだけ書きます</li>
+      <li><b>備考</b>：受付のカードに表示します（例：車いす、関係者）</li>
+    </ul>
+    <p>見出しは「名前」「お名前」「人数」「入金」なども読み取ります。Excel で保存した CSV（Shift_JIS）でも UTF-8 でもかまいません。</p>
   </details>
 
   <details>
-    <summary>レジで使う催しを切り替える</summary>
-    <p>催しの一覧で、使いたい催しの「レジで使う」を押します（開いている催しの画面の上の「この催しをレジで使う」でも同じ）。レジ・キッチン・ダッシュボードは30秒ほどで新しい催しに切り替わり、商品も切り替わります。</p>
-    <p>切り替える前にレジで打った会計は、電波がなくて未送信のままでも、あとで届いたときに<b>打ったときの催し</b>に記録されます。</p>
+    <summary>取り込むには？</summary>
+    <p>「CSV ファイルを選ぶ」でファイルを選ぶと、<b>取り込む前に</b>内容（件数・枚数・受付で受け取る額、1件ずつの内容）と、直すところ（行番号つき）が表示されます。直すところがなければ「取り込む」を押します。受付の画面には数秒で出てきます。</p>
+    <p><b>追加・更新</b>：CSV の取り置きを足します。同じ番号の取り置きは内容を更新し、CSV にない取り置きはそのまま残します。<br>
+    <b>この CSV に置き換える</b>：CSV にない取り置きは削除します（最新の一覧をまるごと入れ直すとき）。</p>
+    <p>どちらでも、同じ番号の取り置きの<b>受け渡しの記録は消えません</b>。本番の途中で追加の取り置きを入れることもできます。CSV にフリガナや備考の列がないときは、今の値を残します。</p>
   </details>
 
   <details>
-    <summary>催しの名前・日程・営業時間を直す</summary>
-    <p>催しを開いて、いちばん上の「催しの設定」を開き、直して「保存」を押します。営業時間は、ダッシュボードの「1時間ごとの売上」の範囲と「目標達成の目安（1時間あたり）」の計算に使います。</p>
+    <summary>受け渡しの状況を確かめる・記録を残す</summary>
+    <p>「取り置き」の欄の数字と「取り込んだ取り置きの一覧」で、受け渡し済みかどうかを確かめられます。「取り置きの一覧と受け渡し」の CSV には、受け渡した時刻・渡した人・受け取った額が入ります（そのまま取り込み直せる形です）。</p>
+  </details>
+
+  <h3 class="help-group">公演・券種</h3>
+
+  <details>
+    <summary>公演とは？／当日に使う公演の切り替え</summary>
+    <p>「第60回定期演奏会」「第61回定期演奏会」のような、1回の演奏会ごとのまとまりです。公演ごとに、券種・価格、支払方法、取り置き、当日券の会計が別々に記録されます。</p>
+    <p>レジと受付で使われるのは、<b>「当日に使う」公演1つだけ</b>です。公演の一覧の「当日に使う」で切り替えます（レジは30秒ほど、受付は数秒で切り替わります）。</p>
   </details>
 
   <details>
-    <summary>催しを削除したい</summary>
-    <p>レジで使っていない催しは削除できます。催しを開いて、いちばん下の「この催しを削除」を使います（一覧の「削除」からも行けます）。その催しの<b>会計（売上の記録）・商品・設定がすべて消え、元に戻せません</b>。売上を残したいときは、先に CSV を保存してください。</p>
-    <p>会計の記録がある催しは、間違えて消さないよう、催し名とマスターパスワードの入力が必要です。会計のない催し（作り間違えたものなど）は、一覧の「削除」ですぐ消せます。</p>
-    <p>レジで使用中の催しは削除できません。先にほかの催しを「レジで使う」にしてください。</p>
+    <summary>券種や価格を変える・追加する</summary>
+    <p>「券種・価格」で、券種名、単位、枚数ごとの価格（セット）を直して「保存」を押します。変えた券種の枠は保存するまで黄色になります。新しい券種は「＋ 券種を追加」から。1枚の価格は必ず入れてください。</p>
+    <p>「セット」で「○○のセット価格に含める」を選ぶと、その券種と枚数を合わせて、相手の券種のセット価格で計算します。</p>
+    <p>「販売中」を外すとレジ（当日券）に出なくなります。招待券や前売り券のように<b>取り置きだけで使う券種</b>は、販売中を外しておきます。</p>
   </details>
 
   <details>
-    <summary>支払方法を選ぶ（現金なしの催し・ほかのキャッシュレス）</summary>
-    <p>催しを開いて「支払方法」の欄で、レジに出す支払方法にチェックを入れて「保存」を押します（1〜8種類）。現金・PayPay・d払いのほかに、楽天ペイ・au PAY・メルペイ・交通系IC・クレジットカードを選べます。一覧にないものは、名前を入れて「追加」できます（例：Airペイ）。</p>
-    <p>現金を扱わない催しでは「現金」のチェックを外します。お預かり金額とおつりを入れるのは「現金」のときだけです。レジは30秒以内に新しい支払方法のボタンに切り替わります。</p>
-    <p>新しい催しは、初めは 現金・PayPay・d払い です。前の催しから複製するときに「支払方法」を選ぶと、前の催しと同じになります。</p>
-  </details>
-
-  <h3 class="help-group">よく使う操作</h3>
-
-  <details>
-    <summary>商品や価格を変える・追加する</summary>
-    <figure><img src="/help/master-products.webp" width="658" height="443" loading="lazy" alt="商品・価格の欄。団子の商品名、単位、1本150円、3本セット400円、5本セット500円、味の欄（みたらし、あんこ、きなこ）、セットの選択、容器代の対象と販売中のチェック、保存ボタン"></figure>
-    <p>「商品・価格」で、商品名、単位、数量ごとの価格（セット）を直して「保存」を押します。変えた商品の枠は保存するまで黄色になります。新しい商品は「＋ 商品を追加」から。1個（1本）の価格は必ず入れてください。</p>
-    <p>「セット」で「○○のセット価格に含める」を選ぶと、その商品と本数を合わせて、相手の商品のセット価格で計算します（例：<b>焼きマシュマロの欄</b>で「団子のセット価格に含める」にすると、団子3本＋焼きマシュマロ2本で5本セット500円）。相手に選べるのは、セット価格（2本以上の価格）がある商品だけです。混ぜたセットの金額は、本数の割合で商品ごとに分けて記録します。</p>
-    <p>「味」に「みたらし、あんこ、きなこ」のように「、」で区切って入れると、レジではその商品を<b>味ごとに</b>数えて入力するようになり、キッチン画面（<code>/kitchen</code>）にも味ごとに表示されます。セットの組み方や金額は味に関係なく、合計の本数で決まります。味を空にすると、これまでどおり数だけを入れる商品になります。味は12種類まで、1つ12文字までです。並べた順に、レジのボタンとキッチンの合計が並びます。</p>
-    <p>味の名前を変えたり消したりしても、すでに記録した会計の味は、記録したときの名前のまま残ります。営業中に変えると、レジで入力途中の会計から消した味の分が外れるので、会計の合間に変えてください。</p>
-    <p>「容器代の対象」にした商品の本数で容器代を計算します。「販売中」を外すとレジに出なくなります（販売の記録がある商品は削除できないので、こちらで止めてください）。↑↓ でレジでの並び順を変えられます。</p>
-    <p>価格を変えても、すでに記録した会計の金額は変わりません。レジは次に画面を更新したとき（30秒以内）に新しい価格になります。</p>
-  </details>
-
-  <details>
-    <summary>容器代を取る・取らない／ルールを変える</summary>
-    <p>「容器代」の欄で、この催しで<b>容器代を取るか取らないか</b>を選べます（押すとすぐ切り替わります）。「取らない」にすると、レジに容器代の行が出なくなり、容器代はいつも0円になります。商品の「容器代の対象」のチェックも出なくなります。下のルールの数字は残るので、あとで「取る」に戻せばそのまま使えます。</p>
-    <p>新しい催しを作るときは「容器代を取る」のチェックで選びます（初期はオフ）。前の催しから容器代のルールを複製するときは、複製元に合わせてチェックが入ります。</p>
-    <p>容器代を取るときは、「容器代の対象が○個までは無料、それより多いときは○個ごとに○円。容器は最大○個まで」の4つの数字を入れて「変更する」を押します。入力すると、下に「例：1〜2個 0円 / 3〜16個 10円 …」と結果が出るので確かめてください。</p>
-    <p>初期設定は「2個までは無料、3個以上は何個でも容器1個（10円）」です。本数に応じて容器を増やしたいときは、最大の個数を 0（上限なし）にします。</p>
-  </details>
-
-  <details>
-    <summary>目標金額を変える</summary>
-    <figure><img src="/help/master-target.webp" width="692" height="136" loading="lazy" alt="目標金額の入力欄と変更するボタン"></figure>
-    <p>欄に新しい金額を数字で入れて「変更する」を押します。ダッシュボードとレジの「目標まで」に反映されます。変更は操作の記録に残ります。</p>
-  </details>
-
-  <details>
-    <summary>端末を締め出す（ログインを解除する）</summary>
-    <figure><img src="/help/master-sessions.webp" width="692" height="326" loading="lazy" alt="ログイン中の端末の一覧。種類、名前、端末、ログイン時刻、最終利用時刻と、締め出すボタン"></figure>
-    <p>「ログイン中の端末」に、今ログインしている端末が名前つきで並びます。1台ずつ締め出すときは、その行の「締め出す」を押します。「レジ端末をすべて締め出す」で、レジの端末をまとめて解除できます。</p>
-    <p>締め出された端末は、次の操作でログイン画面に戻ります。パスワードを知っていれば再びログインできるので、スマホをなくしたときなどは、下でレジのパスワードも変えてください。</p>
-  </details>
-
-  <details>
-    <summary>「ログインできない」と言われたとき</summary>
-    <figure><img src="/help/master-unlock.webp" width="692" height="172" loading="lazy" alt="ログイン制限のカード。ログイン制限を解除ボタンと説明"></figure>
-    <p>同じ接続元から10分間に5回パスワードを間違えると、その接続元からは10分間ログインできなくなります。同じ Wi-Fi やテザリングを使っている人はまとめて止まるので、打ち間違いで巻き込まれた人がいるときは「ログイン制限を解除」を押してください。ログイン済みの端末には影響しません。</p>
-  </details>
-
-  <h3 class="help-group">パスワード</h3>
-
-  <details>
-    <summary>レジのパスワードを変える</summary>
-    <p>新しいパスワード（8文字以上）を2回入れて「変更する」を押します。今のパスワードを知らなくても変更できます。「同時にレジ端末をすべて締め出す」にチェックを入れると、ログイン中のレジもすべて解除され、全員が新しいパスワードで入り直すことになります。</p>
-  </details>
-
-  <details>
-    <summary>マスターパスワードを変える／忘れた</summary>
-    <p>変えるときは、今のマスターパスワードと新しいパスワード（8文字以上）を入れて「変更する」を押します。この端末以外のマスターログインは解除されます。</p>
-    <p>忘れたときは画面からは戻せません。Cloudflare の設定ができる人に、README の「メモ」にある手順で初期パスワードに戻してもらってください。</p>
+    <summary>支払方法を選ぶ</summary>
+    <p>「支払方法（レジ）」で、レジに出す支払方法にチェックを入れて「保存」を押します（1〜8種類）。新しい公演の初期は「現金」だけです。キャッシュレスを使うときは追加してください。取り置きの当日精算は、受付で受け取るので支払方法を選びません。</p>
   </details>
 
   <h3 class="help-group">そのほか</h3>
 
   <details>
-    <summary>テストの会計をまとめて消す（全リセット）</summary>
-    <p>いちばん下の赤い枠「売上記録の全リセット（テスト用）」で、取消済みも含めたすべての会計を消し、会計番号を #1 に戻せます。「リセット」と入力し、マスターパスワードをもう一度入れて押します。<b>元に戻せないので、本番の営業が始まったら使わないでください。</b></p>
-    <p>リセット前にレジのスマホにたまっていた未送信の会計は、あとで届いても記録されずに捨てられます。商品・価格、目標金額、パスワードはそのままです。</p>
+    <summary>端末を締め出す・パスワードを変える</summary>
+    <p>「ログイン中の端末」に、今ログインしている端末が名前つきで並びます。「締め出す」で1台ずつ、「レジ・受付の端末をすべて締め出す」でまとめて解除できます。スマホをなくしたときなどは、レジ・受付のパスワードも変えてください。</p>
+    <p>マスターパスワードを忘れたときは画面からは戻せません。Cloudflare の設定ができる人に、README の「メモ」にある手順で初期パスワードに戻してもらってください。</p>
   </details>
 
   <details>
-    <summary>売上明細と操作の記録</summary>
-    <p>いちばん上の CSV のボタンで、売上の記録を保存できます（取り消した会計を除く）。「手集計用CSV」は Excel で開いて人が集計するためのもので、見出しが日本語、味ごとの本数が1列ずつ並びます（レジ締めや味ごとの本数の確認に）。データ分析用の3つのうち、「会計CSV」は1行が1回の会計、「明細CSV」は1行が1回の会計の1つの商品の1つの味（味ごとの集計用）、「セットの内訳CSV」はセットごとの個数と金額です。3つは sale_id（会計ID）でつながります。1行目の項目名は英数字、金額は円の整数、日時は日本時間の ISO 8601 形式です。Excel で開いても文字化けしません（UTF-8・BOM 付き）。項目の定義は README の「CSV の項目定義」にあります。「操作の記録」には、取消、目標の変更、ログインなどを誰がいつしたかが並びます。</p>
+    <summary>テストの記録を消す</summary>
+    <p>リハーサルで受け渡し済みにした取り置きは、「取り置きの記録を消す」で<b>未に戻す</b>と、取り置きはそのままで受け渡しの印だけを消せます。テストで打った当日券の会計は「当日券の売上記録を全リセット」で消せます。<b>どちらも元に戻せないので、本番が始まったら使わないでください。</b></p>
   </details>
 </dialog>
 
 <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { containerFee, PAYMENT_PRESETS, MAX_PAYMENTS, paymentColor } from '/pricing.js';
+  import { PAYMENT_PRESETS, MAX_PAYMENTS, paymentColor, describeTickets } from '/pricing.js';
   const $ = id => document.getElementById(id);
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  const ROLE = { register: 'レジ', master: 'マスター' };
+  const ROLE = { register: 'レジ・受付', master: 'マスター' };
 
-  // 開いている催し（null なら催しの一覧）。催しについての操作には X-Project で催しの番号を付ける
+  // 開いている公演（null なら公演の一覧）。公演についての操作には X-Project で公演の番号を付ける
   let currentProject = null;
   async function api(path, body) {
     const headers = { 'Content-Type': 'application/json' };
@@ -527,12 +507,8 @@
     renderProjectSettings(d.projectSettings, d.projects);
     renderPayOpts(d.payMethods);
     renderDeleteCard(d);
-    $('mTotal').textContent = yen(d.total);
-    $('mOrders').textContent = d.orders + '件';
-    $('mSticks').textContent = d.byProduct.filter(g => g.qty).map(g => g.name + ' ' + g.qty + g.unit).join('\n') || '0';   // 商品ごとに 1 行
-    $('mRate').textContent = '目標 ' + yen(d.target) + '（達成率 ' + Math.floor(d.rate * 100) + '%）' +
-      (d.total >= d.target ? '　🎉 達成！' + yen(d.total - d.target) + 'の黒字（見込）' : '');
-    if (document.activeElement !== $('targetInput')) $('targetInput').value = d.target;
+    renderSales(d);
+    renderResv(d);
 
     $('sessions').innerHTML = d.sessions.length ? '<table class="sessions"><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th><span class="visually-hidden">操作</span></th></tr>' +
       d.sessions.map(s => '<tr><td>' + ROLE[s.role] + '</td><td>' + esc(s.staff) + '</td><td>' + esc(s.device) + '</td>' +
@@ -549,56 +525,177 @@
     $('lockState').textContent = d.locked.length ? 'ロック中：' + d.locked.join('・') : 'ロックなし';
     $('lockState').className = 'badge ' + (d.locked.length ? 'warn' : 'ok');
 
-    $('resetInfo').textContent = '現在の会計：' + d.allSales.n + ' 件（うち取消 ' + d.allSales.cancelled + ' 件）・売上 ' + yen(d.total);
+    $('resetInfo').textContent = '今の当日券の会計：' + d.allSales.n + ' 件（うち取消 ' + d.allSales.cancelled + ' 件）・売上 ' + yen(d.total);
     if (d.closed) {
       const t = new Date(d.closed.at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      $('closedState').textContent = '営業終了（' + t + '）'; $('closedState').className = 'badge warn';
-      $('closeBtn').textContent = '営業を再開する'; $('closeBtn').className = 'btn';
+      $('closedState').textContent = '販売終了（' + t + '）'; $('closedState').className = 'badge warn';
+      $('closeBtn').textContent = '販売を再開する'; $('closeBtn').className = 'btn';
     } else {
-      $('closedState').textContent = '営業中'; $('closedState').className = 'badge ok';
-      $('closeBtn').textContent = '営業終了（レジの会計を止める）'; $('closeBtn').className = 'btn danger';
+      $('closedState').textContent = '販売中'; $('closedState').className = 'badge ok';
+      $('closeBtn').textContent = '販売終了（レジの会計を止める）'; $('closeBtn').className = 'btn danger';
     }
     renderProducts(d.allProducts);
-    renderRule(d.rule);
 
     $('audit').innerHTML = d.audit.length ? '<table><tr><th>日時</th><th>誰が</th><th>操作</th><th>内容</th></tr>' +
       d.audit.map(a => '<tr><td class="t">' + fmt(a.at) + '</td><td>' + esc(a.actor) + '</td><td>' + esc(a.action) + '</td><td>' + esc(a.detail) + '</td></tr>').join('') +
       '</table>' : '<div class="empty">記録はありません</div>';
   }
 
-  // ---------- 商品・価格 ----------
+  // ---------- 売上 ----------
+  function renderSales(d) {
+    const r = d.reservations;
+    $('mGrand').textContent = yen(d.grandTotal);
+    $('mTotal').textContent = yen(d.total);
+    $('mTotalK').textContent = '当日券（' + d.units + '枚・' + d.orders + '件）';
+    $('mCollected').textContent = yen(r.collected);
+    $('mDetail').textContent = [
+      d.byProduct.filter(g => g.qty).map(g => g.name + ' ' + g.qty + g.unit + '（' + yen(g.amount) + '）').join('・'),
+      d.payments.filter(m => (d.byPayment[m] || {}).count).map(m => m + ' ' + yen(d.byPayment[m].amount)).join('・'),
+    ].filter(Boolean).join('／') || '当日券の会計はまだありません';
+  }
+
+  // ---------- 取り置き ----------
+  let resvList = [];
+  function renderResv(d) {
+    const r = d.reservations;
+    resvList = d.reservationList || [];
+    $('rCount').textContent = r.count + '件・' + r.qty + '枚';
+    $('rHanded').textContent = r.handed + '件・' + r.handedQty + '枚';
+    $('rDue').textContent = yen(r.uncollected);
+    $('resvListSum').textContent = '取り込んだ取り置きの一覧（' + r.count + '件）';
+    $('resvResetInfo').textContent = '今の取り置き：' + r.count + ' 件（うち受け渡し済み ' + r.handed + ' 件・受け取った額 ' + yen(r.collected) + '）';
+    renderResvList();
+  }
+  const normQ = s => String(s || '').normalize('NFKC').replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60)).replace(/\s/g, '').toLowerCase();
+  function renderResvList() {
+    const q = normQ($('resvSearch').value);
+    const list = resvList.filter(x => !q || normQ(x.name).includes(q) || normQ(x.kana).includes(q) || normQ(x.no).startsWith(q))
+      .sort((a, b) => String(a.no).localeCompare(String(b.no), 'ja', { numeric: true }));
+    $('resvList').innerHTML = list.length ? '<table><tr><th>番号</th><th>氏名</th><th>券種</th><th>支払</th><th>受け渡し</th></tr>' +
+      list.map(x => '<tr><td class="t">' + esc(x.no) + '</td><td>' + esc(x.name) + (x.kana ? '<br><small class="note">' + esc(x.kana) + '</small>' : '') +
+        (x.note ? '<br><small class="note">' + esc(x.note) + '</small>' : '') + '</td>' +
+        '<td>' + esc(describeTickets(x.tickets)) + '</td>' +
+        '<td>' + (x.paid ? '<span class="badge ok">済</span>' : x.due ? '<span class="badge warn">当日 ' + yen(x.due) + '</span>' : '<span class="badge">0円</span>') + '</td>' +
+        '<td class="t">' + (x.handedAt ? '✓ ' + fmt(x.handedAt) + (x.handedBy ? '<br>' + esc(x.handedBy) : '') : '—') + '</td></tr>').join('') + '</table>'
+      : '<div class="empty">' + (resvList.length ? '合う取り置きはありません' : '取り置きはまだありません') + '</div>';
+  }
+  $('resvSearch').addEventListener('input', renderResvList);
+
+  // CSV ファイルを読む：UTF-8 として読めなければ Shift_JIS（Excel で保存した CSV）として読む
+  let resvCsv = null, resvFileName = '';
+  async function readCsvFile(file) {
+    const buf = await file.arrayBuffer();
+    try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), enc: 'UTF-8' }; }
+    catch { return { text: new TextDecoder('shift_jis').decode(buf), enc: 'Shift_JIS' }; }
+  }
+  const resvMode = () => document.querySelector('input[name=resvMode]:checked').value;
+  function renderModeNote() {
+    $('resvModeNote').textContent = resvMode() === 'replace'
+      ? 'CSV にない取り置きは削除します。同じ番号の取り置きは内容を更新し、受け渡しの記録は残します。'
+      : 'CSV の取り置きを足します。同じ番号の取り置きは内容を更新し（受け渡しの記録は残す）、CSV にない取り置きはそのまま残します。';
+  }
+  renderModeNote();
+  $('resvFile').addEventListener('change', async () => {
+    const f = $('resvFile').files[0];
+    if (!f) return;
+    if (f.size > 2 * 1024 * 1024) { toast('ファイルが大きすぎます（2MB まで）', true); $('resvFile').value = ''; return; }
+    const { text, enc } = await readCsvFile(f);
+    resvCsv = text; resvFileName = f.name;
+    $('resvFileName').textContent = '📄 ' + f.name + '（' + enc + ' として読みました）';
+    previewResv();
+  });
+  document.querySelectorAll('input[name=resvMode]').forEach(r => r.addEventListener('change', () => { renderModeNote(); if (resvCsv) previewResv(); }));
+  $('resvCancelBtn').onclick = clearResvImport;
+  function clearResvImport() {
+    resvCsv = null; resvFileName = '';
+    $('resvFile').value = '';
+    $('resvFileName').textContent = '';
+    $('resvPreview').innerHTML = '';
+    $('resvImportBtn').disabled = true;
+    $('resvCancelBtn').classList.add('hidden');
+  }
+
+  let lastPreview = null;
+  async function previewResv() {
+    $('resvImportBtn').disabled = true;
+    $('resvCancelBtn').classList.remove('hidden');
+    $('resvPreview').innerHTML = '<div class="note">確認しています…</div>';
+    try {
+      const { preview: p } = await api('reservations/import', { csv: resvCsv, mode: resvMode(), dryRun: true });
+      lastPreview = p;
+      const c = p.counts;
+      const st = { new: '<span class="badge ok">新規</span>', update: '<span class="badge warn">更新</span>', same: '<span class="badge">変更なし</span>' };
+      $('resvPreview').innerHTML =
+        (p.errors.length ? '<div class="pv-err"><b>直すところが ' + p.errors.length + ' か所あります（取り込めません）</b><ul>' +
+          p.errors.map(e => '<li>' + e.line + '行目：' + esc(e.message) + '</li>').join('') + '</ul>CSV を直して、もう一度ファイルを選んでください。</div>' : '') +
+        (p.warnings.length ? '<div class="pv-warn"><ul>' + p.warnings.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul></div>' : '') +
+        (p.items.length ? '<div class="pv-sum">' + c.rows + '件（' + (p.totals ? p.totals.qty : 0) + '枚・受付で受け取る額 ' + yen(p.totals ? p.totals.due : 0) + '）：' +
+          '新規 <b>' + c.created + '</b>・更新 <b>' + c.updated + '</b>・変更なし ' + c.unchanged + (c.removed ? '・<span class="danger-text">削除 <b>' + c.removed + '</b></span>' : '') + '</div>' +
+          '<div class="scroll"><table><tr><th>番号</th><th>氏名</th><th>券種</th><th>支払</th><th></th></tr>' +
+          p.items.map(x => '<tr><td class="t">' + esc(x.no) + (x.autoNo ? '<br><small class="note">自動</small>' : '') + '</td>' +
+            '<td>' + esc(x.name) + (x.kana ? '<br><small class="note">' + esc(x.kana) + '</small>' : '') + (x.note ? '<br><small class="note">' + esc(x.note) + '</small>' : '') + '</td>' +
+            '<td>' + esc(x.ticketsText) + '</td>' +
+            '<td>' + (x.paid ? '済' : x.due ? '当日 ' + yen(x.due) : '代金なし') + '</td><td>' + (st[x.status] || '') + (x.handed ? '<br><small class="note">受け渡し済み</small>' : '') + '</td></tr>').join('') +
+          '</table></div>' +
+          (p.removedItems && p.removedItems.length ? '<div class="note danger-text">削除される取り置き：' + p.removedItems.map(x => esc(x.no + ' ' + x.name) + (x.handed ? '（受け渡し済み）' : '')).join('、') + (c.removed > p.removedItems.length ? ' ほか' : '') + '</div>' : '')
+          : '');
+      $('resvImportBtn').disabled = !!p.errors.length || !p.items.length;
+    } catch (e) {
+      $('resvPreview').innerHTML = '<div class="pv-err">' + esc(e.message) + '</div>';
+    }
+  }
+  $('resvImportBtn').onclick = async () => {
+    if (!resvCsv || !lastPreview) return;
+    const c = lastPreview.counts;
+    if (!confirm('取り置きを取り込みますか？\n新規 ' + c.created + ' 件・更新 ' + c.updated + ' 件' + (c.removed ? '・削除 ' + c.removed + ' 件' + (c.removedHanded ? '（うち受け渡し済み ' + c.removedHanded + ' 件）' : '') : '') + '\n受付の画面にはすぐ反映されます。')) return;
+    $('resvImportBtn').disabled = true;
+    try {
+      const d = await api('reservations/import', { csv: resvCsv, mode: resvMode(), fileName: resvFileName });
+      clearResvImport();
+      render(d);
+      toast('取り込みました：新規 ' + d.imported.created + ' 件・更新 ' + d.imported.updated + ' 件' + (d.imported.removed ? '・削除 ' + d.imported.removed + ' 件' : ''));
+    } catch (e) { toast(e.message, true); $('resvImportBtn').disabled = false; }
+  };
+  async function resetResv(what) {
+    const word = what === 'all' ? '削除' : '未に戻す';
+    if ($('resvResetConfirm').value.trim() !== word) return toast('確認のため「' + word + '」と入力してください', true);
+    if (!confirm(what === 'all' ? 'この公演の取り置きをすべて削除します。元に戻せません。よろしいですか？' : 'すべての受け渡し済みの印を消して、未に戻します。元に戻せません。よろしいですか？')) return;
+    await run(async () => { const d = await api('reservations/reset', { what, confirm: word }); $('resvResetConfirm').value = ''; return d; },
+      what === 'all' ? '取り置きをすべて削除しました' : '受け渡しの記録を未に戻しました');
+  }
+  $('resvUnhandBtn').onclick = () => resetResv('handed');
+  $('resvDeleteBtn').onclick = () => resetResv('all');
+
+  // ---------- 券種・価格 ----------
   let forceProducts = false;   // 保存などの直後は編集中でも描き直す
   let allProductsCache = [];
-  // 「○○のセットに含める」の選択肢（自分以外で、ほかのセットに含めていない商品）
+  // 「○○のセットに含める」の選択肢（自分以外で、ほかのセットに含めていない券種）
   function bundleSelect(p) {
-    // 相手にできるのは、自分以外で、ほかのセットに含めておらず、セット価格（2個以上の価格）がある商品だけ
+    // 相手にできるのは、自分以外で、ほかのセットに含めておらず、セット価格（2個以上の価格）がある券種だけ
     const hasSet = x => (x.sets || []).some(s => s.qty > 1);
-    // 相手に「無効な」設定（セット価格のない商品に含める）が残っていても、ないものとして扱う
+    // 相手に「無効な」設定（セット価格のない券種に含める）が残っていても、ないものとして扱う
     const bundled = x => x.bundleWith && allProductsCache.some(y => String(y.id) === String(x.bundleWith) && hasSet(y));
     const ok = x => x.id !== p.id && !bundled(x) && hasSet(x);
     const opts = allProductsCache.filter(ok);
     const current = p.bundleWith && allProductsCache.find(x => String(x.id) === String(p.bundleWith));
     const invalid = current && !ok(current);
-    return '<label class="bundle">セット：<select class="pbundle"><option value="">この商品だけで組む</option>' +
+    return '<label class="bundle">セット：<select class="pbundle"><option value="">この券種だけで組む</option>' +
       opts.map(x => '<option value="' + x.id + '"' + (String(p.bundleWith) === String(x.id) ? ' selected' : '') + '>' + esc(x.name) + 'のセット価格に含める（' + esc(x.name) + 'と本数を合わせて組む）</option>').join('') +
-      (invalid ? '<option value="' + current.id + '" selected>⚠ ' + esc(current.name) + 'にはセット価格がないため無効（「この商品だけで組む」に直して保存）</option>' : '') +
+      (invalid ? '<option value="' + current.id + '" selected>⚠ ' + esc(current.name) + 'にはセット価格がないため無効（「この券種だけで組む」に直して保存）</option>' : '') +
       '</select></label>';
   }
 
   function productCard(p) {
-    const u = esc(p.unit || '本');
+    const u = esc(p.unit || '枚');
     return '<div class="pcard' + (p.active === false ? ' off' : '') + '" data-id="' + (p.id || '') + '">' +
-      '<div class="head"><input type="text" class="pname" maxlength="20" aria-label="商品名" placeholder="商品名" value="' + esc(p.name || '') + '">' +
+      '<div class="head"><input type="text" class="pname" maxlength="20" aria-label="券種名" placeholder="券種名（例: 一般）" value="' + esc(p.name || '') + '">' +
       '単位 <input type="text" class="punit" maxlength="4" aria-label="単位" value="' + u + '">' +
-      (p.id ? '' : '<span class="dirty-badge">新しい商品</span>') + '</div>' +
+      (p.id ? '' : '<span class="dirty-badge">新しい券種</span>') + '</div>' +
       '<div class="sets">' + (p.sets || [{ qty: 1, price: '' }]).map(setRow).join('') + '</div>' +
       '<button class="btn sub small" data-act="addset">＋ セットを追加</button>' +
-      '<label class="flv-edit">味（「、」で区切る・レジで味ごとに数を入れる。空なら味なし）' +
-        '<input type="text" class="pflv" maxlength="200" placeholder="例: みたらし、あんこ、きなこ" value="' + esc((p.flavors || []).join('、')) + '"></label>' +
       '<div class="checks">' + bundleSelect(p) + '</div>' +
       '<div class="checks">' +
-        '<label class="pcont-label"><input type="checkbox" class="pcont"' + (p.container ? ' checked' : '') + '> 容器代の対象</label>' +
-        '<label><input type="checkbox" class="pact"' + (p.active !== false ? ' checked' : '') + '> 販売中</label>' +
+        '<label><input type="checkbox" class="pact"' + (p.active !== false ? ' checked' : '') + '> 販売中（レジに出す）</label>' +
       '</div>' +
       '<div class="pactions">' +
         '<button class="btn small" data-act="save">保存</button>' +
@@ -624,7 +721,7 @@
     if (anyDirty && !forceProducts) return;   // 編集中は自動更新で消さない
     forceProducts = false;
     allProductsCache = list;
-    $('prodList').innerHTML = list.map(productCard).join('') || '<div class="empty">商品がありません</div>';
+    $('prodList').innerHTML = list.map(productCard).join('') || '<div class="empty">券種がありません。「＋ 券種を追加」から登録してください</div>';
     document.querySelectorAll('.pcard').forEach(refreshUnits);
   }
   function readCard(card) {
@@ -634,9 +731,7 @@
       unit: card.querySelector('.punit').value,
       sets: [...card.querySelectorAll('.set-row')].map(r => ({ qty: Number(r.querySelector('.sq').value), price: Number(r.querySelector('.sp').value) }))
         .filter(x => x.qty || x.price),
-      container: card.querySelector('.pcont').checked,
       active: card.querySelector('.pact').checked,
-      flavors: card.querySelector('.pflv').value,
       bundleWith: card.querySelector('.pbundle') && card.querySelector('.pbundle').value ? Number(card.querySelector('.pbundle').value) : null,
     };
   }
@@ -679,56 +774,14 @@
   });
   $('addProdBtn').onclick = () => {
     if ($('prodList').querySelector('.empty')) $('prodList').innerHTML = '';
-    $('prodList').insertAdjacentHTML('beforeend', productCard({ unit: '本', sets: [{ qty: 1, price: '' }], container: false, active: true }));
+    $('prodList').insertAdjacentHTML('beforeend', productCard({ unit: '枚', sets: [{ qty: 1, price: '' }], active: true }));
     const card = $('prodList').lastElementChild;
     refreshUnits(card);
     card.querySelector('.pname').focus();
   };
 
-  // ---------- 容器代のルール ----------
-  let ruleDirty = false;
-  let lastRule = null;
-  function renderRule(rule) {
-    lastRule = rule;
-    const on = rule.enabled !== false;
-    $('feeOnYes').checked = on; $('feeOnNo').checked = !on;
-    $('ruleBody').classList.toggle('hidden', !on);
-    $('feeOffNote').classList.toggle('hidden', on);
-    $('app').classList.toggle('no-container', !on);
-    if (!ruleDirty) { $('ruleFree').value = rule.freeUpTo; $('rulePer').value = rule.per; $('ruleFee').value = rule.fee; $('ruleMax').value = rule.maxCount ?? 0; }
-    previewRule();
-  }
-  function previewRule() {
-    const rule = { freeUpTo: Number($('ruleFree').value), per: Number($('rulePer').value) || 1, fee: Number($('ruleFee').value), maxCount: Number($('ruleMax').value) || 0 };
-    const out = [];
-    let from = 1;
-    for (let n = 1; n <= 16; n++) {
-      const f = containerFee(rule, n), next = n < 16 ? containerFee(rule, n + 1) : null;
-      if (next !== f) { out.push((from === n ? n : from + '〜' + n) + '個 ' + f + '円'); from = n + 1; }
-    }
-    $('rulePreview').textContent = '例：' + out.join(' / ') + ' …';
-  }
-  ['ruleFree', 'rulePer', 'ruleFee', 'ruleMax'].forEach(id => $(id).addEventListener('input', () => { ruleDirty = true; previewRule(); }));
-  $('ruleBtn').onclick = async () => {
-    const body = { enabled: true, freeUpTo: Number($('ruleFree').value), per: Number($('rulePer').value), fee: Number($('ruleFee').value), maxCount: Number($('ruleMax').value) || 0 };
-    if (!confirm('容器代のルールを変更しますか？\n' + $('rulePreview').textContent)) return;
-    ruleDirty = false;
-    await run(() => api('container-rule', body), '容器代のルールを変更しました');
-  };
-
-  // 容器代を取る／取らないの切り替え（すぐ保存。金額のルールはそのまま残す）
-  document.querySelectorAll('input[name=feeOn]').forEach(r => r.onchange = () => {
-    const on = $('feeOnYes').checked;
-    if (!confirm(on ? 'この催しで容器代を取るようにしますか？\n（下のルールで計算します）' : 'この催しでは容器代を取らないようにしますか？\nレジの容器代はいつも0円になります（ルールは残ります）。')) {
-      renderRule(lastRule); return;
-    }
-    const r = lastRule || {};
-    run(() => api('container-rule', { enabled: on, freeUpTo: r.freeUpTo, per: r.per, fee: r.fee, maxCount: r.maxCount ?? 0 }),
-      on ? '容器代を取るようにしました' : '容器代を取らないようにしました');
-  });
-
   // ---------- 支払方法 ----------
-  // 候補（よく使うもの）＋この催しで使っているもの＋この画面で追加したもの。チェックした順ではなく、この並びで保存する
+  // 候補（よく使うもの）＋この公演で使っているもの＋この画面で追加したもの。チェックした順ではなく、この並びで保存する
   let payDirty = false, payExtra = [], payChecked = [];
   function renderPayOpts(current) {
     if (!payDirty) { payChecked = [...current]; payExtra = []; }
@@ -758,28 +811,28 @@
     run(async () => { const d = await api('payments', { payments: list }); payDirty = false; return d; }, '支払方法を保存しました');
   };
 
-  // ---------- 催しの削除 ----------
+  // ---------- 公演の削除 ----------
   let deleteInfo = null;
   function renderDeleteCard(d) {
     const ps = d.projectSettings;
-    deleteInfo = { id: ps.id, name: ps.name, active: ps.active, orders: d.allSales.n };
+    deleteInfo = { id: ps.id, name: ps.name, active: ps.active, orders: d.allSales.n + d.reservations.count };
     $('pjDeleteInfo').textContent = ps.active
-      ? 'この催しはレジで使用中のため削除できません。'
-      : 'この催しの会計 ' + d.allSales.n + ' 件・売上 ' + yen(d.total) + '・商品 ' + d.allProducts.length + ' 件を削除します。';
+      ? 'この公演は当日に使っているため削除できません。'
+      : 'この公演の当日券の会計 ' + d.allSales.n + ' 件・売上 ' + yen(d.total) + '・取り置き ' + d.reservations.count + ' 件・券種 ' + d.allProducts.length + ' 件を削除します。';
     $('pjDelBtn').disabled = ps.active;
-    // 会計がない催しは、催し名とパスワードの入力なしで削除できる
+    // 会計がない公演は、公演名とパスワードの入力なしで削除できる
     $('pjDeleteInputs').classList.toggle('hidden', ps.active || !d.allSales.n);
   }
   $('pjDelBtn').onclick = async () => {
     const x = deleteInfo;
     if (!x || x.active) return;
-    if (x.orders && $('pjDelName').value.trim() !== x.name) return toast('確認のため、催し名「' + x.name + '」を入力してください', true);
+    if (x.orders && $('pjDelName').value.trim() !== x.name) return toast('確認のため、公演名「' + x.name + '」を入力してください', true);
     if (x.orders && !$('pjDelPw').value) return toast('マスターパスワードを入力してください', true);
-    if (!confirm('催し「' + x.name + '」を削除します。' + (x.orders ? '\n会計 ' + x.orders + ' 件も削除され、' : '\n') + '元に戻せません。よろしいですか？')) return;
+    if (!confirm('公演「' + x.name + '」を削除します。' + (x.orders ? '\n会計・取り置きも削除され、' : '\n') + '元に戻せません。よろしいですか？')) return;
     try {
       const d = await api('projects/' + x.id + '/delete', { confirm: $('pjDelName').value, password: $('pjDelPw').value });
       $('pjDelName').value = ''; $('pjDelPw').value = '';
-      toast('催し「' + x.name + '」を削除しました');
+      toast('公演「' + x.name + '」を削除しました');
       showProjects(d);
     } catch (e) { toast(e.message, true); }
   };
@@ -803,44 +856,38 @@
     if (id && confirm('この端末を締め出しますか？')) run(() => api('sessions/' + id + '/revoke', {}), '締め出しました');
   };
   $('revokeRegBtn').onclick = () => {
-    if (confirm('ログイン中のレジ端末をすべて締め出しますか？\n（営業中のレジもログインし直しになります）')) run(() => api('revoke-all', { target: 'register' }), 'レジ端末を締め出しました');
+    if (confirm('ログイン中のレジ・受付の端末をすべて締め出しますか？\n（使っている端末もログインし直しになります）')) run(() => api('revoke-all', { target: 'register' }), 'レジ・受付の端末を締め出しました');
   };
   $('revokeMasterBtn').onclick = () => {
     if (confirm('この端末以外のマスターログインをすべて解除しますか？')) run(() => api('revoke-all', { target: 'master' }), '解除しました');
   };
 
-  $('targetBtn').onclick = () => {
-    const v = Number($('targetInput').value);
-    if (!(v > 0)) return toast('目標金額を入力してください', true);
-    if (!confirm('目標金額を ' + yen(v) + ' に変更しますか？')) return;
-    run(() => api('target', { target: v }), '目標金額を変更しました');
-  };
   $('closeBtn').onclick = () => {
     const closing = !lastClosed;
-    if (!confirm(closing ? '営業終了にしますか？\nレジで新しい会計を記録できなくなります。' : '営業を再開しますか？\nレジで会計を記録できるようになります。')) return;
-    run(() => api('closed', { closed: closing }), closing ? '営業終了にしました' : '営業を再開しました');
+    if (!confirm(closing ? '当日券の販売を終了しますか？\nレジで新しい会計を記録できなくなります（受付はそのまま使えます）。' : '当日券の販売を再開しますか？\nレジで会計を記録できるようになります。')) return;
+    run(() => api('closed', { closed: closing }), closing ? '当日券の販売を終了しました' : '当日券の販売を再開しました');
   };
   $('resetBtn').onclick = () => {
     if ($('resetConfirm').value.trim() !== 'リセット') return toast('確認のため「リセット」と入力してください', true);
     if (!$('resetPw').value) return toast('マスターパスワードを入力してください', true);
-    if (!confirm('すべての会計を削除します。元に戻せません。よろしいですか？')) return;
+    if (!confirm('当日券の会計をすべて削除します。元に戻せません。よろしいですか？')) return;
     run(async () => {
       const d = await api('reset-sales', { confirm: $('resetConfirm').value, password: $('resetPw').value });
       $('resetConfirm').value = ''; $('resetPw').value = '';
       return d;
-    }, '売上記録をリセットしました');
+    }, '当日券の売上記録をリセットしました');
   };
   $('unlockBtn').onclick = () => run(() => api('unlock', {}), 'ログイン制限を解除しました');
   $('regBtn').onclick = () => {
     if ($('regNew').value !== $('regNew2').value) return toast('新しいパスワードが一致しません', true);
     const revokeAll = $('regRevoke').checked;
-    if (revokeAll && !confirm('パスワードを変更して、レジ端末をすべて締め出しますか？')) return;
+    if (revokeAll && !confirm('パスワードを変更して、レジ・受付の端末をすべて締め出しますか？')) return;
     run(async () => {
       const d = await api('register-password', { next: $('regNew').value, revokeAll });
       ['regNew', 'regNew2'].forEach(id => $(id).value = '');
       $('regRevoke').checked = false;
       return d;
-    }, 'レジのパスワードを変更しました');
+    }, 'レジ・受付のパスワードを変更しました');
   };
   $('mBtn').onclick = () => {
     if ($('mNew').value !== $('mNew2').value) return toast('新しいパスワードが一致しません', true);
@@ -851,12 +898,12 @@
     }, 'マスターパスワードを変更しました');
   };
 
-  // ========== 催し（プロジェクト） ==========
+  // ========== 公演（プロジェクト） ==========
   const mdShort = s => { const [y, m, d] = s.split('-'); return y + '/' + Number(m) + '/' + Number(d); };
-  const periodText = p => (p.startDate === p.endDate ? mdShort(p.startDate) : mdShort(p.startDate) + '〜' + mdShort(p.endDate)) + '・' + p.openHour + ':00〜' + p.closeHour + ':00';
+  const periodText = p => (p.startDate === p.endDate ? mdShort(p.startDate) : mdShort(p.startDate) + '〜' + mdShort(p.endDate));
   const projectHash = () => { const m = location.hash.match(/project=(\d+)/); return m ? Number(m[1]) : null; };
 
-  /** ログイン直後・再読み込み時：URL に催しがあればその催しを開き、なければ一覧 */
+  /** ログイン直後・再読み込み時：URL に公演があればその公演を開き、なければ一覧 */
   function route(d) {
     const id = projectHash();
     if (id && d.projects.some(p => p.id === id)) openProject(id);
@@ -874,32 +921,29 @@
     $('projectsView').classList.remove('hidden');
     $('projectList').innerHTML = d.projects.length ? d.projects.map(p =>
       '<div class="pj-item' + (p.active ? ' active' : '') + '">' +
-        '<div class="info"><div class="nm">' + esc(p.name) + (p.active ? ' <span class="badge ok">レジで使用中</span>' : '') + '</div>' +
-        '<div class="meta">' + periodText(p) + (p.shopName ? '・' + esc(p.shopName) : '') + '</div>' +
-        '<div class="meta">売上 ' + yen(p.total) + '（' + p.orders + '件）・目標 ' + yen(p.target) + '・商品 ' + p.products + '件・容器代' + (p.containerEnabled ? 'あり' : 'なし') + '</div></div>' +
+        '<div class="info"><div class="nm">' + esc(p.name) + (p.active ? ' <span class="badge ok">当日に使う</span>' : '') + '</div>' +
+        '<div class="meta">' + periodText(p) + '・券種 ' + p.products + '件</div>' +
+        '<div class="meta">取り置き ' + p.reservations + '件・当日券 ' + yen(p.total) + '（' + p.orders + '件）</div></div>' +
         '<div class="acts"><button class="btn small" data-open="' + p.id + '">開く</button>' +
-        (p.active ? '' : '<button class="btn sub small" data-activate="' + p.id + '">レジで使う</button>') +
+        (p.active ? '' : '<button class="btn sub small" data-activate="' + p.id + '">当日に使う</button>') +
         (!p.active ? '<button class="btn danger small" data-delete="' + p.id + '">削除</button>' : '') + '</div>' +
-      '</div>').join('') : '<div class="empty">催しがありません。下から作ってください</div>';
+      '</div>').join('') : '<div class="empty">公演がありません。下から作ってください</div>';
     // 複製元の選択肢（新しい順）
     const sel = $('npFrom'), keep = sel.value;
-    sel.innerHTML = '<option value="">複製しない（商品は空から作る）</option>' +
-      d.projects.map(p => '<option value="' + p.id + '">' + esc(p.name) + '（' + periodText(p) + '・商品 ' + p.products + '件）</option>').join('');
+    sel.innerHTML = '<option value="">複製しない（券種は空から作る）</option>' +
+      d.projects.map(p => '<option value="' + p.id + '">' + esc(p.name) + '（' + periodText(p) + '・券種 ' + p.products + '件）</option>').join('');
     sel.value = keep;
     if (!formReady) {
-      // 最初だけ入力欄の初期値（今日・いちばん新しい催しの営業時間）。複製は原則しない（「複製しない」を初期表示）
+      // 最初だけ入力欄の初期値（今日）。複製は原則しない（「複製しない」を初期表示）
       formReady = true;
-      $('npStart').value = $('npEnd').value = d.today;
-      const latest = d.projects[0];
-      $('npOpen').value = latest ? latest.openHour : 9;
-      $('npClose').value = latest ? latest.closeHour : 19;
+      $('npStart').value = d.today;
+      $('npEnd').value = '';
       sel.value = '';
-      $('npContainer').checked = false;   // 容器代は原則取らない（必要な催しだけチェック）
       syncCopyWhat();
-      setAddOpen(!d.projects.length);   // 催しがまだないときは最初から開いておく
+      setAddOpen(!d.projects.length);   // 公演がまだないときは最初から開いておく
     }
   }
-  // 「新しい催しを追加」の行：押すと入力欄を開く／閉じる
+  // 「新しい公演を追加」の行：押すと入力欄を開く／閉じる
   function setAddOpen(open) {
     $('npForm').hidden = !open;
     $('newProjectCard').classList.toggle('open', open);
@@ -910,38 +954,30 @@
   $('npCancel').onclick = () => setAddOpen(false);
 
   function syncCopyWhat() { $('npCopyWhat').classList.toggle('hidden', !$('npFrom').value); }
-  // 容器代のルールを複製するときは、「容器代を取る」を複製元に合わせる（あとから変えてもよい）
-  function syncContainerFromSource() {
-    const src = projectsCache.find(p => String(p.id) === $('npFrom').value);
-    if (src && $('npCopyRule').checked) $('npContainer').checked = !!src.containerEnabled;
-  }
-  $('npFrom').onchange = () => { syncCopyWhat(); syncContainerFromSource(); };
-  $('npCopyRule').onchange = syncContainerFromSource;
+  $('npFrom').onchange = syncCopyWhat;
+  // 最終日が空なら公演日と同じ（1 日だけの公演）
   const readFields = prefix => ({
-    name: $(prefix + 'Name').value, shopName: $(prefix + 'Shop').value,
-    startDate: $(prefix + 'Start').value, endDate: $(prefix + 'End').value,
-    openHour: Number($(prefix + 'Open').value), closeHour: Number($(prefix + 'Close').value),
+    name: $(prefix + 'Name').value,
+    startDate: $(prefix + 'Start').value, endDate: $(prefix + 'End').value || $(prefix + 'Start').value,
   });
-  $('npStart').onchange = () => { if (!$('npEnd').value || $('npEnd').value < $('npStart').value) $('npEnd').value = $('npStart').value; };
+  $('npStart').onchange = () => { if ($('npEnd').value && $('npEnd').value < $('npStart').value) $('npEnd').value = $('npStart').value; };
 
   $('npBtn').onclick = async () => {
     const body = readFields('np');
-    if (!body.name.trim()) return toast('催し名を入力してください', true);
-    if ($('npTarget').value) body.target = Number($('npTarget').value);
+    if (!body.name.trim()) return toast('公演名を入力してください', true);
     if ($('npFrom').value) {
       body.copyFrom = Number($('npFrom').value);
-      body.copy = { products: $('npCopyProducts').checked, rule: $('npCopyRule').checked, target: $('npCopyTarget').checked, payments: $('npCopyPayments').checked };
+      body.copy = { products: $('npCopyProducts').checked, payments: $('npCopyPayments').checked };
     }
-    body.containerEnabled = $('npContainer').checked;
     body.activate = $('npActivate').checked;
     const from = body.copyFrom ? projectsCache.find(p => p.id === body.copyFrom) : null;
-    if (!confirm('催し「' + body.name.trim() + '」を作りますか？' + (from ? '\n「' + from.name + '」から設定を複製します。' : '') +
-      (body.activate ? '\nレジ・キッチン・ダッシュボードは、この催しに切り替わります。' : ''))) return;
+    if (!confirm('公演「' + body.name.trim() + '」を作りますか？' + (from ? '\n「' + from.name + '」から設定を複製します。' : '') +
+      (body.activate ? '\nレジと受付は、この公演に切り替わります。' : ''))) return;
     try {
       const d = await api('projects', body);
-      ['npName', 'npShop', 'npTarget'].forEach(id => $(id).value = '');
+      ['npName', 'npEnd'].forEach(id => $(id).value = '');
       formReady = false;
-      toast('催し「' + body.name.trim() + '」を作りました');
+      toast('公演「' + body.name.trim() + '」を作りました');
       openProject(d.created);
     } catch (e) { toast(e.message, true); }
   };
@@ -954,20 +990,20 @@
     try {
       if (b.dataset.open) return openProject(p.id);
       if (b.dataset.activate) {
-        if (!confirm('レジ・キッチン・ダッシュボードで使う催しを「' + p.name + '」に切り替えますか？\n（レジの画面は30秒以内に切り替わります）')) return;
+        if (!confirm('レジと受付で使う公演を「' + p.name + '」に切り替えますか？\n（レジは30秒以内、受付は数秒で切り替わります）')) return;
         await api('projects/' + p.id + '/activate', {});
-        toast('「' + p.name + '」をレジで使うようにしました');
+        toast('「' + p.name + '」を当日に使うようにしました');
         showProjects(await api('projects'));
       }
       if (b.dataset.delete) {
-        // 会計のある催しは、中の画面の「この催しを削除」で催し名とパスワードを入れて削除する
-        if (p.orders) {
-          toast('会計の記録がある催しです。開いて、いちばん下の「この催しを削除」から削除してください');
+        // 会計か取り置きのある公演は、中の画面の「この公演を削除」で公演名とパスワードを入れて削除する
+        if (p.orders || p.reservations) {
+          toast('会計か取り置きの記録がある公演です。開いて、いちばん下の「この公演を削除」から削除してください');
           await openProject(p.id);
           setTimeout(() => $('pjDeleteCard').scrollIntoView({ behavior: 'smooth', block: 'center' }), 400);
           return;
         }
-        if (!confirm('催し「' + p.name + '」を削除しますか？（商品と設定も消えます）')) return;
+        if (!confirm('公演「' + p.name + '」を削除しますか？（券種と設定も消えます）')) return;
         showProjects(await api('projects/' + p.id + '/delete', {}));
         toast('削除しました');
       }
@@ -978,41 +1014,40 @@
     currentProject = id;
     if (projectHash() !== id) history.replaceState(null, '', '#project=' + id);
     forceProducts = true;
-    ruleDirty = false;
     psDirty = false;
+    clearResvImport();
     payDirty = false;
     return run(() => api('data')).then(() => { window.scrollTo(0, 0); });
   }
   $('backToList').onclick = () => { api('projects').then(showProjects).catch(e => toast(e.message, true)); };
 
-  // 開いている催しの見出しと設定
+  // 開いている公演の見出しと設定
   let psDirty = false;
   function renderProjectSettings(ps, list) {
     if (!ps) return;
     projectsCache = list || projectsCache;
     $('projSub').textContent = ps.name;
     $('pjTitle').textContent = ps.name;
-    $('pjActive').textContent = ps.active ? 'レジで使用中' : 'レジでは使っていない';
+    $('pjActive').textContent = ps.active ? '当日に使う公演' : '当日には使っていない';
     $('pjActive').className = 'badge ' + (ps.active ? 'ok' : 'warn');
     $('pjActivateBtn').classList.toggle('hidden', ps.active);
-    $('pjSummary').textContent = periodText(ps) + (ps.shopName ? '・' + ps.shopName : '');
+    $('pjSummary').textContent = periodText(ps);
     if (!psDirty) {
-      $('psName').value = ps.name; $('psShop').value = ps.shopName || '';
-      $('psStart').value = ps.startDate; $('psEnd').value = ps.endDate;
-      $('psOpen').value = ps.openHour; $('psClose').value = ps.closeHour;
+      $('psName').value = ps.name;
+      $('psStart').value = ps.startDate; $('psEnd').value = ps.endDate === ps.startDate ? '' : ps.endDate;
     }
-    // CSV はこの催しの分をダウンロード
+    // CSV はこの公演の分をダウンロード
     document.querySelectorAll('a[data-csv]').forEach(a => { a.href = a.getAttribute('href').split('?')[0] + '?project=' + ps.id; });
     document.title = ps.name + '｜管理画面';
   }
   $('pjSettings').addEventListener('input', () => { psDirty = true; });
   $('psBtn').onclick = () => {
     const body = readFields('ps');
-    run(async () => { const d = await api('projects/' + currentProject, body); psDirty = false; return d; }, '催しの設定を保存しました');
+    run(async () => { const d = await api('projects/' + currentProject, body); psDirty = false; return d; }, '公演の設定を保存しました');
   };
   $('pjActivateBtn').onclick = () => {
-    if (!confirm('レジ・キッチン・ダッシュボードで使う催しを、この催しに切り替えますか？\n（レジの画面は30秒以内に切り替わります）')) return;
-    run(async () => { await api('projects/' + currentProject + '/activate', {}); return api('data'); }, 'この催しをレジで使うようにしました');
+    if (!confirm('レジと受付で使う公演を、この公演に切り替えますか？\n（レジは30秒以内、受付は数秒で切り替わります）')) return;
+    run(async () => { await api('projects/' + currentProject + '/activate', {}); return api('data'); }, 'この公演を当日に使うようにしました');
   };
   $('logoutBtn2').onclick = async () => { await api('logout', {}).catch(() => {}); location.reload(); };
 

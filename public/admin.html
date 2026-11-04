@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>レジ｜岡大グリー模擬店システム</title>
+<title>レジ（当日券）｜定演チケットシステム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/help.css">
@@ -22,7 +22,7 @@
   .minibar { height: 6px; background: var(--mg-surface-sub); border-radius: var(--mg-radius-full); margin-top: 10px; overflow: hidden; }
   .minibar div { height: 100%; background: linear-gradient(90deg, var(--mg-accent), var(--mg-success-accent)); width: 0; transition: width .5s; }
 
-  /* 商品ボタン */
+  /* 券種ボタン */
   .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .prod-name { font-size: 18px; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; }
   .prod-name small { font-size: 12px; color: var(--mg-text-sub); font-weight: 400; }
@@ -36,7 +36,6 @@
   .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .stepper .unit { font-size: 20px; font-weight: 700; }
   .qty-note { text-align: center; color: var(--mg-text-sub); font-size: 12px; margin-top: 6px; }
-  .cart-line .auto { font-size: var(--mg-text-xs); padding: 1px 6px; border-radius: var(--mg-radius-xs); margin-left: 4px; vertical-align: middle; white-space: nowrap; background: var(--mg-accent-bg); color: var(--mg-accent-text); }
   .upsell { margin-top: 8px; background: var(--mg-warning-bg); border: 1px solid var(--mg-warning-border); border-radius: var(--mg-radius-md); padding: 8px 10px; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .upsell button { background: var(--mg-warning-text); color: var(--mg-text-on-fill); border-radius: var(--mg-radius-sm); padding: 8px 10px; font-size: 14px; font-weight: 700; white-space: nowrap; }
   .item { background: var(--mg-accent-bg); border: 2px solid var(--mg-accent); border-radius: var(--mg-radius-lg); padding: 16px 4px; color: var(--mg-text); }
@@ -51,18 +50,12 @@
   .cart-line .ctrl button { width: 36px; height: 36px; border-radius: var(--mg-radius-full); background: var(--mg-surface-sub); font-size: 20px; color: var(--mg-text); }
   .cart-line .qty { min-width: 2.2em; text-align: center; font-weight: 700; }
   .cart-line .sub { min-width: 5em; text-align: right; font-variant-numeric: tabular-nums; }
-  .cart-line.fee { color: var(--mg-primary); }
-  .cart-line.fee .tag { font-size: var(--mg-text-xs); padding: 1px 6px; border-radius: var(--mg-radius-xs); margin-left: 4px; vertical-align: middle; white-space: nowrap; background: var(--mg-surface-sub); color: var(--mg-text-sub); }
-  .cart-line.fee .tag.manual { background: var(--mg-warning-bg-strong); color: var(--mg-warning-text); }
-  .reset-fee { background: none; color: var(--mg-primary); font-size: 12px; text-decoration: underline; padding: 0 0 0 6px; }
-  .hist-line .fee { color: var(--mg-text-sub); font-size: 12px; }
   .empty { color: var(--mg-text-sub); text-align: center; padding: 10px 0; }
   .total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding-top: 10px; border-top: 2px solid var(--mg-text); }
   .total .v { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .total .s { color: var(--mg-text-sub); font-size: 14px; }
   .clear { background: none; color: var(--mg-text-sub); font-size: 13px; text-decoration: underline; padding: 4px; }
 
-  /* おつり */
   /* 支払いのポップアップ */
   .modal { position: fixed; inset: 0; background: var(--mg-overlay); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
   .sheet { background: var(--mg-surface); width: 100%; max-width: 560px; max-height: 94vh; overflow: auto; border-radius: var(--mg-radius-xl) var(--mg-radius-xl) 0 0; padding: 18px 16px 22px; box-shadow: var(--mg-shadow-md); }
@@ -73,7 +66,6 @@
   .sum-line { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px dashed var(--mg-border); }
   .sum-line:first-child { border-top: none; }
   .sum-line .sub { font-variant-numeric: tabular-nums; }
-  .sum-line.fee { color: var(--mg-primary); }
   .big-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; padding-top: 10px; border-top: 2px solid var(--mg-text); }
   .big-total .k { font-size: 15px; color: var(--mg-text-sub); }
   .big-total .v { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -124,7 +116,7 @@
   .log-line .what { flex: 1; }
 
 
-  /* ===== コンパクト表示（スマホ縦画面に 商品 → お会計 → 支払ボタン が収まるように） ===== */
+  /* ===== コンパクト表示（スマホ縦画面に 券種 → お会計 → 支払ボタン が収まるように） ===== */
   .wrap { padding: 8px 10px 40px; }
   .card { padding: 10px 12px; margin-bottom: 8px; }
   .label { margin-bottom: 4px; }
@@ -158,24 +150,8 @@
   .pay { padding: 12px 4px; font-size: 17px; border-radius: var(--mg-radius-lg); }
   .net { padding: 5px 10px; margin-bottom: 6px; border-radius: var(--mg-radius-md); }
 
-  /* 味ごとの入力（タップで 1 つ増える・右上の − で減らす） */
-  .flvs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-  .flv { position: relative; }
-  .flv .fadd { width: 100%; min-height: 64px; background: var(--mg-accent-bg); border: 2px solid var(--mg-accent); border-radius: var(--mg-radius-lg); padding: 6px 4px; color: var(--mg-text);
                display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-  .flv .fadd:active { transform: scale(.97); background: var(--mg-accent-bg-active); }
-  .flv .fadd .fn { font-size: 15px; font-weight: 700; line-height: 1.2; word-break: break-all; }
-  .flv .fadd .fc { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--mg-text-sub); }
-  .flv.on .fadd { background: var(--mg-accent); color: var(--mg-text-on-fill); }
-  .flv.on .fadd .fc { color: var(--mg-text-on-fill); }
-  .flv .fsub { position: absolute; bottom: 5px; left: 5px; width: 32px; height: 32px; border-radius: var(--mg-radius-full); background: var(--mg-surface); border: 2px solid var(--mg-accent);
                color: var(--mg-accent-text); font-size: 20px; font-weight: 700; line-height: 1; display: none; }
-  .flv.on .fsub { display: block; }
-  .prod-head .ptotal { font-size: 15px; color: var(--mg-text-sub); white-space: nowrap; }
-  .prod-head .ptotal b { font-size: 26px; color: var(--mg-text); font-variant-numeric: tabular-nums; }
-  .cart-flv { font-size: 13px; color: var(--mg-accent-text); font-weight: 700; padding: 0 0 4px 1em; }
-  .sum-line.sum-flv { color: var(--mg-accent-text); font-weight: 700; }
-  .hist-line .k { font-size: var(--mg-text-xs); padding: 1px 6px; border-radius: var(--mg-radius-xs); margin-left: 4px; vertical-align: middle; white-space: nowrap; background: var(--mg-success-bg-strong); color: var(--mg-success-text); }
 
   /* 営業終了中：入力と支払を止める */
   #app.is-closed #products, #app.is-closed section:has(#cart), #app.is-closed section:has(.pays) { opacity: .4; pointer-events: none; }
@@ -203,16 +179,27 @@
   .update button { margin-left: auto; background: var(--mg-info); color: var(--mg-text-on-fill); border-radius: var(--mg-radius-sm); padding: 6px 12px; font-size: 13px; font-weight: 700; }
   .hist-line .q { font-size: var(--mg-text-xs); padding: 1px 6px; border-radius: var(--mg-radius-xs); margin-left: 4px; vertical-align: middle; white-space: nowrap; background: var(--mg-warning-bg); color: var(--mg-warning-text); }
   .login-off { margin-top: 10px; font-size: 13px; color: var(--mg-error-text); }
+
+  /* 今の売上 */
+  .sales-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .sales-top .k { font-size: var(--mg-text-xs); color: var(--mg-text-sub); font-weight: 700; }
+  .sales-top .v { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mini { margin-top: 6px; }
+  .breakdown summary { margin-top: 6px; }
+  .bd-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  .bd-table th, .bd-table td { padding: 4px 4px; border-top: 1px dashed var(--mg-border); text-align: left; font-variant-numeric: tabular-nums; }
+  .bd-table td.n { text-align: right; white-space: nowrap; }
+  .bd-table th { color: var(--mg-text-sub); font-size: var(--mg-text-xs); border-top: none; padding-top: 8px; }
 </style>
 </head>
 <body>
 
 <div id="login" class="card login-card hidden" role="main">
   <span class="app-mark" aria-hidden="true"></span>
-  <div class="login-system">岡大グリー模擬店システム</div>
-  <h2>レジ</h2>
+  <div class="login-system">定演チケットシステム</div>
+  <h2>レジ（当日券）</h2>
   <p class="login-lead">担当者名とレジ用パスワードを入力してください</p>
-  <input id="staffName" type="text" autocomplete="name" maxlength="30" aria-label="担当者名" placeholder="担当者名（例: 学祭太郎）">
+  <input id="staffName" type="text" autocomplete="name" maxlength="30" aria-label="担当者名" placeholder="担当者名（例: 岡大太郎）">
   <input id="pw" type="password" autocomplete="current-password" aria-label="パスワード" placeholder="パスワード">
   <button class="btn big block login-go" id="loginBtn">ログイン</button>
   <div class="login-off hidden" id="loginOff">オフラインのためログインできません。電波のある場所でログインしてください。</div>
@@ -223,23 +210,27 @@
 
 <div id="app" class="wrap hidden" role="main">
   <header class="app-header">
-    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>レジ</h1><span class="app-sub" id="staffLabel"></span></div></div>
-    <nav class="screen-links" aria-label="ほかの画面"><a href="/" target="_blank">ダッシュボード ↗</a><a href="/kitchen" target="_blank">キッチン ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
+    <div class="app-title"><span class="app-mark" aria-hidden="true"></span><div class="app-name"><h1>レジ（当日券）</h1><span class="app-sub" id="staffLabel"></span></div></div>
+    <nav class="screen-links" aria-label="ほかの画面"><a href="/reception" target="_blank">受付 ↗</a><a href="/master" target="_blank">管理画面 ↗</a></nav>
     <button class="btn-help" type="button" data-help-open aria-label="使い方"><span class="help-badge" aria-hidden="true">?</span><span class="help-label">使い方</span></button>
   </header>
 
   <div id="net" class="net"><span class="dot"></span><span id="netText">確認中…</span><span class="sp"></span><span id="qInfo"></span><button id="syncBtn" class="hidden">送信</button></div>
   <div id="failedBox" class="failed hidden"><details><summary id="failedSum"></summary><div id="failedList"></div></details></div>
-  <div id="closedBox" class="closed-band hidden">🌙 営業は終了しました。新しい会計は記録できません。<span class="sub">（取消は「最近の会計」「すべての会計を見る」からできます）</span></div>
+  <div id="closedBox" class="closed-band hidden">🌙 当日券の販売は終了しました。新しい会計は記録できません。<span class="sub">（取消は「最近の会計」「すべての会計を見る」からできます）</span></div>
   <div id="updateBox" class="update hidden">新しい版のレジがあります。会計の合間に切り替えてください。<button id="reloadBtn">再読み込み</button></div>
 
-  <section class="card">
+  <section class="card" aria-label="今の売上">
+    <div class="sales-top"><span class="k">受け取った額の合計（当日券＋取り置きの当日精算）</span><span class="v" id="mGrand">—</span></div>
     <div class="mini">
-      <div><div class="v" id="mTotal">—</div><div class="k">売上</div></div>
-      <div><div class="v" id="mRemain">—</div><div class="k" id="mRemainK">目標まで</div></div>
-      <div><div class="v" id="mSticks">—</div><div class="k">販売数</div></div>
+      <div><div class="v" id="mTotal">—</div><div class="k" id="mTotalK">当日券</div></div>
+      <div><div class="v" id="mCollected">—</div><div class="k">取り置き精算</div></div>
+      <div><div class="v" id="mHanded">—</div><div class="k">取り置き 受け渡し</div></div>
     </div>
-    <div class="minibar"><div id="mBar"></div></div>
+    <details class="breakdown">
+      <summary>内訳（券種ごと・支払方法ごと）</summary>
+      <div id="breakdown"></div>
+    </details>
   </section>
 
   <div id="products"></div>
@@ -250,7 +241,6 @@
       <button class="clear" id="clearBtn">クリア</button>
     </div>
     <div id="cart"></div>
-    <div id="containerRow"></div>
     <div id="upsell"></div>
     <div class="total">
       <span class="s" id="cartSticks"></span>
@@ -259,7 +249,7 @@
   </section>
 
   <section class="card">
-    <!-- 支払方法のボタン（管理画面で催しごとに選んだもの） -->
+    <!-- 支払方法のボタン（管理画面で公演ごとに選んだもの） -->
     <div class="pays" id="pays"></div>
   </section>
 
@@ -269,22 +259,10 @@
     <a class="more-link hidden" id="moreLink" href="/history">すべての会計を見る →</a>
   </section>
 
-  <section class="card">
-    <div class="label">売上明細（CSV）</div>
-    <a class="btn" href="/api/admin/sales_ja.csv" download>⬇ 手集計用（Excel・日本語の見出し）</a>
-    <div class="note" style="margin-bottom:10px">1行が1回の会計。味ごとの本数が1列ずつ並ぶので、列を合計するだけで集計できます。</div>
-    <div class="label" style="font-size:12px">データ分析用（機械判読用・英数字の見出し）</div>
-    <div class="csv-list">
-      <a class="btn sub" href="/api/admin/sales.csv" download>⬇ 会計</a>
-      <a class="btn sub" href="/api/admin/sale_items.csv" download>⬇ 明細（商品・味ごと）</a>
-      <a class="btn sub" href="/api/admin/sale_packs.csv" download>⬇ セットの内訳</a>
-    </div>
-    <div class="note">取り消した会計はどれにも含みません。項目の意味は「?」の「売上の明細や操作の記録は？」を見てください。</div>
-  </section>
 
   <section class="card">
     <details>
-      <summary>操作の記録（取消・目標変更・ログインなど）</summary>
+      <summary>操作の記録（取消・取り込み・ログインなど）</summary>
       <div class="log" id="auditLog"></div>
     </details>
   </section>
@@ -293,9 +271,9 @@
     <div class="label">管理（マスター）</div>
     <div class="csv-list">
       <a class="btn sub" href="/master" target="_blank">管理画面を開く ↗</a>
-      <a class="btn sub" href="/kitchen" target="_blank">キッチン画面を開く ↗</a>
+      <a class="btn sub" href="/reception" target="_blank">受付（取り置き）を開く ↗</a>
     </div>
-    <div class="note">商品・価格の変更、目標金額の変更、レジのパスワード変更、端末の締め出しは管理画面から行います（マスターパスワードが必要）。</div>
+    <div class="note">券種・価格の変更、取り置きの取り込み、売上の CSV のダウンロード、パスワードの変更、端末の締め出しは管理画面から行います（マスターパスワードが必要）。</div>
   </section>
 
   <button class="clear" id="logoutBtn">ログアウト（担当者の交代もここから）</button>
@@ -336,7 +314,7 @@
 <!-- ヘルプ（使い方・FAQ） -->
 <dialog id="help-dialog" aria-label="ヘルプ">
   <div class="help-head">
-    <h2>レジの使い方（よくある質問）</h2>
+    <h2>レジ（当日券）の使い方</h2>
     <button class="help-close" type="button">閉じる</button>
   </div>
 
@@ -345,19 +323,19 @@
   <details open>
     <summary>会計の基本の流れは？</summary>
     <ol>
-      <li>お客さんの注文を聞いて、<b>味ごと</b>に本数を入れる（団子は味のボタンをタップ、焼きマシュマロは「＋」「−」。セットは自動で一番安く組まれます）</li>
+      <li>お客さんの希望を聞いて、<b>券種ごとに枚数</b>を入れる（「＋」「−」、または数字をタップして直接入力。ペア券などのセット価格は自動で一番安く組まれます）</li>
       <li>「お会計」で合計金額を確認して、お客さんに伝える</li>
-      <li>支払方法のボタンを押す（管理画面で催しごとに選んだもの。例：現金、PayPay、d払い）</li>
+      <li>支払方法のボタンを押す（管理画面で公演ごとに選んだもの。例：現金）</li>
       <li>現金ならお預かり金額を入れる</li>
-      <li>確認画面で内容（味も）を見て「はい（記録する）」を押す</li>
+      <li>確認画面で内容を見て「はい（記録する）」を押し、チケットを渡す</li>
     </ol>
-    <p>記録すると画面下に「記録しました」と出て、お会計は空に戻ります。現金のときは、その表示にもおつりが出ます。記録した注文は<b>キッチン画面に自動で届く</b>ので、ノートに書いたり口で伝えたりする必要はありません。電波がなくても記録できます（あとで自動で送信されます）。</p>
+    <p>記録すると画面下に「記録しました」と出て、お会計は空に戻ります。現金のときは、その表示にもおつりが出ます。電波がなくても記録できます（あとで自動で送信されます）。</p>
+    <p><b>取り置きのお客さん</b>には、このレジではなく<b>受付</b>の画面（<code>/reception</code>）でチケットを渡します。</p>
   </details>
 
   <details>
     <summary>ログインのしかたは？</summary>
-    <figure class="narrow"><img src="/help/reg-login.webp" width="380" height="483" loading="lazy" alt="ログイン画面。担当者名とパスワードの入力欄とログインボタン"></figure>
-    <p>自分の名前（担当者名）と、レジ用のパスワードを入れて「ログイン」を押します。パスワードは店の責任者に聞いてください。名前は会計ごとに記録されるので、本人の名前を入れてください。</p>
+    <p>自分の名前（担当者名）と、レジ用のパスワードを入れて「ログイン」を押します。パスワードは責任者に聞いてください。名前は会計ごとに記録されるので、本人の名前を入れてください。</p>
     <p>ログインは<b>3日間</b>有効なので、同じスマホなら翌日もそのまま使えます。パスワードはスマホに保存されません。</p>
   </details>
 
@@ -370,82 +348,51 @@
   <h3 class="help-group">会計のしかた</h3>
 
   <details>
-    <summary>本数の入れ方は？（味ごとの入力）</summary>
-    <figure class="narrow"><img src="/help/reg-qty.webp" width="370" height="209" loading="lazy" alt="商品ごとの入力欄。団子は、みたらし2、あんこ1、きなこ1の味のボタンと、計4本の表示。各ボタンの左下にマイナス。焼きマシュマロはマイナス、本数、プラスのボタン"></figure>
-    <p><b>団子のように味のある商品</b>は、お客さんの言う味のボタンを、その本数だけタップします。「みたらし2本と、あんこ・きなこ1本ずつ」なら、「みたらし」を2回、「あんこ」と「きなこ」を1回ずつ押します。ボタンに本数が出て、右上の「計 ○本」が合計です。</p>
-    <p>押しすぎたら、そのボタンの左下の「−」で1本ずつ減らします（「−」は1本以上入っている味にだけ出ます）。全部やり直すときは「お会計」の「クリア」を押します。</p>
-    <p>セットの組み方は<b>味に関係なく合計の本数</b>で自動で決まります。たとえば団子4本なら「3本セット＋1本」、7本なら「5本セット＋1本×2」と、お客さんに一番有利な組み方で計算します。味の組み合わせは自由です。</p>
-    <p>焼きマシュマロのように味のない商品は「＋」「−」で増減するか、数字をタップして直接入力します。焼きマシュマロは<b>団子と合わせてセット</b>になります。たとえば団子3本＋焼きマシュマロ2本なら、合わせて5本で「5本セット500円」です。容器代は団子の本数だけで計算します。</p>
-    <p>味の種類は管理画面で変えられます（変えると30秒以内にレジのボタンも変わります）。</p>
+    <summary>枚数の入れ方は？</summary>
+    <p>券種（例：一般、学生）ごとに「＋」「−」で増減するか、数字をタップして直接入力します。セット価格がある券種は、「1枚」「2枚」などのボタンでその枚数をすぐ入れられます。</p>
+    <p>セットの組み方は自動で決まります。たとえば「1枚1,000円・2枚1,800円」なら、3枚で「2枚セット＋1枚」の2,800円です。ほかの券種と合わせてセットにする設定（管理画面の「セット」）があれば、その券種と枚数を合わせて計算します。</p>
+    <p>全部やり直すときは「お会計」の「クリア」を押します。</p>
   </details>
 
   <details>
-    <summary>「あと1本で〜お得」と出たら？</summary>
-    <figure class="narrow"><img src="/help/reg-cart.webp" width="370" height="240" loading="lazy" alt="お会計欄。団子4本（3本セットと1本）550円、その下に味の内訳みたらし2・あんこ1・きなこ1、容器代10円、あと1本で50円お得（味を聞いて追加）という提案、合計560円"></figure>
-    <p>本数を少し足したほうが合計が安くなるときに出る提案です。上の例では、団子4本だと560円ですが、5本にすると510円で50円安くなります。</p>
-    <p>お客さんに「あと1本足すとお得になりますよ」と声をかけて、希望されたら<b>何味にするか聞いて</b>、その味のボタンを押してください。そのままでよければ、何もせず会計に進んでかまいません。</p>
-    <p>味のない商品だけのときは、提案の横に黄色の「○本にする」ボタンが出るので、それを押せば足せます。</p>
-  </details>
-
-  <details>
-    <summary>容器代はどうなっている？</summary>
-    <p>容器代は、1回の会計の<b>団子の本数</b>から<b>自動で</b>計算して、合計に足しています（焼きマシュマロは対象外です。対象の商品とルールは管理画面で変えられます）。</p>
-    <ul>
-      <li>1〜2本: なし</li>
-      <li>3本以上: 10円（何本でも容器1個分）</li>
-    </ul>
-    <p>容器を2個以上渡すときや、容器がいらないお客さんなど、変える必要があるときは、容器代の「−」「＋」で10円ずつ直せます。直すと「手動」と表示され、「自動に戻す」で元に戻せます。本数を変えたときも自動に戻ります。</p>
-      <p>容器代を取らない催し（管理画面で「容器代を取らない」にした催し）では、お会計に容器代の行は出ず、容器代はいつも0円です。</p>
+    <summary>「あと1枚で〜お得」と出たら？</summary>
+    <p>枚数を少し足したほうが合計が安くなるときに出る提案です。お客さんに伝えて、希望されたら黄色の「○枚にする」ボタンを押してください。そのままでよければ、何もせず会計に進んでかまいません。</p>
   </details>
 
   <details>
     <summary>支払方法のボタンを押したあとは？</summary>
-    <figure class="narrow"><img src="/help/reg-pay.webp" width="370" height="68" loading="lazy" alt="支払方法のボタン。現金、PayPay、d払い"></figure>
-    <p>お客さんの支払方法のボタンを押すと、記録の前に確認の画面が出ます。ボタンを押しただけでは、まだ記録されません。</p>
-    <p>キャッシュレス（PayPay、d払いなど現金以外）のときは、お客さんの支払いが済んだのを確かめてから、確認画面の「はい（記録する）」を押してください。</p>
-      <p>出てくる支払方法は、管理画面で催しごとに選んだものです（現金を扱わない催しでは「現金」が出ません）。お預かり金額とおつりを入れるのは「現金」のときだけです。</p>
+    <p>押すと、記録の前に確認の画面が出ます。ボタンを押しただけでは、まだ記録されません。キャッシュレスのときは、お客さんの支払いが済んだのを確かめてから「はい（記録する）」を押してください。</p>
+    <p>現金では、先に<b>お預かり金額</b>を入れます。「ちょうど」や「¥5,000」などのボタンを押すか、欄に金額を入力してください。おつりが表示されます。合計より少ない金額では「次へ」が押せません。</p>
+    <p>確認画面のいちばん上の色つきの帯が支払方法です（現金は緑）。間違いに気づいたら「いいえ」で前の画面に戻れます（入力したお会計はそのまま）。</p>
   </details>
 
-  <details>
-    <summary>現金のとき（お預かりとおつり）は？</summary>
-    <figure class="narrow"><img src="/help/reg-recv.webp" width="390" height="503" loading="lazy" alt="お預かり金額の入力画面。合計510円、ちょうどや1,000円などのボタン、入力欄、おつり490円の表示"></figure>
-    <p>現金では、先に<b>お預かり金額</b>を入れます。「ちょうど」や「¥1,000」などのボタンを押すか、下の欄に金額を入力してください。入れるとおつりが表示されます。合計より少ない金額では「次へ」が押せません。</p>
-  </details>
+  <h3 class="help-group">売上の確認</h3>
 
   <details>
-    <summary>確認画面では何を見ればいい？</summary>
-    <figure class="narrow"><img src="/help/reg-confirm.webp" width="390" height="641" loading="lazy" alt="確認画面。現金の表示、団子5本セット500円、容器代10円、数量 団子5本、味 みたらし2・あんこ2・きなこ1、合計510円、お預かり1,000円、おつり490円、いいえとはいのボタン"></figure>
-    <p>いちばん上の色つきの帯が支払方法です（ボタンと同じ色。現金は緑）。本数、<b>味</b>（ピンクの行）、合計金額、現金ならおつりを確かめて、よければ「はい（記録する）」を押します。味は、お客さんに読み上げて確かめると間違いが減ります。</p>
-    <p>間違いに気づいたら「いいえ」を押すと、入力したお会計はそのままで前の画面に戻ります。現金で、お預かり金額だけを直したいときは「← お預かり金額を入力し直す」を押してください。</p>
+    <summary>今の売上はどこで見る？</summary>
+    <p>画面のいちばん上に出ています（30秒ごとと、会計を記録するたびに更新）。</p>
+    <ul>
+      <li><b>受け取った額の合計</b>：当日券の売上と、取り置きの当日精算で受付が受け取った額の合計（受付とレジのお金を合わせた額の目安）</li>
+      <li><b>当日券</b>：このレジで売った当日券の合計と枚数</li>
+      <li><b>取り置き精算</b>：受付で「受け渡し済み」にした取り置きのうち、支払が「当日」だった分の合計</li>
+      <li><b>取り置き 受け渡し</b>：受け渡し済みの件数／取り置きの件数</li>
+    </ul>
+    <p>「内訳」を開くと、券種ごとの枚数・金額、支払方法ごとの件数・金額、取り置きの受け渡しの状況が見られます。売上の CSV は管理画面からダウンロードします。</p>
   </details>
 
   <h3 class="help-group">間違えたとき、うまくいかないとき</h3>
 
   <details>
     <summary>記録した会計を間違えた</summary>
-    <figure class="narrow"><img src="/help/reg-hist.webp" width="370" height="509" loading="lazy" alt="最近の会計の一覧。各行に会計番号と時刻、内容と味、金額、取消ボタン。キッチンで作り終わった会計には「できた」の印。取消済みの行は取り消し線が引かれ、戻すボタンになっている"></figure>
-    <p>「最近の会計」の一覧で、その会計の「取消」を押します。取り消した会計には取り消し線が引かれ、売上と本数から外れます。キッチン画面でも赤い線で「取消」と表示されるので、作らずに済みます。正しい内容（正しい味）で、もう一度会計し直してください。</p>
+    <p>「最近の会計」の一覧で、その会計の「取消」を押します。取り消した会計には取り消し線が引かれ、売上と枚数から外れます。正しい内容で、もう一度会計し直してください。</p>
     <p>取り消しを間違えたときは、同じ行の「戻す」で元に戻せます。取消と戻すは、誰がいつしたかが記録されます。電波がないときも取り消せます（あとで自動で送信されます）。</p>
-    <p>ここに出るのは最新の5件です。それより前の会計は、下の「すべての会計を見る」から探して取り消してください（こちらは電波が必要です）。</p>
-  </details>
-
-  <details>
-    <summary>「#12」や「✓できた」は何？</summary>
-    <p>「#12」は会計番号で、キッチン画面の注文番号と同じです。会計番号は催し（学祭）ごとに #1 から始まります。お客さんへの受け渡しや、キッチンとのやりとりに使えます（電波がなくて未送信の会計には、送信されるまで番号が付きません）。</p>
-    <p>「✓できた」は、キッチンでその注文を作り終えた印です。受け渡しの目安にしてください。</p>
-  </details>
-
-  <details>
-    <summary>入力の途中でやり直したい</summary>
-    <p>「お会計」の右上の「クリア」を押すと、本数と容器代が空に戻ります。記録前なら、何も残りません。</p>
+    <p>ここに出るのは最新の5件です。それより前の会計は「すべての会計を見る」から探して取り消してください（こちらは電波が必要です）。</p>
   </details>
 
   <details>
     <summary>電波がないとき（オフライン）は？</summary>
-    <figure class="narrow"><img src="/help/reg-offline.webp" width="370" height="46" loading="lazy" alt="画面上部の赤い帯。オフライン、未送信2件"></figure>
-    <p>そのまま会計を続けてください。電波がないと画面の上の帯が<b>赤い「オフライン（端末に保存）」</b>になり、会計と取消は<b>スマホの中に保存</b>されます。保存した件数と金額は「未送信 ○件」に出ます。最近の会計にも「未送信」と付いて表示されます。</p>
-    <p>電波が戻ると、古い順に<b>自動で送信</b>され、「未送信 0 件」になります。すぐ送りたいときは帯の右の「送信」を押してください。同じ会計が二重に記録されることはありません。</p>
-    <p>電波がない状態で画面を開き直しても、レジは開けます（一度でも電波のある場所で開いていれば）。ダッシュボードの数字には、送信されてから反映されます。</p>
+    <p>そのまま会計を続けてください。電波がないと画面の上の帯が<b>赤い「オフライン（端末に保存）」</b>になり、会計と取消は<b>スマホの中に保存</b>されます。保存した件数と金額は「未送信 ○件」に出ます。</p>
+    <p>電波が戻ると、古い順に<b>自動で送信</b>されます。すぐ送りたいときは帯の右の「送信」を押してください。同じ会計が二重に記録されることはありません。電波がない状態で画面を開き直しても、レジは開けます（一度でも電波のある場所で開いていれば）。</p>
   </details>
 
   <details>
@@ -455,76 +402,38 @@
 
   <details>
     <summary>「新しい版のレジがあります」と出た</summary>
-    <p>レジのアプリが更新されたときに出ます。会計の合間に「再読み込み」を押してください。未送信の会計は消えません（会計の途中でなければ自動で切り替わります）。</p>
+    <p>レジのアプリが更新されたときに出ます。会計の合間に「再読み込み」を押してください。未送信の会計は消えません。</p>
   </details>
 
   <details>
-    <summary>急にログイン画面に戻った</summary>
-    <p>ログインから3日たったか、店の責任者が管理画面からログインを解除した（締め出した）ときです。もう一度、自分の名前とパスワードでログインしてください。パスワードが変わっていることもあるので、通らないときは責任者に確認してください。</p>
+    <summary>急にログイン画面に戻った／ログインできない</summary>
+    <p>ログインから3日たったか、責任者が管理画面からログインを解除した（締め出した）ときです。もう一度ログインしてください。</p>
+    <p>パスワードを何度か間違えると、しばらく（10分間）ログインできなくなります。同じ Wi-Fi を使っているほかの人も巻き込まれることがあるので、急ぐときは責任者に管理画面から解除してもらってください。</p>
   </details>
 
   <details>
-    <summary>パスワードを入れてもログインできない</summary>
-    <p>パスワードを何度か間違えると、しばらく（10分間）ログインできなくなります。同じ Wi-Fi やテザリングを使っているほかの人も巻き込まれることがあります。急ぐときは、店の責任者に管理画面から解除してもらってください。</p>
-  </details>
-
-  <h3 class="help-group">キッチンとの連携</h3>
-
-  <details>
-    <summary>注文はキッチンにどう伝わる？</summary>
-    <p>会計を記録すると、その注文（味ごとの本数）が<b>キッチン画面</b>（<code>/kitchen</code>）に自動で届きます。ノートに書く必要はありません。キッチンでは届いた順に並び、作り終わったらタップして打ち消し線を引きます。</p>
-    <p>キッチン画面は、画面下の「管理（マスター）」の欄の「🍳 キッチン画面」から開けます。キッチン用のスマホやタブレットで開き、名前（例：キッチン）とレジと同じパスワードでログインしてください。</p>
-    <p>電波がない間に記録した会計は、レジから送信されてからキッチンに届きます。帯の「未送信」が残っているときは、キッチンに声をかけてください。</p>
-  </details>
-
-  <h3 class="help-group">そのほか</h3>
-
-  <details>
-    <summary>今の売上はどこで見られる？</summary>
-    <p>レジ画面のいちばん上に、売上、目標までの残り、売れた本数が出ています（30秒ごとと、会計を記録するたびに更新）。くわしい内訳は、上の「ダッシュボード ↗」で見られます。ダッシュボードはログインなしで誰でも見られるので、スタッフで共有するのに使ってください。</p>
-  </details>
-
-  <details>
-    <summary>売上の明細や操作の記録は？</summary>
-    <p>「売上明細（CSV）」から、売上の記録をファイルで保存できます。取り消した会計は含まれません。</p>
-    <p><b>手集計用</b>（sales_ja.csv）は、Excel で開いて人が集計するためのファイルです。1行が1回の会計で、見出しは日本語、「団子 みたらし(本)」のように味ごとの本数が1列ずつ並びます。列を選ぶだけで合計がわかり、「支払方法」でフィルターすればレジ締めにも使えます。</p>
-    <p>プログラムで分析するときは、<b>データ分析用</b>の3つのファイルを使います（見出しは英数字）。</p>
-    <ul>
-      <li><b>会計</b>（sales.csv）：1行が1回の会計。日時、支払方法、本数、商品代・容器代・合計（円）、担当者、キッチンでできた時刻</li>
-      <li><b>明細</b>（sale_items.csv）：1行が「1回の会計の、1つの商品の、1つの味」。味ごとの本数を数えるときはこちら（例：みたらしは全部で何本？）</li>
-      <li><b>セットの内訳</b>（sale_packs.csv）：どのセットが何個売れたか、商品ごとの金額</li>
-    </ul>
-    <p>3つは「sale_id」（会計ID）でつながります。レジ・キッチンの「#」は「order_no」の列です。ファイルには「レジで使用中」の催しの会計だけが入ります。1行目の項目名は英数字です（例：total_amount_yen＝合計金額・円）。日時は「2026-11-02T11:48:26+09:00」（日本時間）の形です。項目の一覧は README からリンクしている「CSV の項目定義」にあります。</p>
-    <p>「操作の記録」を開くと、取消やログインなどを誰がいつしたかを確認できます。</p>
-  </details>
-
-  <details>
-    <summary>商品・価格、目標金額、パスワードを変えたい</summary>
-    <p>商品や価格の変更、目標金額の変更、レジのパスワードの変更、ログインの締め出しは、「管理画面を開く」から行います。管理画面にはマスターパスワードが必要なので、店の責任者に頼んでください。</p>
+    <summary>券種や価格、パスワードを変えたい</summary>
+    <p>券種・価格の変更、取り置きの取り込み、レジのパスワードの変更、ログインの締め出しは、「管理画面を開く」から行います。管理画面にはマスターパスワードが必要なので、責任者に頼んでください。</p>
   </details>
 </dialog>
 
 <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { DEFAULT_RULE, DEFAULT_PAYMENTS, isCashPayment, paymentColor, MAX_QTY, priceCart, upsell, packLabel, describeItems, itemsFromLines, withFlavors, describeFlavors } from '/pricing.js';
-  // 1 行の名前（混ぜたセットは「団子3本・焼きマシュマロ2本」）
+  import { DEFAULT_PAYMENTS, isCashPayment, paymentColor, MAX_QTY, priceCart, upsell, packLabel, describeItems, itemsFromLines } from '/pricing.js';
+  // 1 行の名前（混ぜたセットは「一般1枚・学生1枚」）
   const lineName = l => l.members.map(m => esc(m.product.name) + (l.members.length > 1 || m.product !== l.product ? m.qty + esc(m.product.unit) : '')).join('・');
   const lineQtyText = l => l.members.map(m => esc(m.product.name) + m.qty + esc(m.product.unit)).join('・');
 
-  const STAFF_KEY = 'dango_admin_staff';   // 次回ログイン時の入力補助（名前だけ）
-  localStorage.removeItem('dango_admin_pw'); // 以前の版で保存していたパスワードを消す
+  const STAFF_KEY = 'teien_admin_staff';   // 次回ログイン時の入力補助（名前だけ）
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   $('staffName').value = localStorage.getItem(STAFF_KEY) || '';
-  let products = [];      // 販売中の商品（サーバーから）
-  let rule = { ...DEFAULT_RULE };
+  let products = [];      // 販売中の券種（サーバーから）
   let productsSig = '';
-  let cart = {};          // { 商品ID: 個数 }（味のある商品は、味ごとの数の合計）
-  let flv = {};           // 味のある商品の内訳 { 商品ID: { 味: 個数 } }
-  let manualFee = null;   // null = 自動計算、数値 = 手動で修正した容器代
+  let cart = {};          // { 券種ID: 枚数 }
   let busy = false;
 
   // ---------- サーバー呼び出し ----------
@@ -617,7 +526,7 @@
   // ---------- 表示 ----------
   function renderData(d) {
     if (!d.cachedAt) { checkEpoch(d.epoch, d.project); saveCachedData(d); }
-    // 管理画面で「レジで使う催し」が切り替わった
+    // 管理画面で「レジで使う公演」が切り替わった
     const switched = lastData && lastData.project && d.project && lastData.project.id !== d.project.id;
     lastData = d;
     $('staffLabel').textContent = (d.project ? d.project.name + '・' : '') + '担当: ' + d.me.staff + (d.cachedAt ? '（オフライン表示）' : '');
@@ -625,15 +534,9 @@
     $('closedBox').classList.toggle('hidden', !d.closed);
     $('app').classList.toggle('is-closed', !!d.closed);
     if (d.closed && !$('modal').classList.contains('hidden')) closePay();
-    $('mTotal').textContent = yen(d.total);
-    const done = d.total >= d.target;
-    $('mRemain').textContent = done ? yen(d.total - d.target) : yen(d.remaining);
-    $('mRemainK').textContent = done ? '達成！黒字（見込）' : '目標まで';
-    const units = [...new Set(d.byProduct.filter(g => g.qty).map(g => g.unit).concat(d.units ? [] : d.products.map(p => p.unit)))];
-    $('mSticks').textContent = d.units + (units.length === 1 ? units[0] : '点');
-    syncProducts(d.products, d.rule);
+    renderSales(d);
+    syncProducts(d.products);
     renderPays(d.payMethods || DEFAULT_PAYMENTS);
-    $('mBar').style.width = Math.min(100, d.rate * 100) + '%';
 
     renderHist();
     $('moreLink').classList.toggle('hidden', d.salesCount <= d.recent.length);
@@ -644,9 +547,31 @@
       '<span class="who">' + esc(a.actor) + '</span>' +
       '<span class="what">' + esc(a.action) + (a.detail ? '　<span style="color:var(--mg-text-sub)">' + esc(a.detail) + '</span>' : '') + '</span></div>'
     ).join('') : '<div class="empty">記録はありません</div>';
-    // 商品の更新のお知らせより後に出す（こちらを優先して見せる）
-    if (switched) toast('催しが「' + d.project.name + '」に切り替わりました。商品も切り替わっています');
+    // 券種の更新のお知らせより後に出す（こちらを優先して見せる）
+    if (switched) toast('公演が「' + d.project.name + '」に切り替わりました。券種も切り替わっています');
   }
+  /** 今の売上：当日券（券種ごと・支払方法ごと）と、取り置き（受け渡し・当日精算） */
+  function renderSales(d) {
+    const r = d.reservations;
+    $('mGrand').textContent = yen(d.grandTotal);
+    $('mTotal').textContent = yen(d.total);
+    $('mTotalK').textContent = '当日券 ' + d.units + '枚';
+    $('mCollected').textContent = yen(r.collected);
+    $('mHanded').textContent = r.count ? r.handed + '/' + r.count + '件' : '—';
+    const row = (k, v1, v2) => '<tr><td>' + k + '</td><td class="n">' + v1 + '</td><td class="n">' + v2 + '</td></tr>';
+    $('breakdown').innerHTML = '<table class="bd-table">' +
+      '<tr><th>当日券（券種）</th><th>枚数</th><th>金額</th></tr>' +
+      (d.byProduct.length ? d.byProduct.map(g => row(esc(g.name), g.qty + esc(g.unit), yen(g.amount))).join('') : row('—', '', '')) +
+      '<tr><th>当日券（支払方法）</th><th>件数</th><th>金額</th></tr>' +
+      d.payments.map(m => row(esc(m), (d.byPayment[m] || {}).count || 0, yen((d.byPayment[m] || {}).amount || 0))).join('') +
+      '<tr><th>取り置き</th><th></th><th></th></tr>' +
+      row('受け渡し済み', r.handed + '/' + r.count + '件', r.handedQty + '/' + r.qty + '枚') +
+      row('当日精算 受け取った額', '', yen(r.collected)) +
+      row('当日精算 まだ受け取っていない額', '', yen(r.uncollected)) +
+      r.byType.map(t => row('　' + esc(t.name), '渡した ' + t.handedQty + '/' + t.qty + esc(t.unit), '')).join('') +
+      '</table>';
+  }
+
   /** 最近の会計：サーバーの記録＋この端末の未送信／送信直後の会計をまとめて新しい順に 5 件 */
   function renderHist() {
     const d = lastData;
@@ -656,13 +581,12 @@
       .concat(loadSent().map(o => ({ ...o, _state: 'sent' })));
     const localIds = new Set(local.map(o => o.clientId));
     const rows = local.map(o => ({
-      key: 'c:' + o.clientId, clientId: o.clientId, id: null, created_at: o.createdAt, desc: o.desc, container: o.container,
-      container_auto: o.containerAuto, payment: o.payment, staff: o.staff, amount: o.amount, cancelled: 0, state: o._state,
+      key: 'c:' + o.clientId, clientId: o.clientId, id: null, created_at: o.createdAt, desc: o.desc,
+      payment: o.payment, staff: o.staff, amount: o.amount, cancelled: 0, state: o._state,
     })).concat(d.recent.filter(r => !r.client_id || !localIds.has(r.client_id)).map(r => ({
       key: r.client_id ? 'c:' + r.client_id : 'i:' + r.id, clientId: r.client_id, id: r.id, created_at: r.created_at, desc: r.desc,
-      container: r.container, container_auto: r.container_auto, payment: r.payment, staff: r.staff, amount: r.amount, cancelled: r.cancelled, state: 'server',
-      no: r.order_no ?? r.id,
-      done: !!r.kitchen_done_at,
+      payment: r.payment, staff: r.staff, amount: r.amount, cancelled: r.cancelled, state: 'server',
+      no: r.order_no,
     })));
     // まだ送っていない取消／戻すを表示に反映
     for (const o of q) {
@@ -673,12 +597,10 @@
     rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     $('hist').innerHTML = rows.length ? rows.slice(0, 5).map(r => {
       const time = new Date(r.created_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
-      const fee = r.container ? '<span class="fee">＋容器' + r.container + '円' + (r.container !== r.container_auto ? '(手動)' : '') + '</span>' : '';
-      const tag = (r.state === 'pending' ? '<span class="q">未送信</span>' : r.cancelPending ? '<span class="q">取消は未送信</span>' : '') +
-        (r.done && !r.cancelled ? '<span class="k">✓できた</span>' : '');
+      const tag = r.state === 'pending' ? '<span class="q">未送信</span>' : r.cancelPending ? '<span class="q">取消は未送信</span>' : '';
       return '<div class="hist-line' + (r.cancelled ? ' cancelled' : '') + '">' +
         '<span class="t">' + (r.no ? '#' + r.no + ' ' : '') + time + '</span>' +
-        '<span class="d">' + esc(r.desc) + ' ' + fee + '　' + r.payment + (r.staff ? '（' + esc(r.staff) + '）' : '') + tag + '</span>' +
+        '<span class="d">' + esc(r.desc) + '　' + esc(r.payment) + (r.staff ? '（' + esc(r.staff) + '）' : '') + tag + '</span>' +
         '<span class="a">' + yen(r.amount) + '</span>' +
         '<button data-cancel="' + esc(r.key) + '" data-to="' + (r.cancelled ? 0 : 1) + '">' + (r.cancelled ? '戻す' : '取消') + '</button></div>';
     }).join('') : '<div class="empty">まだ会計はありません</div>';
@@ -686,113 +608,57 @@
 
   const fmtTime = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  // ---------- 商品とカート ----------
+  // ---------- 券種とカート ----------
   function priced() {
-    try { return priceCart(products, rule, cart); }
-    catch { return { lines: [], goods: 0, fee: 0, total: 0, units: 0, containerUnits: 0 }; }
+    try { return priceCart(products, cart); }
+    catch { return { lines: [], goods: 0, total: 0, units: 0 }; }
   }
-  const autoFee = () => priced().fee;
-  const feeOn = () => rule.enabled !== false;   // この催しで容器代を取るか
-  const currentFee = () => !feeOn() ? 0 : manualFee == null ? autoFee() : manualFee;
-  const cartTotal = () => { const p = priced(); return p.goods ? p.goods + currentFee() : 0; };
+  const cartTotal = () => priced().total;
 
-  /** サーバーの商品一覧が変わったら作り直す（カートは残せる分だけ残す） */
-  function syncProducts(list, r) {
-    const sig = JSON.stringify([list, r]);
+  /** サーバーの券種の一覧が変わったら作り直す（カートは残せる分だけ残す） */
+  function syncProducts(list) {
+    const sig = JSON.stringify(list);
     if (sig === productsSig) return;
     const first = !productsSig;
     productsSig = sig;
     products = list;
-    rule = r;
     const before = JSON.stringify(cart);
-    for (const id of Object.keys(cart)) {
-      const p = products.find(p => String(p.id) === id);
-      if (!p) { delete cart[id]; delete flv[id]; continue; }
-      if (hasFlv(p)) {
-        // 味の一覧から消えた味は外す（味のなかった商品に味ができたら、数を入れ直してもらう）
-        const f = flv[id] || {};
-        for (const k of Object.keys(f)) if (!p.flavors.includes(k)) delete f[k];
-        const n = Object.values(f).reduce((a, b) => a + b, 0);
-        if (n) { flv[id] = f; cart[id] = n; } else { delete flv[id]; delete cart[id]; }
-      } else delete flv[id];
-    }
+    for (const id of Object.keys(cart)) if (!products.find(p => String(p.id) === id)) delete cart[id];
     renderProducts();
     renderCart();
-    if (!first) toast(JSON.stringify(cart) !== before ? '商品が変更されたため、お会計を一部消しました' : '商品・価格が更新されました', JSON.stringify(cart) !== before);
+    if (!first) toast(JSON.stringify(cart) !== before ? '券種が変更されたため、お会計を一部消しました' : '券種・価格が更新されました', JSON.stringify(cart) !== before);
   }
 
-  // 「○○のセットに含める」商品の注記（例: 団子と合わせてセット）
+  // 「○○のセットに含める」券種の注記（例: 一般と合わせてセット）
   function bundleNote(p) {
     const l = p.bundleWith && products.find(x => String(x.id) === String(p.bundleWith) && !x.bundleWith && x.sets.some(s => s.qty > 1));
     return l ? '<small>' + esc(l.name) + 'と合わせてセット</small>' : '';
   }
 
-  const hasFlv = p => !!(p && p.flavors && p.flavors.length);
-  const setsHint = p => p.sets.map(s => (s.qty === 1 ? '1' + esc(p.unit) : s.qty + esc(p.unit)) + s.price + '円').join('・');
-
-  // 味のある商品：味のボタンをタップした回数がその味の数（右上の − で減らす）。セットは合計の数で自動で組む
-  function flavorCard(p) {
-    return '<section class="card prod" data-prod="' + p.id + '">' +
-      '<div class="prod-head">' +
-        '<div class="pn">' + esc(p.name) + (bundleNote(p) || '<small>' + setsHint(p) + '</small>') + '</div>' +
-        '<div class="ptotal">計 <b data-ptotal="' + p.id + '">0</b>' + esc(p.unit) + '</div>' +
-      '</div>' +
-      '<div class="flvs">' + p.flavors.map((f, i) =>
-        '<div class="flv" data-pid="' + p.id + '" data-fi="' + i + '">' +
-          '<button class="fadd" data-pid="' + p.id + '" data-fadd="' + i + '"><span class="fn">' + esc(f) + '</span><span class="fc">0</span></button>' +
-          '<button class="fsub" data-pid="' + p.id + '" data-fsub="' + i + '" aria-label="' + esc(f) + 'を1' + esc(p.unit) + '減らす">−</button>' +
-        '</div>').join('') +
-      '</div></section>';
-  }
-
   function renderProducts() {
-    $('products').innerHTML = products.map(p => hasFlv(p) ? flavorCard(p) :
-      // 1 行目：商品名と −［数］＋　2 行目：セットのボタン（セットが 1 種類だけの商品は省略）
+    $('products').innerHTML = products.map(p =>
+      // 1 行目：券種名と −［枚数］＋　2 行目：セットのボタン（価格が 1 種類だけの券種は省略）
       '<section class="card prod" data-prod="' + p.id + '">' +
         '<div class="prod-head">' +
-          '<div class="pn">' + esc(p.name) + (bundleNote(p) || (p.sets.length > 1 ? '' : '<small>' + p.sets[0].price + '円／' + esc(p.unit) + '</small>')) + '</div>' +
+          '<div class="pn">' + esc(p.name) + (bundleNote(p) || (p.sets.length > 1 ? '' : '<small>' + yen(p.sets[0].price) + '／' + esc(p.unit) + '</small>')) + '</div>' +
           '<div class="stepper">' +
             '<button data-pid="' + p.id + '" data-step="-1" aria-label="1' + esc(p.unit) + '減らす">−</button>' +
-            '<span class="qty-box"><input class="qty-input" data-pid="' + p.id + '" type="number" inputmode="numeric" min="0" max="' + MAX_QTY + '" value="0" aria-label="' + esc(p.name) + 'の数"><span class="unit">' + esc(p.unit) + '</span></span>' +
+            '<span class="qty-box"><input class="qty-input" data-pid="' + p.id + '" type="number" inputmode="numeric" min="0" max="' + MAX_QTY + '" value="0" aria-label="' + esc(p.name) + 'の枚数"><span class="unit">' + esc(p.unit) + '</span></span>' +
             '<button data-pid="' + p.id + '" data-step="1" aria-label="1' + esc(p.unit) + '増やす">＋</button>' +
           '</div>' +
         '</div>' +
         (p.sets.length > 1
           ? '<div class="items" style="grid-template-columns:repeat(' + Math.min(4, p.sets.length) + ',1fr)">' +
-              p.sets.map(s => '<button class="item" data-pid="' + p.id + '" data-preset="' + s.qty + '"><span class="n">' + s.qty + esc(p.unit) + '</span><span class="p">' + s.price + '円</span></button>').join('') +
+              p.sets.map(s => '<button class="item" data-pid="' + p.id + '" data-preset="' + s.qty + '"><span class="n">' + s.qty + esc(p.unit) + '</span><span class="p">' + yen(s.price) + '</span></button>').join('') +
             '</div>'
           : '') +
       '</section>'
-    ).join('') || '<section class="card"><div class="empty">販売中の商品がありません（管理画面で追加してください）</div></section>';
+    ).join('') || '<section class="card"><div class="empty">販売中の券種がありません（管理画面で追加してください）</div></section>';
   }
 
   const qtyOf = pid => cart[pid] || 0;
-  const flvOf = (pid, f) => (flv[pid] && flv[pid][f]) || 0;
-  function setFlavor(pid, f, n) {
-    const others = qtyOf(pid) - flvOf(pid, f);
-    n = Math.max(0, Math.min(MAX_QTY - others, Math.floor(Number(n) || 0)));
-    if (n === flvOf(pid, f)) return;
-    manualFee = null;
-    const m = { ...(flv[pid] || {}) };
-    if (n) m[f] = n; else delete m[f];
-    const total = Object.values(m).reduce((a, b) => a + b, 0);
-    if (total) { flv[pid] = m; cart[pid] = total; } else { delete flv[pid]; delete cart[pid]; }
-    renderCart();
-  }
-  /** 味の内訳（[{ name, flavor, qty }]、味の一覧の順） */
-  function flavorRows(onlyPid) {
-    const rows = [];
-    for (const p of products) {
-      if (onlyPid != null && String(p.id) !== String(onlyPid)) continue;
-      const m = flv[p.id];
-      if (!m) continue;
-      for (const f of p.flavors || []) if (m[f]) rows.push({ name: p.name, flavor: f, qty: m[f] });
-    }
-    return rows;
-  }
   function setQty(pid, n) {
     n = Math.max(0, Math.min(MAX_QTY, Math.floor(Number(n) || 0)));
-    if (n !== qtyOf(pid)) manualFee = null;   // 個数が変わったら容器代は自動計算に戻す
     if (n) cart[pid] = n; else delete cart[pid];
     renderCart();
   }
@@ -800,59 +666,35 @@
   function renderCart() {
     document.querySelectorAll('.qty-input').forEach(inp => { if (document.activeElement !== inp) inp.value = qtyOf(inp.dataset.pid); });
     document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', Number(b.dataset.preset) === qtyOf(b.dataset.pid)));
-    document.querySelectorAll('.flv').forEach(el => {
-      const p = products.find(x => String(x.id) === el.dataset.pid);
-      const n = p ? flvOf(p.id, p.flavors[Number(el.dataset.fi)]) : 0;
-      el.classList.toggle('on', n > 0);
-      el.querySelector('.fc').textContent = n;
-    });
-    document.querySelectorAll('[data-ptotal]').forEach(el => el.textContent = qtyOf(el.dataset.ptotal));
     const pr = priced();
 
-    // 商品ごとに 1 行（セットの組み方はかっこ書き）
+    // 券種ごとに 1 行（セットの組み方はかっこ書き）
     $('cart').innerHTML = pr.lines.length ? pr.lines.map(l => {
       const u = esc(l.product.unit);
       const detail = l.packs.length > 1 || l.packs[0].qty > 1
         ? '<small class="packs">（' + l.packs.map(k => packLabel(k, u) + (k.count > 1 ? '×' + k.count : '')).join('＋') + '）</small>' : '';
       const name = l.members.length > 1 ? lineName(l) : esc(l.members[0].product.name) + ' ' + l.qty + u;
-      // 味の内訳（混ぜたセットなら商品ごとに）
-      const fl = l.members.filter(m => flv[m.product.id]).map(m =>
-        (l.members.length > 1 ? esc(m.product.name) + ' ' : '') + esc(describeFlavors(flavorRows(m.product.id)))).join('／');
-      return '<div class="cart-line"><span>' + name + detail + '</span><span class="sub">' + yen(l.subtotal) + '</span></div>' +
-        (fl ? '<div class="cart-flv">' + fl + '</div>' : '');
-    }).join('') : '<div class="empty">商品の数を選んでください</div>';
+      return '<div class="cart-line"><span>' + name + detail + '</span><span class="sub">' + yen(l.subtotal) + '</span></div>';
+    }).join('') : '<div class="empty">券種の枚数を選んでください</div>';
 
     $('upsell').innerHTML = pr.lines.map(l => {
-      // 足すのはセットを決める商品（混ぜたセットなら、どちらを足しても同じ金額）
+      // 足すのはセットを決める券種（混ぜたセットなら、どちらを足しても同じ金額）
       const target = l.members.length === 1 ? l.members[0].product : l.product;
-      const up = upsell(products, rule, cart, target.id);
+      const up = upsell(products, cart, target.id);
       const leaderQty = cart[target.id] || 0;
       if (!up) return '';
       const u = esc(l.product.unit);
       const who = l.members.length > 1 ? '合わせて' : (pr.lines.length > 1 ? esc(target.name) : '');
       const msg = '💡 ' + who + 'あと' + (up.qty - leaderQty) + u + 'で' + (up.save > 0 ? yen(up.save) + 'お得' : '同じ金額');
-      // 味のある商品は、どの味を足すかをお客さんに聞いて味のボタンで足す
-      if (hasFlv(target)) return '<div class="upsell"><span>' + msg + '（味を聞いて追加）</span></div>';
       return '<div class="upsell"><span>' + msg + '</span>' +
         '<button data-pid="' + target.id + '" data-setqty="' + up.qty + '">' + (l.members.length > 1 ? esc(target.name) + 'を' : '') + up.qty + u + 'にする</button></div>';
     }).join('');
 
-    if (pr.lines.length && feeOn()) {   // 容器代を取らない催しでは容器代の行を出さない
-      const fee = currentFee();
-      const isManual = manualFee != null && manualFee !== autoFee();
-      $('containerRow').innerHTML =
-        '<div class="cart-line fee"><span>容器代<span class="tag' + (isManual ? ' manual' : '') + '">' + (isManual ? '手動' : '自動') + '</span>' +
-        (isManual ? '<button class="reset-fee" data-feereset="1">自動に戻す</button>' : '') + '</span>' +
-        '<span class="ctrl"><button data-fee="-' + (rule.fee || 10) + '">−</button><span class="qty">' + (fee / (rule.fee || 10)) + '</span><button data-fee="' + (rule.fee || 10) + '">＋</button></span>' +
-        '<span class="sub">' + yen(fee) + '</span></div>';
-    } else {
-      $('containerRow').innerHTML = '';
-    }
-
     const total = cartTotal();
     $('cartTotal').textContent = yen(total);
-    $('cartSticks').textContent = pr.lines.map(l => l.members.map(m => m.product.name + m.qty + m.product.unit).join('・')).join('・');
-    document.querySelectorAll('.pay').forEach(b => b.disabled = busy || total === 0);
+    $('cartSticks').textContent = pr.lines.length ? '計 ' + pr.units + '枚' : '';
+    // 0円の券種（招待など）だけの会計も記録できるように、枚数があれば押せる
+    document.querySelectorAll('.pay').forEach(b => b.disabled = busy || !pr.lines.length);
   }
 
   $('products').addEventListener('input', e => { if (e.target.classList.contains('qty-input')) setQty(e.target.dataset.pid, e.target.value); });
@@ -867,22 +709,13 @@
     if (d.preset) setQty(d.pid, d.preset);
     if (d.step) setQty(d.pid, qtyOf(d.pid) + Number(d.step));
     if (d.setqty) setQty(d.pid, d.setqty);
-    if (d.fadd != null || d.fsub != null) {
-      const p = products.find(x => String(x.id) === d.pid);
-      const f = p && p.flavors[Number(d.fadd ?? d.fsub)];
-      if (f != null) setFlavor(p.id, f, flvOf(p.id, f) + (d.fadd != null ? 1 : -1));
-    }
-    if (d.fee) { manualFee = Math.max(0, currentFee() + Number(d.fee)); renderCart(); }
-    if (d.feereset) { manualFee = null; renderCart(); }
     if (d.pay) openPay(d.pay);
     if (d.cancel) cancel(d.cancel, d.to === '1');
   });
   $('clearBtn').onclick = resetCart;
 
   function resetCart() {
-    manualFee = null;
     cart = {};
-    flv = {};
     renderCart();
   }
 
@@ -902,8 +735,8 @@
 
   function openPay(method) {
     const total = cartTotal();
-    if (busy || !total) return;
-    if (lastData && lastData.closed) { toast('営業は終了しました。会計は記録できません', true); return; }
+    if (busy || !priced().lines.length) return;
+    if (lastData && lastData.closed) { toast('当日券の販売は終了しました。会計は記録できません', true); return; }
     pending = { method, total, received: null };
     $('modal').classList.remove('hidden');
     if (isCashPayment(method)) showRecv(); else showConfirm();
@@ -920,7 +753,7 @@
     $('stepRecv').classList.remove('hidden');
     $('recvTotal').textContent = yen(total);
     // よく使う金額（合計以上のものだけ）
-    const quick = [500, 1000, 2000, 5000, 10000].filter(v => v > total).slice(0, 5);
+    const quick = [1000, 2000, 3000, 5000, 10000, 20000].filter(v => v > total).slice(0, 5);
     $('recvQuick').innerHTML = '<button class="exact" data-mrecv="' + total + '">ちょうど<br>' + yen(total) + '</button>' +
       quick.map(v => '<button data-mrecv="' + v + '">' + yen(v) + '</button>').join('');
     $('recvInput').value = pending.received ?? '';
@@ -945,14 +778,11 @@
     $('cfPay').textContent = p.method;
     $('cfPay').className = 'pay-badge';
     $('cfPay').style.background = paymentColor(p.method);
-    const fee = currentFee();
     const pr = priced();
     $('cfLines').innerHTML = pr.lines.map(l => l.packs.map(k =>
-      '<div class="sum-line"><span>' + (l.members.length > 1 ? '' : esc(l.members[0].product.name) + ' ') + packLabel(k, esc(l.product.unit)) + '（' + k.price + '円）× ' + k.count + '</span><span class="sub">' + yen(k.price * k.count) + '</span></div>'
+      '<div class="sum-line"><span>' + (l.members.length > 1 ? '' : esc(l.members[0].product.name) + ' ') + packLabel(k, esc(l.product.unit)) + '（' + k.price.toLocaleString('ja-JP') + '円）× ' + k.count + '</span><span class="sub">' + yen(k.price * k.count) + '</span></div>'
     ).join('')).join('') +
-      (fee ? '<div class="sum-line fee"><span>容器代' + (manualFee != null && manualFee !== autoFee() ? '（手動）' : '') + '</span><span class="sub">' + yen(fee) + '</span></div>' : '') +
-      '<div class="sum-line" style="color:var(--mg-text-sub);font-size:14px"><span>数量</span><span>' + pr.lines.map(lineQtyText).join('・') + '</span></div>' +
-      (flavorRows().length ? '<div class="sum-line sum-flv"><span>味</span><span>' + esc(describeFlavors(flavorRows())) + '</span></div>' : '');
+      '<div class="sum-line" style="color:var(--mg-text-sub);font-size:14px"><span>枚数</span><span>' + pr.lines.map(lineQtyText).join('・') + '</span></div>';
     $('cfTotal').textContent = yen(p.total);
     const isCash = isCashPayment(p.method);
     $('cfCash').classList.toggle('hidden', !isCash);
@@ -987,16 +817,12 @@
       clientId: newId(),
       createdAt: new Date().toISOString(),
       items: { ...cart },
-      flavors: JSON.parse(JSON.stringify(flv)),
       lines: pr.lines.map(l => ({ productId: l.product.id, name: l.product.name, unit: l.product.unit, packs: l.packs,
         members: l.members.map(m => ({ productId: m.product.id, name: m.product.name, unit: m.product.unit, qty: m.qty })) })),
-      goods: pr.goods,
-      container: currentFee(),
-      containerAuto: pr.fee,
-      amount: pr.goods + currentFee(),
+      amount: pr.total,
       payment: p.method,
       staff: lastData && lastData.me ? lastData.me.staff : '',
-      desc: withFlavors(describeItems(itemsFromLines(pr.lines)), flavorRows()),
+      desc: describeItems(itemsFromLines(pr.lines)),
     });
     closePay();
     toast('記録しました：' + yen(p.total) + '（' + p.method + '）' + (isCashPayment(p.method) ? ' おつり ' + yen(p.received - p.total) : '') + (netOk ? '' : '・未送信'));
@@ -1024,10 +850,10 @@
   // ========== オフライン対応：未送信キュー ==========
   // 会計・取消はまず localStorage のキューに入れ、古い順にサーバーへ送る。送れたものからキューを消す。
   // サーバーは会計ID（clientId）が同じなら 1 件として扱うので、何度送り直しても二重にならない。
-  const QUEUE_KEY = 'mogiten_queue_v1';      // 未送信の操作（古い順）
-  const FAILED_KEY = 'mogiten_failed_v1';    // サーバーに受け付けられなかった操作（消さずに残す）
-  const SENT_KEY = 'mogiten_sent_v1';        // 送信できた直後の会計（サーバーの一覧に出るまで表示用に残す）
-  const DATA_KEY = 'mogiten_data_v1';        // 最後に受け取った画面データ（オフラインで開くとき用）
+  const QUEUE_KEY = 'teien_queue_v1';      // 未送信の操作（古い順）
+  const FAILED_KEY = 'teien_failed_v1';    // サーバーに受け付けられなかった操作（消さずに残す）
+  const SENT_KEY = 'teien_sent_v1';        // 送信できた直後の会計（サーバーの一覧に出るまで表示用に残す）
+  const DATA_KEY = 'teien_data_v1';        // 最後に受け取った画面データ（オフラインで開くとき用）
   let lastData = null;
   let netOk = navigator.onLine;
   let flushing = false;
@@ -1041,8 +867,8 @@
   function saveCachedData(d) { try { localStorage.setItem(DATA_KEY, JSON.stringify({ ...d, audit: d.audit.slice(0, 10), savedAt: new Date().toISOString() })); } catch {} }
 
   // 管理画面で売上記録が全リセットされたら、リセット前の未送信・送信済みの表示用データを捨てる
-  const EPOCH_KEY = 'mogiten_epoch_v1';
-  // 売上記録の世代は催しごと。同じ催しで世代が進んだときだけ「リセットされた」とみなす（催しの切り替えでは何も捨てない）
+  const EPOCH_KEY = 'teien_epoch_v1';
+  // 売上記録の世代は公演ごと。同じ公演で世代が進んだときだけ「リセットされた」とみなす（公演の切り替えでは何も捨てない）
   function checkEpoch(epoch, project) {
     if (epoch == null) return;
     const pid = project ? project.id : null;
@@ -1051,14 +877,14 @@
     if (prev != null && typeof prev !== 'object') prev = { projectId: pid, epoch: Number(prev) };   // 以前の版の形（数字だけ）
     localStorage.setItem(EPOCH_KEY, JSON.stringify({ projectId: pid, epoch }));
     if (!prev || prev.projectId !== pid || prev.epoch === epoch) return;
-    // この催しの、リセット前の操作だけを捨てる（ほかの催しの未送信の会計は残す）
+    // この公演の、リセット前の操作だけを捨てる（ほかの公演の未送信の会計は残す）
     const stale = o => (o.projectId == null || o.projectId === pid) && o.epoch != null && o.epoch !== epoch;
     const q = loadQ();
     const keep = q.filter(o => !stale(o));
     saveQ(keep);
     localStorage.removeItem(SENT_KEY);
     localStorage.setItem(FAILED_KEY, JSON.stringify(loadFailed().filter(o => !stale(o))));
-    toast('管理画面で売上記録がリセットされました' + (q.length > keep.length ? '（リセット前の未送信 ' + (q.length - keep.length) + ' 件は破棄）' : ''));
+    toast('管理画面で当日券の売上記録がリセットされました' + (q.length > keep.length ? '（リセット前の未送信 ' + (q.length - keep.length) + ' 件は破棄）' : ''));
     renderNet();
   }
 
@@ -1070,7 +896,7 @@
 
   function enqueue(op) {
     const q = loadQ();
-    // 会計した時点の催しと世代を付けておく（あとで催しが切り替わったりリセットされたりしても、正しく扱えるように）
+    // 会計した時点の公演と世代を付けておく（あとで公演が切り替わったりリセットされたりしても、正しく扱えるように）
     q.push({ ...op, opId: newId(), wasOffline: !netOk, epoch: lastData && lastData.epoch != null ? lastData.epoch : null,
       projectId: lastData && lastData.project ? lastData.project.id : null });
     saveQ(q);
@@ -1091,8 +917,8 @@
         try {
           if (op.kind === 'sale') {
             await api('sales', {
-              lite: true, epoch: op.epoch, projectId: op.projectId, clientId: op.clientId, createdAt: op.createdAt, items: op.items, flavors: op.flavors, lines: op.lines,
-              container: op.container, containerAuto: op.containerAuto, payment: op.payment,
+              lite: true, epoch: op.epoch, projectId: op.projectId, clientId: op.clientId, createdAt: op.createdAt, items: op.items, lines: op.lines,
+              payment: op.payment,
             });
             const sent = loadSent().filter(s => s.clientId !== op.clientId);
             sent.unshift({ ...op, sentAt: new Date().toISOString() });

@@ -1,4 +1,4 @@
-name = "mogiten"
+name = "teien-ticket"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 
@@ -6,13 +6,14 @@ compatibility_date = "2026-10-01"
 [assets]
 directory = "./public"
 
-# 売上データの保存先（Cloudflare D1）
-# `npx wrangler d1 create mogiten` で表示された database_id に書き換えてください
+# 取り置き・当日券のデータの保存先（Cloudflare D1）
+# `npx wrangler d1 create teien-ticket` で表示された database_id に書き換えてください
 [[d1_databases]]
 binding = "DB"
-database_name = "mogiten"
-database_id = "2ab75228-a679-458d-8cf8-e378c3ba7d56"
+database_name = "teien-ticket"
+database_id = "ここに database_id を貼る"
 
-# レジのパスワードは secret で設定します（このファイルには書かない）
-#   npx wrangler secret put ADMIN_PASSWORD
+# パスワードは secret で設定します（このファイルには書かない）
+#   npx wrangler secret put ADMIN_PASSWORD    （レジ・受付用）
+#   npx wrangler secret put MASTER_PASSWORD   （管理画面用）
 # ローカル開発時は .dev.vars に ADMIN_PASSWORD=xxxx と書く
