@@ -8,11 +8,14 @@
  *   /admin       レジ（当日券の販売。public/admin.html・レジ用パスワード＋担当者名）
  *   /reception   受付（取り置きの受け渡し。public/reception.html・レジ用パスワード＋名前）
  *   /master      管理画面（public/master.html・マスターパスワード）
+ *   /order       ウェブの取り置き予約（public/order.html・公演ごとの取り置き専用パスワード。開場時刻まで）
  *   /api/...     この Worker が処理する API
  *
  * 取り置き：管理画面で所定の様式の CSV を取り込むと、受付の画面に 1 件ずつカードで並ぶ。
  *   渡したらカードをスワイプ（またはタップ）して「受け渡し済み」にする。
  *   支払が「当日」の取り置きは、受け渡しのときに受け取る金額をカードに出し、受け取った額として集計する。
+ * 取り置きはウェブ（/order）でも受け付ける。管理画面で決めた取り置き専用パスワードを知っている人だけが予約でき、
+ *   開場時刻を過ぎると締め切る。届いた予約は番号 W1, W2, … で取り置きの一覧に入り、受付の画面にすぐ出る。
  * 当日券：レジで券種と枚数を入れて会計を記録する（受付には出ない）。
  *
  * 認証のしくみ
@@ -33,7 +36,11 @@ import { DEFAULT_PAYMENTS, MAX_PAYMENTS, MAX_QTY, priceCart, describeItems, item
 const ROLES = {
   register: { label: 'レジ・受付', cookie: 'teien_reg', path: '/api/admin', ttl: 3 * 24 * 3600, secret: 'ADMIN_PASSWORD' },
   master: { label: 'マスター', cookie: 'teien_master', path: '/api/master', ttl: 12 * 3600, secret: 'MASTER_PASSWORD' },
+  order: { label: 'ウェブ予約' },   // ログインはしない（予約のたびに取り置き専用パスワードを確かめる）
 };
+const ORDER_LIMIT = 20;          // 同じ接続元からのウェブ予約は 1 時間にこの件数まで（いたずら対策）
+const ORDER_MAX_DEFAULT = 10;    // 1 回のウェブ予約の枚数の上限（管理画面で変えられる）
+const MIN_ORDER_PASSWORD = 4;    // 取り置き専用パスワードの最低文字数（お客さんに伝えるので短めでもよい）
 const MAX_FAILS = 5;          // この回数失敗したら
 const LOCK_MINUTES = 10;      // この時間ログインできない
 const MIN_PASSWORD = 8;       // 新しいパスワードの最低文字数
@@ -55,6 +62,7 @@ export default {
         if (origin && origin !== url.origin) return json({ error: '不正なリクエストです' }, 403);
       }
 
+      if (url.pathname === '/api/order' || url.pathname.startsWith('/api/order/')) return await orderApi(request, env, url, route);
       if (url.pathname.startsWith('/api/admin/')) return await registerApi(request, env, url, route);
       if (url.pathname.startsWith('/api/master/')) return await masterApi(request, env, url, route);
       return json({ error: 'Not Found' }, 404);
@@ -241,10 +249,45 @@ async function masterApi(request, env, url, route) {
     return reload();
   }
 
+  // 取り置きを 1 件削除（ウェブ予約の取り消しなど）
+  const rd = url.pathname.match(/^\/api\/master\/reservations\/(\d+)\/delete$/);
+  if (request.method === 'POST' && rd) {
+    const r = await db.prepare('SELECT * FROM reservations WHERE id = ? AND project_id = ?').bind(Number(rd[1]), P.id).first();
+    if (!r) throw httpError('取り置きが見つかりません', 404);
+    await db.batch([db.prepare('DELETE FROM reservations WHERE id = ?').bind(r.id), bumpRev(db, P.id)]);
+    await audit(db, 'マスター', role, '取り置きを削除', `${tag}${r.res_no} ${r.name}（${describeTickets(JSON.parse(r.tickets))}・${r.source === 'web' ? 'ウェブ' : 'CSV'}）` + (r.handed_at ? '・受け渡し済みだった' : ''));
+    return reload();
+  }
   if (route === 'POST /api/master/products') {
     const body = await readJson(request);
     const { before, after } = await saveProduct(db, P, body);
     await audit(db, 'マスター', role, before ? '券種を変更' : '券種を追加', tag + (before ? productDiff(before, after) : productText(after)));
+    return reload();
+  }
+  // ウェブ予約の設定（受け付けるか・開場日時・1 回の上限枚数・取り置き専用パスワード）
+  if (route === 'POST /api/master/web-order') {
+    const body = await readJson(request);
+    const row = await db.prepare('SELECT order_pw_hash FROM projects WHERE id = ?').bind(P.id).first();
+    let openAt = P.openAt;
+    if (body.openAt !== undefined) {
+      openAt = body.openAt ? new Date(Date.parse(body.openAt)).toISOString() : null;
+      if (body.openAt && Number.isNaN(Date.parse(body.openAt))) throw httpError('開場日時が不正です', 400);
+    }
+    const max = body.max !== undefined ? intIn(body.max, 1, MAX_QTY, '1回の予約の上限枚数') : P.orderMax;
+    let hash = row.order_pw_hash;
+    const pw = body.password != null ? String(body.password) : '';
+    if (pw) {
+      if (pw.length < MIN_ORDER_PASSWORD) throw httpError(`取り置き専用パスワードは${MIN_ORDER_PASSWORD}文字以上にしてください`, 400);
+      if (pw.length > 100) throw httpError('パスワードが長すぎます', 400);
+      hash = await hashPassword(pw);
+    }
+    const enabled = body.enabled !== undefined ? !!body.enabled : P.orderEnabled;
+    if (enabled && !hash) throw httpError('ウェブ予約を受け付けるには、取り置き専用パスワードを決めてください', 400);
+    if (enabled && !openAt) throw httpError('ウェブ予約を受け付けるには、開場日時（締め切り）を入れてください', 400);
+    await db.prepare('UPDATE projects SET order_enabled = ?, open_at = ?, order_max = ?, order_pw_hash = ? WHERE id = ?')
+      .bind(enabled ? 1 : 0, openAt, max, hash, P.id).run();
+    await audit(db, 'マスター', role, 'ウェブ予約の設定を変更',
+      `${tag}${enabled ? '受け付ける' : '受け付けない'}・締め切り ${openAt ? isoJst(openAt).slice(0, 16).replace('T', ' ') : 'なし'}・上限 ${max} 枚` + (pw ? '・パスワードを変更' : ''));
     return reload();
   }
   // 支払方法（この公演のレジに出す支払方法）
@@ -367,7 +410,7 @@ async function setActiveProject(db, id) {
 // ===== 認証 =====
 
 /** パスワードを照合する。失敗回数の制限つき。失敗したら例外を投げる */
-async function login(request, env, role, password, wrongMessage) {
+async function login(request, env, role, password, wrongMessage, verify) {
   const db = env.DB;
   const ip = request.headers.get('CF-Connecting-IP') || 'local';
   const now = Date.now();
@@ -378,10 +421,10 @@ async function login(request, env, role, password, wrongMessage) {
     ORDER BY at DESC LIMIT 1 OFFSET ?`).bind(ip, role, since, MAX_FAILS - 1).first();
   if (nth) {
     const mins = Math.max(1, Math.ceil((new Date(nth.at).getTime() + LOCK_MINUTES * 60000 - now) / 60000));
-    throw httpError(`ログインに続けて失敗したため、あと約${mins}分はログインできません`, 429);
+    throw httpError(role === 'order' ? `パスワードの間違いが続いたため、あと約${mins}分は予約できません` : `ログインに続けて失敗したため、あと約${mins}分はログインできません`, 429);
   }
 
-  if (await verifyPassword(env, role, String(password || ''))) {
+  if (await (verify ? verify(String(password || '')) : verifyPassword(env, role, String(password || '')))) {
     await db.batch([
       db.prepare('DELETE FROM login_failures WHERE ip = ? AND role = ?').bind(ip, role),
       db.prepare('DELETE FROM login_failures WHERE at < ?').bind(new Date(now - 86400000).toISOString()),
@@ -394,8 +437,9 @@ async function login(request, env, role, password, wrongMessage) {
     .bind(ip, role, since).first();
   await audit(db, '—', role, 'ログイン失敗', `${ROLES[role].label}（${n}回目）`);
   const left = MAX_FAILS - n;
+  const what = role === 'order' ? '予約' : 'ログイン';
   throw httpError((wrongMessage || 'パスワードが違います') +
-    (left > 0 ? `（あと${left}回間違えると${LOCK_MINUTES}分間ログインできなくなります）` : `（${LOCK_MINUTES}分間ログインできません）`), 401);
+    (left > 0 ? `（あと${left}回間違えると${LOCK_MINUTES}分間${what}できなくなります）` : `（${LOCK_MINUTES}分間${what}できません）`), 401);
 }
 
 async function verifyPassword(env, role, password) {
@@ -551,7 +595,11 @@ async function ensureSchema(db) {
       closed_at TEXT,
       epoch INTEGER NOT NULL DEFAULT 1,
       rev INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      order_enabled INTEGER NOT NULL DEFAULT 0,
+      open_at TEXT,
+      order_max INTEGER NOT NULL DEFAULT 10,
+      order_pw_hash TEXT
     )`),
     // 券種（sets は数量ごとの価格の JSON 配列）
     db.prepare(`CREATE TABLE IF NOT EXISTS products (
@@ -562,7 +610,8 @@ async function ensureSchema(db) {
       sets TEXT NOT NULL,
       active INTEGER NOT NULL DEFAULT 1,
       sort INTEGER NOT NULL DEFAULT 0,
-      bundle_with INTEGER
+      bundle_with INTEGER,
+      web INTEGER NOT NULL DEFAULT 1
     )`),
     db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS products_project_name ON products (project_id, name)'),
     // 当日券の会計。order_no は公演ごとに #1 から。client_id は端末で付けた会計ID（再送で二重にしない）
@@ -608,9 +657,14 @@ async function ensureSchema(db) {
       handed_at TEXT,
       handed_by TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'csv',
+      contact TEXT NOT NULL DEFAULT '',
+      client_id TEXT
     )`),
     db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS reservations_no ON reservations (project_id, res_no)'),
+    // ウェブ予約の記録（同じ接続元からの件数の制限用。古いものは消す）
+    db.prepare('CREATE TABLE IF NOT EXISTS order_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT NOT NULL, at TEXT NOT NULL)'),
     db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       token_hash TEXT NOT NULL UNIQUE,
@@ -637,6 +691,20 @@ async function ensureSchema(db) {
       at TEXT NOT NULL
     )`),
   ]);
+  // あとから足した列（ウェブ予約）。前の版で作ったデータベースには ALTER で足す
+  const cols = async (t) => (await db.prepare(`PRAGMA table_info(${t})`).all()).results.map((c) => c.name);
+  const pc = await cols('projects'), rc = await cols('reservations'), xc = await cols('products');
+  for (const [has, sql] of [
+    [pc.includes('order_enabled'), 'ALTER TABLE projects ADD COLUMN order_enabled INTEGER NOT NULL DEFAULT 0'],
+    [pc.includes('open_at'), 'ALTER TABLE projects ADD COLUMN open_at TEXT'],
+    [pc.includes('order_max'), 'ALTER TABLE projects ADD COLUMN order_max INTEGER NOT NULL DEFAULT 10'],
+    [pc.includes('order_pw_hash'), 'ALTER TABLE projects ADD COLUMN order_pw_hash TEXT'],
+    [xc.includes('web'), 'ALTER TABLE products ADD COLUMN web INTEGER NOT NULL DEFAULT 1'],
+    [rc.includes('source'), "ALTER TABLE reservations ADD COLUMN source TEXT NOT NULL DEFAULT 'csv'"],
+    [rc.includes('contact'), "ALTER TABLE reservations ADD COLUMN contact TEXT NOT NULL DEFAULT ''"],
+    [rc.includes('client_id'), 'ALTER TABLE reservations ADD COLUMN client_id TEXT'],
+  ]) if (!has) await addColumn(db, sql);
+  await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS reservations_client_id ON reservations (client_id)').run();
   // 新しい環境では、空の公演を 1 つ作って「当日に使う」にする（何度実行しても 1 つだけ）
   const today = jstDay().date;
   await db.batch([
@@ -648,6 +716,13 @@ async function ensureSchema(db) {
   schemaReady = true;
 }
 
+/** 列の追加（同時に別のリクエストが追加済みでもエラーにしない） */
+async function addColumn(db, sql) {
+  try { await db.prepare(sql).run(); } catch (e) {
+    if (!/duplicate column/i.test(String(e.message))) throw e;
+  }
+}
+
 // ===== 公演 =====
 function rowToProject(r) {
   let payments = null;
@@ -656,6 +731,7 @@ function rowToProject(r) {
   return {
     id: r.id, name: r.name, startDate: r.start_date, endDate: r.end_date,
     closedAt: r.closed_at || null, epoch: r.epoch, rev: r.rev, createdAt: r.created_at, payments,
+    orderEnabled: !!r.order_enabled, openAt: r.open_at || null, orderMax: r.order_max || ORDER_MAX_DEFAULT, orderPassword: !!r.order_pw_hash,
   };
 }
 
@@ -694,7 +770,17 @@ async function projectLabel(db, id) {
 }
 
 /** 画面に渡す公演の情報 */
-const projectInfo = (P) => ({ id: P.id, name: P.name, startDate: P.startDate, endDate: P.endDate, payments: P.payments });
+const projectInfo = (P) => ({ id: P.id, name: P.name, startDate: P.startDate, endDate: P.endDate, payments: P.payments, webOrder: webOrderInfo(P) });
+
+/** ウェブ予約の状態。open: いま受け付けているか（受け付ける設定で、パスワードがあり、開場前） */
+function webOrderInfo(P, now = Date.now()) {
+  const before = P.openAt ? now < Date.parse(P.openAt) : false;
+  return {
+    enabled: P.orderEnabled, openAt: P.openAt, max: P.orderMax, password: P.orderPassword,
+    open: P.orderEnabled && P.orderPassword && before,
+    state: !P.orderEnabled ? 'off' : !P.orderPassword || !P.openAt ? 'incomplete' : before ? 'open' : 'closed',
+  };
+}
 
 /** 支払方法の一覧を整える（1〜MAX_PAYMENTS 種類・重複なし・1 つ 20 文字まで） */
 function parsePayments(v) {
@@ -756,8 +842,8 @@ async function createProject(db, body) {
     // 券種を 1 つずつ複製して、新しい ID を控える（「○○のセットに含める」の相手を新しい ID に付け替えるため）
     const map = new Map();
     for (const r of rows) {
-      const ins = await db.prepare(`INSERT INTO products (project_id, name, unit, sets, active, sort, bundle_with) VALUES (?, ?, ?, ?, ?, ?, NULL)`)
-        .bind(id, r.name, r.unit, r.sets, r.active, r.sort).run();
+      const ins = await db.prepare(`INSERT INTO products (project_id, name, unit, sets, active, sort, bundle_with, web) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`)
+        .bind(id, r.name, r.unit, r.sets, r.active, r.sort, r.web ?? 1).run();
       map.set(r.id, ins.meta.last_row_id);
     }
     const links = rows.filter((r) => r.bundle_with && map.has(r.bundle_with));
@@ -769,7 +855,7 @@ async function createProject(db, body) {
 
 // ===== 券種 =====
 function rowToProduct(r) {
-  return { id: r.id, name: r.name, unit: r.unit, sets: JSON.parse(r.sets), active: !!r.active, sort: r.sort, bundleWith: r.bundle_with || null };
+  return { id: r.id, name: r.name, unit: r.unit, sets: JSON.parse(r.sets), active: !!r.active, sort: r.sort, bundleWith: r.bundle_with || null, web: r.web !== 0 };
 }
 
 /** 公演の券種（並び順）。all = false なら販売中だけ */
@@ -785,7 +871,7 @@ function intIn(v, min, max, label) {
 }
 
 const productText = (p) => `${p.name}：` + p.sets.map((s) => `${s.qty}${p.unit}${s.price}円`).join('・') +
-  (p.bundleWith ? `（${p.bundleName || '別の券種'}のセットに含める）` : '') + (p.active ? '' : '（販売停止）');
+  (p.bundleWith ? `（${p.bundleName || '別の券種'}のセットに含める）` : '') + (p.active ? '' : '（販売停止）') + (p.web === false ? '（ウェブ予約に出さない）' : '');
 function productDiff(a, b) {
   const t = productText(a), u = productText(b);
   return t === u ? u : `${t} → ${u}`;
@@ -804,6 +890,7 @@ async function saveProduct(db, P, body) {
   if (new Set(sets.map((x) => x.qty)).size !== sets.length) throw httpError('同じ枚数のセットが重複しています', 400);
   if (sets[0].qty !== 1) throw httpError(`1${unit}の価格は必ず入力してください（どの枚数でも組めるようにするため）`, 400);
   const active = body.active === false ? 0 : 1;
+  const web = body.web === false ? 0 : 1;
   const dup = await db.prepare('SELECT id FROM products WHERE project_id = ? AND name = ? AND id != ?').bind(P.id, name, Number(body.id) || 0).first();
   if (dup) throw httpError(`「${name}」という券種はすでにあります`, 400);
   // 「○○のセットに含める」：相手は自分以外で、相手自身はほかの券種のセットに含めていないこと（1 段だけ）
@@ -828,16 +915,16 @@ async function saveProduct(db, P, body) {
     const row = await db.prepare('SELECT * FROM products WHERE id = ? AND project_id = ?').bind(Number(body.id), P.id).first();
     if (!row) throw httpError('券種が見つかりません', 404);
     before = rowToProduct(row);
-    await db.prepare('UPDATE products SET name = ?, unit = ?, sets = ?, active = ?, bundle_with = ? WHERE id = ?')
-      .bind(name, unit, JSON.stringify(sets), active, bundleWith, before.id).run();
+    await db.prepare('UPDATE products SET name = ?, unit = ?, sets = ?, active = ?, bundle_with = ?, web = ? WHERE id = ?')
+      .bind(name, unit, JSON.stringify(sets), active, bundleWith, web, before.id).run();
   } else {
     const { m } = await db.prepare('SELECT COALESCE(MAX(sort), 0) AS m FROM products WHERE project_id = ?').bind(P.id).first();
-    await db.prepare('INSERT INTO products (project_id, name, unit, sets, active, sort, bundle_with) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(P.id, name, unit, JSON.stringify(sets), active, m + 1, bundleWith).run();
+    await db.prepare('INSERT INTO products (project_id, name, unit, sets, active, sort, bundle_with, web) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(P.id, name, unit, JSON.stringify(sets), active, m + 1, bundleWith, web).run();
   }
   const leaderName = bundleWith ? (await db.prepare('SELECT name FROM products WHERE id = ?').bind(bundleWith).first()).name : null;
   if (before && before.bundleWith) before.bundleName = (await db.prepare('SELECT name FROM products WHERE id = ?').bind(before.bundleWith).first() || {}).name;
-  return { before, after: { name, unit, sets, active: !!active, bundleWith, bundleName: leaderName } };
+  return { before, after: { name, unit, sets, active: !!active, bundleWith, bundleName: leaderName, web: !!web } };
 }
 
 /** 会計の行に明細（items と説明文）を付ける */
@@ -939,6 +1026,7 @@ function rowToReservation(r) {
   return {
     id: r.id, no: r.res_no, name: r.name, kana: r.kana, tickets, qty: r.qty, amount: r.amount, paid: !!r.paid,
     due: r.paid ? 0 : r.amount, note: r.note, handedAt: r.handed_at || null, handedBy: r.handed_by || '',
+    source: r.source || 'csv', contact: r.contact || '', createdAt: r.created_at,
   };
 }
 
@@ -949,10 +1037,11 @@ async function getReservations(db, projectId) {
 
 /** 取り置きの集計（件数・枚数・受け渡し済み・当日精算の受け取り） */
 function reservationSummary(list) {
-  const s = { count: 0, qty: 0, handed: 0, handedQty: 0, dueTotal: 0, collected: 0, uncollected: 0, byType: [] };
+  const s = { count: 0, qty: 0, handed: 0, handedQty: 0, dueTotal: 0, collected: 0, uncollected: 0, web: 0, webQty: 0, byType: [] };
   const by = new Map();
   for (const r of list) {
     s.count++; s.qty += r.qty;
+    if (r.source === 'web') { s.web++; s.webQty += r.qty; }
     if (r.handedAt) { s.handed++; s.handedQty += r.qty; }
     s.dueTotal += r.due;
     if (r.handedAt) s.collected += r.due; else s.uncollected += r.due;
@@ -1218,9 +1307,10 @@ const RES_COLUMNS = {
   pay: ['支払', '支払い', '支払状況', '支払い状況', '精算', '入金', '入金状況', '支払済', '支払い済み'],
   amount: ['金額', '代金', '料金', 'チケット代', '金額(円)', '代金(円)', '料金(円)'],
   note: ['備考', 'メモ', '連絡事項', 'コメント', 'note'],
+  contact: ['連絡先', '電話', '電話番号', 'メール', 'メールアドレス', 'tel', 'email', 'e-mail'],
 };
 // 書き出した CSV（reservations.csv）にだけある列。取り込むときは黙って読み飛ばす
-const RES_EXPORT_ONLY = ['枚数計', '受付で受け取る額(円)', '受け取った額(円)', '受け渡し', '受け渡し日時', '受け渡した人'];
+const RES_EXPORT_ONLY = ['枚数計', '受付で受け取る額(円)', '受け取った額(円)', '受け渡し', '受け渡し日時', '受け渡した人', '受付方法', '申込日時'];
 const PAID_WORDS = ['済', '済み', '支払済', '支払済み', '支払い済み', '振込済', '振込済み', '入金済', '入金済み', '前払い', '前払', '事前', 'paid', 'yes', '1', '○', '〇', '✓', 'true'];
 const UNPAID_WORDS = ['', '当日', '当日精算', '当日払い', '未', '未払い', '未払', '未入金', '受付で', '受付', 'no', '0', '×', 'false', '-'];
 
@@ -1324,6 +1414,7 @@ async function planImport(db, P, csv, mode) {
     if (!ok) continue;
     const note = String(cell(r, col.note)).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').slice(0, 200);
     const kana = cleanName(cell(r, col.kana)).slice(0, 40);
+    const contact = cleanName(cell(r, col.contact)).slice(0, 100);
     const rec = no && byNo.get(no);
     if (rec) {
       // 同じ番号の 2 行目以降：券種を足す
@@ -1338,7 +1429,7 @@ async function planImport(db, P, csv, mode) {
       if (kana && !rec.kana) rec.kana = kana;
       continue;
     }
-    const item = { line, no, name, kana, tickets, paid, amount, note };
+    const item = { line, no, name, kana, tickets, paid, amount, note, contact };
     list.push(item);
     if (no) byNo.set(no, item);
   }
@@ -1372,7 +1463,7 @@ async function planImport(db, P, csv, mode) {
     taken.add(it.no);
   }
   const counts = { rows: list.length, created: 0, updated: 0, unchanged: 0, removed: 0, removedHanded: 0 };
-  const sig = (x) => JSON.stringify([x.name, x.kana, x.tickets.map((t) => [t.productId, t.qty]), x.qty, x.amount, !!x.paid, x.note]);
+  const sig = (x) => JSON.stringify([x.name, x.kana, x.tickets.map((t) => [t.productId, t.qty]), x.qty, x.amount, !!x.paid, x.note, x.contact || '']);
   for (const it of list) {
     const ex = exByNo.get(it.no);
     if (!ex) { it.status = 'new'; counts.created++; continue; }
@@ -1382,11 +1473,15 @@ async function planImport(db, P, csv, mode) {
     // CSV に列がない項目（フリガナ・備考）は、今の値を残す
     if (col.kana == null) it.kana = old.kana;
     if (col.note == null) it.note = old.note;
+    if (col.contact == null) it.contact = old.contact;
     if (sig(it) === sig({ ...old, tickets: old.tickets })) { it.status = 'same'; counts.unchanged++; }
     else { it.status = 'update'; counts.updated++; }
   }
   const inFile = new Set(list.map((x) => x.no));
-  const toRemove = mode === 'replace' ? existing.filter((r) => !inFile.has(r.res_no)) : [];
+  // 置き換えでも、ウェブで受け付けた取り置きは消さない（CSV で取り込んだものだけを置き換える）
+  const toRemove = mode === 'replace' ? existing.filter((r) => !inFile.has(r.res_no) && (r.source || 'csv') !== 'web') : [];
+  const keptWeb = mode === 'replace' ? existing.filter((r) => !inFile.has(r.res_no) && r.source === 'web').length : 0;
+  if (keptWeb) warnings.push(`ウェブで受け付けた取り置き ${keptWeb} 件は、CSV になくても残します`);
   counts.removed = toRemove.length;
   counts.removedHanded = toRemove.filter((r) => r.handed_at).length;
   if (counts.removedHanded) warnings.push(`受け渡し済みの取り置き ${counts.removedHanded} 件が CSV にないため、受け渡しの記録ごと消えます`);
@@ -1412,13 +1507,13 @@ async function applyImport(db, P, plan) {
   for (const it of plan.list) {
     const tickets = JSON.stringify(it.tickets);
     if (it.status === 'new') {
-      stmts.push(db.prepare(`INSERT INTO reservations (project_id, res_no, name, kana, tickets, qty, amount, paid, note, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(P.id, it.no, it.name, it.kana, tickets, it.qty, it.amount, it.paid ? 1 : 0, it.note, now, now));
+      stmts.push(db.prepare(`INSERT INTO reservations (project_id, res_no, name, kana, tickets, qty, amount, paid, note, contact, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(P.id, it.no, it.name, it.kana, tickets, it.qty, it.amount, it.paid ? 1 : 0, it.note, it.contact || '', now, now));
     } else if (it.status === 'update') {
       // 受け渡しの記録（handed_at / handed_by）は残す
-      stmts.push(db.prepare('UPDATE reservations SET name = ?, kana = ?, tickets = ?, qty = ?, amount = ?, paid = ?, note = ?, updated_at = ? WHERE id = ?')
-        .bind(it.name, it.kana, tickets, it.qty, it.amount, it.paid ? 1 : 0, it.note, now, it.existingId));
+      stmts.push(db.prepare('UPDATE reservations SET name = ?, kana = ?, tickets = ?, qty = ?, amount = ?, paid = ?, note = ?, contact = ?, updated_at = ? WHERE id = ?')
+        .bind(it.name, it.kana, tickets, it.qty, it.amount, it.paid ? 1 : 0, it.note, it.contact || '', now, it.existingId));
     }
   }
   for (const r of plan.toRemove) stmts.push(db.prepare('DELETE FROM reservations WHERE id = ?').bind(r.id));
@@ -1426,6 +1521,97 @@ async function applyImport(db, P, plan) {
   // D1 の 1 回のまとめ書きは大きすぎないように分ける（rev の更新は最後のまとまりに入る）
   for (let i = 0; i < stmts.length; i += 80) await db.batch(stmts.slice(i, i + 80));
 }
+
+// ===== ウェブの取り置き予約（/order） =====
+// ログインはしない。予約のたびに、その公演の取り置き専用パスワードを確かめる（間違いが続くとしばらく止める）。
+// 受け付けるのは「当日に使う」公演で、ウェブ予約を受け付ける設定にしてあり、開場時刻より前のときだけ。
+async function orderApi(request, env, url, route) {
+  const db = env.DB;
+  const P = await getActiveProject(db);
+  const info = webOrderInfo(P);
+  const pub = () => ({ project: { id: P.id, name: P.name, startDate: P.startDate }, open: info.open, state: info.state, openAt: P.openAt, max: P.orderMax });
+
+  // 予約のページを開いたとき（公演名と、受け付けているかどうかだけ。券種と価格はパスワードのあと）
+  if (route === 'GET /api/order/status') return json(pub());
+
+  const body = await readJson(request);
+  if (!info.open) {
+    throw httpError(info.state === 'closed' ? 'ウェブでの取り置きの受け付けは締め切りました（開場時刻を過ぎました）。当日券をご利用ください' : 'いまはウェブでの取り置きを受け付けていません', 403);
+  }
+  const row = await db.prepare('SELECT order_pw_hash FROM projects WHERE id = ?').bind(P.id).first();
+  await login(request, env, 'order', body.password, '取り置き専用パスワードが違います', (pw) => verifyHash(pw, row.order_pw_hash));
+  const products = (await getProducts(db, P.id, { all: true })).filter((p) => p.web);
+
+  if (route === 'POST /api/order/unlock') {
+    return json({ ...pub(), products: products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, sets: p.sets, bundleWith: p.bundleWith })) });
+  }
+  if (route !== 'POST /api/order') return json({ error: 'Not Found' }, 404);
+
+  if (body.projectId != null && Number(body.projectId) !== P.id) throw httpError('受け付ける公演が変わりました。ページを開き直してください', 409);
+  // 同じ予約を 2 回送った（通信が切れて送り直したなど）：1 件として扱い、最初の予約を返す
+  const clientId = String(body.clientId || '');
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(clientId)) throw httpError('リクエストが不正です。ページを開き直してください', 400);
+  const dup = await db.prepare('SELECT * FROM reservations WHERE client_id = ?').bind(clientId).first();
+  if (dup) return json({ ok: true, duplicate: true, reservation: orderReceipt(rowToReservation(dup), P) });
+
+  const name = cleanName(body.name).slice(0, 40);
+  const kana = cleanName(body.kana).slice(0, 40);
+  const contact = cleanName(body.contact).slice(0, 100);
+  const note = String(body.note || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').trim().slice(0, 200);
+  if (!name) throw httpError('お名前を入力してください', 400);
+  if (!kana) throw httpError('フリガナを入力してください（受付でお名前を探すのに使います）', 400);
+  const cart = {};
+  const tickets = [];
+  for (const p of products) {
+    const q = Math.floor(Number((body.items || {})[p.id]) || 0);
+    if (q < 0 || q > MAX_QTY) throw httpError('枚数が不正です', 400);
+    if (q > 0) { cart[p.id] = q; tickets.push({ productId: p.id, name: p.name, unit: p.unit, qty: q }); }
+  }
+  for (const k of Object.keys(body.items || {})) {
+    if (Number(body.items[k]) > 0 && !products.some((p) => String(p.id) === String(k))) throw httpError('受け付けていない券種が含まれています。ページを開き直してください', 409);
+  }
+  const qty = tickets.reduce((a, t) => a + t.qty, 0);
+  if (!qty) throw httpError('券種と枚数を選んでください', 400);
+  if (qty > P.orderMax) throw httpError(`1回の予約は${P.orderMax}枚までです`, 400);
+  let amount;
+  try { amount = priceCart(products, cart).total; } catch (e) { throw httpError(e.message, 400); }
+
+  // いたずら対策：同じ接続元からの予約は 1 時間に ORDER_LIMIT 件まで
+  const ip = request.headers.get('CF-Connecting-IP') || 'local';
+  const hourAgo = new Date(Date.now() - 3600000).toISOString();
+  const { n } = await db.prepare('SELECT COUNT(*) AS n FROM order_log WHERE ip = ? AND at > ?').bind(ip, hourAgo).first();
+  if (n >= ORDER_LIMIT) throw httpError('短い時間に予約が続いたため、しばらく受け付けられません。時間をおいてください', 429);
+
+  // 番号は W1, W2, …（CSV で取り込む取り置きの番号と重ならないように）。同時に届いたら付け直す
+  const now = new Date().toISOString();
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await db.batch([
+        db.prepare(`INSERT INTO reservations (project_id, res_no, name, kana, tickets, qty, amount, paid, note, contact, source, client_id, created_at, updated_at)
+            VALUES (?, 'W' || (SELECT COALESCE(MAX(CAST(SUBSTR(res_no, 2) AS INTEGER)), 0) + 1 FROM reservations WHERE project_id = ? AND res_no GLOB 'W[0-9]*'),
+              ?, ?, ?, ?, ?, 0, ?, ?, 'web', ?, ?, ?)`)
+          .bind(P.id, P.id, name, kana, JSON.stringify(tickets), qty, amount, note, contact, clientId, now, now),
+        db.prepare('INSERT INTO order_log (ip, at) VALUES (?, ?)').bind(ip, now),
+        db.prepare('DELETE FROM order_log WHERE at < ?').bind(new Date(Date.now() - 86400000).toISOString()),
+        bumpRev(db, P.id),
+      ]);
+      break;
+    } catch (e) {
+      if (!/UNIQUE/i.test(String(e.message))) throw e;
+      const again = await db.prepare('SELECT * FROM reservations WHERE client_id = ?').bind(clientId).first();
+      if (again) return json({ ok: true, duplicate: true, reservation: orderReceipt(rowToReservation(again), P) });
+      if (attempt >= 4) throw httpError('混み合っています。もう一度「予約する」を押してください', 503);
+    }
+  }
+  const saved = await db.prepare('SELECT * FROM reservations WHERE client_id = ?').bind(clientId).first();
+  return json({ ok: true, reservation: orderReceipt(rowToReservation(saved), P) });
+}
+
+/** 予約した人に見せる内容（控え） */
+const orderReceipt = (r, P) => ({
+  no: r.no, name: r.name, kana: r.kana, tickets: r.tickets, qty: r.qty, amount: r.amount, note: r.note, contact: r.contact,
+  createdAt: r.createdAt, project: { id: P.id, name: P.name, startDate: P.startDate }, openAt: P.openAt,
+});
 
 // ===== ユーティリティ =====
 function httpError(message, status, headers) {
@@ -1557,11 +1743,12 @@ function reservationsCsvRows(_, { products, reservations }) {
   const keyOf = (t) => (t.productId ? 'id:' + t.productId : 'name:' + t.name);
   const numSort = (a, b) => String(a.no).localeCompare(String(b.no), 'ja', { numeric: true });
   const header = ['番号', '氏名', 'フリガナ', ...cols.map((c) => `${c.name}(${c.unit})`), '枚数計', '支払', '金額(円)',
-    '受付で受け取る額(円)', '受け取った額(円)', '受け渡し', '受け渡し日時', '受け渡した人', '備考'];
+    '受付で受け取る額(円)', '受け取った額(円)', '受け渡し', '受け渡し日時', '受け渡した人', '備考', '連絡先', '受付方法', '申込日時'];
   return [header].concat([...reservations].sort(numSort).map((r) => [
     r.no, r.name, r.kana || null, ...cols.map((c) => r.tickets.filter((t) => keyOf(t) === c.key).reduce((a, t) => a + t.qty, 0)), r.qty,
     r.paid ? '済' : '当日', r.amount, r.due, r.handedAt ? r.due : 0, r.handedAt ? '済' : '未',
     r.handedAt ? isoJst(r.handedAt) : null, r.handedBy || null, r.note || null,
+    r.contact || null, r.source === 'web' ? 'ウェブ' : 'CSV', r.createdAt ? isoJst(r.createdAt) : null,
   ]));
 }
 

@@ -247,8 +247,8 @@ describe('取り置き（CSV の取り込みと受け渡し）', () => {
   test('取り置きの一覧の CSV は、そのまま取り込み直せる（変更なし）', async () => {
     const csv = (await w.api('/api/master/reservations.csv', { role: 'master' })).body;
     const rows = csvRows(csv);
-    assert.equal(rows[0], '番号,氏名,フリガナ,一般(枚),学生(枚),招待(枚),枚数計,支払,金額(円),受付で受け取る額(円),受け取った額(円),受け渡し,受け渡し日時,受け渡した人,備考');
-    assert.match(rows[1], /^1,岡大 太郎,オカダイ タロウ,4,0,0,4,当日,3600,3600,3600,済,\d{4}-\d{2}-\d{2}T[\d:]+\+09:00,受付花子,$/);
+    assert.equal(rows[0], '番号,氏名,フリガナ,一般(枚),学生(枚),招待(枚),枚数計,支払,金額(円),受付で受け取る額(円),受け取った額(円),受け渡し,受け渡し日時,受け渡した人,備考,連絡先,受付方法,申込日時');
+    assert.match(rows[1], /^1,岡大 太郎,オカダイ タロウ,4,0,0,4,当日,3600,3600,3600,済,\d{4}-\d{2}-\d{2}T[\d:]+\+09:00,受付花子,,,CSV,\d{4}-\d{2}-\d{2}T[\d:]+\+09:00$/);
     const p = (await imp(csv, { dryRun: true })).body.preview;
     assert.deepEqual(p.errors, []);
     assert.deepEqual(p.warnings, []);
@@ -282,6 +282,106 @@ describe('取り置き（CSV の取り込みと受け渡し）', () => {
     assert.equal(r.body.reservations.count, list.length);
     r = await w.api('/api/master/reservations/reset', { role: 'master', body: { what: 'all', confirm: '削除' } });
     assert.equal(r.body.reservations.count, 0);
+  });
+});
+
+describe('ウェブの取り置き予約（/order）', () => {
+  let w, dir, prods;
+  const future = () => new Date(Date.now() + 3600000).toISOString();
+  before(async () => {
+    dir = tempDir(); w = await startWorker(dir);
+    await w.loginMaster(); await w.loginRegister('受付花子');
+    prods = await setupProducts(w);
+    // 招待はウェブ予約に出さない
+    const inv = prods.find((p) => p.name === '招待');
+    await w.api('/api/master/products', { role: 'master', body: { ...inv, web: false } });
+  });
+  after(async () => { await w.dispose(); cleanup(dir); });
+  const id = (name) => prods.find((p) => p.name === name).id;
+  const order = (body) => w.api('/api/order', { body: { password: 'ensoukai', clientId: cid(), name: '予約 一郎', kana: 'ヨヤク イチロウ', items: { [id('一般')]: 2 }, ...body } });
+
+  test('設定するまでは受け付けない。受け付けるにはパスワードと開場日時が必要', async () => {
+    const st = (await w.api('/api/order/status')).body;
+    assert.equal(st.open, false);
+    assert.equal(st.state, 'off');
+    assert.equal((await order({})).status, 403);
+    let r = await w.api('/api/master/web-order', { role: 'master', body: { enabled: true, openAt: future() } });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /パスワード/);
+    r = await w.api('/api/master/web-order', { role: 'master', body: { enabled: true, password: 'abc' } });
+    assert.equal(r.status, 400, '短すぎるパスワード');
+    r = await w.api('/api/master/web-order', { role: 'master', body: { enabled: true, openAt: future(), password: 'ensoukai', max: 6 } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.projectSettings.webOrder.state, 'open');
+    assert.equal(r.body.projectSettings.webOrder.password, true);
+  });
+  test('パスワードが違うと券種も見えず、予約もできない。合っていればウェブ予約に出す券種だけが見える', async () => {
+    let r = await w.api('/api/order/unlock', { body: { password: 'wrong' } });
+    assert.equal(r.status, 401);
+    assert.equal(r.body.products, undefined);
+    r = await order({ password: 'wrong' });
+    assert.equal(r.status, 401);
+    r = await w.api('/api/order/unlock', { body: { password: 'ensoukai' } });
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.products.map((p) => p.name), ['一般', '学生']);
+    assert.equal(r.body.max, 6);
+  });
+  test('予約すると W1, W2… の番号で取り置きに入り、受付の画面に出る（当日精算・金額は券種の価格から）', async () => {
+    let r = await order({ contact: '090-0000-0000', note: '2階席希望' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.reservation.no, 'W1');
+    assert.equal(r.body.reservation.amount, 1800);
+    r = await order({ name: '予約 二郎', kana: 'よやく じろう', items: { [id('学生')]: 1, [id('一般')]: 1 } });
+    assert.equal(r.body.reservation.no, 'W2');
+    const rec = (await w.api('/api/admin/reservations', { role: 'register' })).body.reservations;
+    const w1 = rec.find((x) => x.no === 'W1');
+    assert.equal(w1.source, 'web');
+    assert.equal(w1.paid, false);
+    assert.equal(w1.due, 1800);
+    assert.equal(w1.note, '2階席希望');
+    assert.equal(w1.contact, '090-0000-0000');
+    const d = (await w.api('/api/master/data', { role: 'master' })).body;
+    assert.equal(d.reservations.web, 2);
+  });
+  test('同じ予約を 2 回送っても 1 件', async () => {
+    const c = cid();
+    const a = await order({ clientId: c, name: '二重 送信', kana: 'ニジュウ ソウシン' });
+    const b = await order({ clientId: c, name: '二重 送信', kana: 'ニジュウ ソウシン' });
+    assert.equal(a.body.reservation.no, b.body.reservation.no);
+    assert.equal(b.body.duplicate, true);
+    assert.equal((await w.query("SELECT COUNT(*) AS n FROM reservations WHERE name = '二重 送信'"))[0].n, 1);
+  });
+  test('入力のチェック：フリガナ必須、上限の枚数、ウェブ予約に出さない券種', async () => {
+    assert.equal((await order({ kana: '' })).status, 400);
+    assert.equal((await order({ items: { [id('一般')]: 7 } })).status, 400);
+    assert.equal((await order({ items: { [id('招待')]: 1 } })).status, 409);
+    assert.equal((await order({ items: {} })).status, 400);
+  });
+  test('CSV の「置き換え」でも、ウェブで受け付けた取り置きは消さない', async () => {
+    const r = await w.api('/api/master/reservations/import', { role: 'master', body: { csv: '番号,氏名,券種,枚数\n1,CSV 太郎,一般,1\n', mode: 'replace', dryRun: true } });
+    assert.equal(r.body.preview.counts.removed, 0);
+    assert.ok(r.body.preview.warnings.some((x) => x.includes('ウェブで受け付けた取り置き')));
+  });
+  test('取り置きを 1 件削除できる（受付の画面からも消える）', async () => {
+    const list = (await w.api('/api/admin/reservations', { role: 'register' })).body.reservations;
+    const x = list.find((r) => r.no === 'W2');
+    const r = await w.api(`/api/master/reservations/${x.id}/delete`, { role: 'master', body: {} });
+    assert.equal(r.status, 200);
+    const after = (await w.api('/api/admin/reservations', { role: 'register' })).body.reservations;
+    assert.equal(after.some((r) => r.no === 'W2'), false);
+    assert.ok(r.body.audit.some((a) => a.action === '取り置きを削除'));
+    // 消したあとの次の予約は、続きの番号
+    const n = await order({ name: '三郎', kana: 'サブロウ' });
+    assert.equal(n.body.reservation.no, 'W4');
+  });
+  test('開場時刻を過ぎたら締め切り', async () => {
+    await w.api('/api/master/web-order', { role: 'master', body: { openAt: new Date(Date.now() - 60000).toISOString() } });
+    const st = (await w.api('/api/order/status')).body;
+    assert.equal(st.open, false);
+    assert.equal(st.state, 'closed');
+    const r = await order({});
+    assert.equal(r.status, 403);
+    assert.match(r.body.error, /締め切りました/);
   });
 });
 

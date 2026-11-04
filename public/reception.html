@@ -79,6 +79,11 @@
   .resv .hint.ok { background: var(--mg-success); }
   .resv .hint.back { background: var(--mg-text-sub); }
   .empty { text-align: center; color: var(--mg-text-sub); padding: 40px 12px; grid-column: 1 / -1; }
+  .web { display: inline-block; font-size: var(--mg-text-xs); font-weight: 700; padding: 1px 6px; border-radius: var(--mg-radius-xs); background: var(--mg-info-bg); color: var(--mg-info-text); vertical-align: middle; margin-left: 4px; }
+  .webband { font-size: 13px; margin-top: 8px; padding: 6px 10px; border-radius: var(--mg-radius-md); background: var(--mg-info-bg); color: var(--mg-info-text); border: 1px solid var(--mg-info-border); }
+  .webband.closed { background: var(--mg-surface-sub); color: var(--mg-text-sub); border-color: var(--mg-border); }
+  .resv.new { animation: arrive 1.2s ease-out 3; border-color: var(--mg-info) !important; }
+  @keyframes arrive { 0% { box-shadow: 0 0 0 0 var(--mg-info-border); } 100% { box-shadow: 0 0 0 14px transparent; } }
   mark { background: var(--mg-caution-bg, #fff1a8); color: inherit; border-radius: 2px; }
 
   /* トースト（「元に戻す」ボタンつき） */
@@ -87,7 +92,7 @@
   .toast button { background: var(--mg-surface); color: var(--mg-text); border-radius: var(--mg-radius-sm); padding: 8px 12px; font-size: 14px; font-weight: 700; white-space: nowrap; }
   .failed { margin: 8px 12px 0; background: var(--mg-error-bg); border: 1px solid var(--mg-error-border); border-radius: var(--mg-radius-md); padding: 8px 12px; font-size: 13px; color: var(--mg-error-text); }
   .failed button { margin-left: 8px; background: var(--mg-surface); border: 1px solid currentColor; color: inherit; border-radius: var(--mg-radius-sm); padding: 3px 8px; font-size: 12px; }
-  @media (prefers-reduced-motion: reduce) { .t, .resv { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .t, .resv { transition: none; } .resv.new { animation: none; } }
 </style>
 </head>
 <body>
@@ -122,6 +127,7 @@
       <button class="tool" id="hideBtn" aria-pressed="false">渡したものを隠す</button>
     </div>
     <div class="todo" id="todo"></div>
+    <div class="webband hidden" id="webBand"></div>
   </div>
   <div class="failed hidden" id="failedBox"></div>
   <div class="list" id="list"></div>
@@ -185,6 +191,11 @@
   <h3 class="help-group">そのほか</h3>
 
   <details>
+    <summary>「ウェブ」の印・青い帯は？</summary>
+    <p>お客さんがウェブの予約ページから申し込んだ取り置きです（番号が W1, W2… になります）。代金は当日精算です。ウェブ予約は<b>開場時刻まで</b>受け付けていて、届いた予約は数秒でこの画面に追加され、少しのあいだ青く光ります。開場時刻を過ぎると締め切られ、一覧が確定します。</p>
+  </details>
+
+  <details>
     <summary>上の色つきの枠（まだ渡していない分）は？</summary>
     <p>「まだ ○件」は、まだ受け渡し済みにしていない取り置きの件数です。ピンクの枠は券種ごとの残りの枚数、オレンジの枠は<b>まだ受け取っていない当日精算の合計</b>、緑の枠は受け取った額の合計です（受付の現金の確認に使えます）。</p>
   </details>
@@ -227,6 +238,8 @@
   let hideDone = store.get(HIDE_KEY) === '1';
   let sortBy = store.get(SORT_KEY) || 'no';  // 'no' 番号順 / 'kana' 名前順
   let netOk = true;
+  let seen = null;                           // 一度表示した取り置きの ID（新しく届いたものを光らせる）
+  const freshIds = new Set();
   const saveOps = () => store.set(OPS_KEY, JSON.stringify(ops));
 
   // ---------- 通信 ----------
@@ -328,7 +341,7 @@
         const switched = data && data.project.id !== d.project.id;
         data = d;
         store.set(DATA_KEY, JSON.stringify(d));
-        if (switched) toast('公演が「' + d.project.name + '」に切り替わりました');
+        if (switched) { seen = null; toast('公演が「' + d.project.name + '」に切り替わりました'); }
         render();
       }
     } catch (e) {
@@ -369,6 +382,14 @@
     $('projName').textContent = data.project.name + '・';
     if (drag && drag.active) { renderLater = true; return; }   // スワイプ中は描き直さない
     const all = data.reservations || [];
+    renderWebBand(all);
+    // 新しく届いた取り置き（ウェブ予約・取り込み直し）を光らせる
+    const ids = new Set(all.map(r => r.id));
+    if (seen) {
+      const added = all.filter(r => !seen.has(r.id));
+      if (added.length) { added.forEach(r => freshIds.add(r.id)); setTimeout(() => { added.forEach(r => freshIds.delete(r.id)); }, 4000); }
+    }
+    seen = ids;
 
     // まだ渡していない分の合計（券種の並び順）
     const todo = all.filter(r => !isHanded(r));
@@ -399,6 +420,19 @@
       : '<div class="empty">' + (q ? '「' + esc($('q').value) + '」に合う取り置きはありません' : matched ? 'まだ渡していない取り置きはありません' : '取り置きはありません') + '</div>';
   }
 
+  /** ウェブ予約の状態（開場時刻までは受け付けていて、届いた予約は自動でこの画面に出る） */
+  function renderWebBand(all) {
+    const w = data.project.webOrder || {};
+    const n = all.filter(r => r.source === 'web').length;
+    const open = w.enabled && w.password && w.openAt && Date.now() < Date.parse(w.openAt);
+    const el = $('webBand');
+    el.classList.toggle('hidden', !w.enabled && !n);
+    el.classList.toggle('closed', !open);
+    el.textContent = open
+      ? '🌐 ウェブ予約を受付中（' + hms(new Date(w.openAt)) + ' の開場で締め切り）。届いた予約は自動でここに出ます' + (n ? '・いま ' + n + ' 件' : '')
+      : '🌐 ウェブ予約は締め切りました' + (n ? '（' + n + ' 件）' : '');
+  }
+
   function card(r, q) {
     const handed = isHanded(r);
     const pending = r.id in ops;
@@ -406,6 +440,7 @@
     if (handed) cls.push('handed');
     else if (r.due > 0) cls.push('unpaid');
     if (pending) cls.push('syncing');
+    if (freshIds.has(r.id) && !handed) cls.push('new');
     const pay = r.paid ? '<div class="pay paid"><span>✓ 支払済み</span></div>'
       : r.due > 0 ? '<div class="pay due"><span>当日 受け取る</span><b>' + yen(r.due) + '</b></div>'
       : '<div class="pay free"><span>代金なし</span></div>';
@@ -414,7 +449,7 @@
       : 'タップ／右へスワイプで「受け渡し済み」';
     return '<div class="' + cls.join(' ') + '" data-id="' + r.id + '" role="button" tabindex="0" aria-pressed="' + handed + '" aria-label="' + esc('#' + r.no + ' ' + r.name + ' ' + describeTickets(r.tickets)) + '">' +
       '<div class="hint ok">✓ 離すと<br>受け渡し済み</div><div class="hint back">↩ 離すと戻す</div>' +
-      '<div class="rh"><span class="no">#' + hl(r.no, q && norm(r.no).startsWith(q) ? q : '') + '</span><span class="nm"><span class="t">' + hl(r.name, q) + '</span></span></div>' +
+      '<div class="rh"><span class="no">#' + hl(r.no, q && norm(r.no).startsWith(q) ? q : '') + (r.source === 'web' ? '<span class="web">ウェブ</span>' : '') + '</span><span class="nm"><span class="t">' + hl(r.name, q) + '</span></span></div>' +
       (r.kana ? '<div class="kana">' + hl(r.kana, q) + '</div>' : '') +
       '<ul class="tl">' + r.tickets.map(t => '<li><span class="t">' + esc(t.name) + '</span><span class="q t">×' + t.qty + '</span></li>').join('') + '</ul>' +
       pay + (r.note ? '<div class="note">' + esc(r.note) + '</div>' : '') +
@@ -541,6 +576,7 @@
   poll(true);
   setInterval(() => { if (!document.hidden && !$('app').classList.contains('hidden')) { poll(); if (Object.keys(ops).length) flush(); } }, POLL_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { poll(); flush(); } });
+  setInterval(() => { if (data && !drag) render(); }, 30000);   // 締め切りの表示を時刻に合わせて切り替える
 </script>
 <script src="/help.js"></script>
 </body>

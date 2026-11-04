@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>チケットの取り置き予約｜定演チケットシステム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/app.css">
+<style>
+  /* お客さんが使うウェブの取り置き予約。スマホで 1 列 */
+  .wrap { max-width: 520px; margin: 0 auto; padding: 16px 16px 48px; }
+  .hero { text-align: center; margin: 8px 0 14px; }
+  .hero .app-mark { width: 48px; height: 48px; border-radius: var(--mg-radius-lg); }
+  .hero h1 { font-size: var(--mg-text-xl); margin: 8px 0 2px; line-height: 1.35; }
+  .hero .lead { margin: 0; color: var(--mg-text-sub); font-size: var(--mg-text-sm); }
+  .deadline { text-align: center; background: var(--mg-warning-bg); border: 1px solid var(--mg-warning-border); color: var(--mg-warning-text); border-radius: var(--mg-radius-md); padding: 8px 12px; font-size: var(--mg-text-sm); font-weight: 700; margin-bottom: 12px; }
+  .msg { text-align: center; padding: 24px 12px; }
+  .msg .big { font-size: var(--mg-text-lg); font-weight: 700; margin-bottom: 8px; }
+  label.f { display: block; font-size: var(--mg-text-sm); font-weight: 700; margin: 12px 0 4px; }
+  label.f .req { color: var(--mg-error); font-size: var(--mg-text-xs); margin-left: 4px; }
+  label.f .opt { color: var(--mg-text-sub); font-size: var(--mg-text-xs); font-weight: 400; margin-left: 4px; }
+  .in { display: block; width: 100%; padding: 12px; font-size: 17px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); background: var(--mg-surface); color: var(--mg-text); }
+  textarea.in { min-height: 4.5em; resize: vertical; font-family: inherit; }
+  .hint { font-size: var(--mg-text-xs); color: var(--mg-text-sub); margin-top: 4px; }
+  .tk { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px dashed var(--mg-border); }
+  .tk:first-child { border-top: none; }
+  .tk .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 17px; }
+  .tk .nm small { display: block; font-weight: 400; color: var(--mg-text-sub); font-size: var(--mg-text-xs); }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepper button { width: 44px; height: 44px; border-radius: var(--mg-radius-full); background: var(--mg-surface-sub); font-size: 24px; color: var(--mg-text); }
+  .stepper button:disabled { opacity: .35; }
+  .stepper .q { min-width: 2.2em; text-align: center; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .total { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px solid var(--mg-text); margin-top: 6px; padding-top: 8px; }
+  .total .v { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .total .k { color: var(--mg-text-sub); font-size: var(--mg-text-sm); }
+  .err { color: var(--mg-error); font-size: var(--mg-text-sm); font-weight: 700; min-height: 1.4em; margin-top: 8px; }
+  .btns { display: grid; gap: 8px; margin-top: 14px; }
+  .sum { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .sum th, .sum td { text-align: left; padding: 8px 4px; border-top: 1px dashed var(--mg-border); vertical-align: top; }
+  .sum th { width: 6.5em; color: var(--mg-text-sub); font-weight: 700; font-size: var(--mg-text-sm); }
+  .sum tr:first-child th, .sum tr:first-child td { border-top: none; }
+  .done-no { text-align: center; margin: 4px 0 10px; }
+  .done-no .k { font-size: var(--mg-text-sm); color: var(--mg-text-sub); font-weight: 700; }
+  .done-no .v { font-size: 52px; font-weight: 700; letter-spacing: .04em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .pay-note { background: var(--mg-warning-bg-strong); color: var(--mg-warning-text); border-radius: var(--mg-radius-md); padding: 10px 12px; font-weight: 700; display: flex; justify-content: space-between; align-items: baseline; margin: 10px 0; }
+  .pay-note span { flex: 1; min-width: 0; }
+  .pay-note b { font-size: 24px; white-space: nowrap; margin-left: 8px; font-variant-numeric: tabular-nums; }
+  .mine { font-size: var(--mg-text-sm); }
+  .mine .row { padding: 8px 0; border-top: 1px dashed var(--mg-border); }
+  .mine .row:first-child { border-top: none; }
+  .mine b { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap" role="main">
+  <div class="hero">
+    <span class="app-mark" aria-hidden="true"></span>
+    <h1 id="title">チケットの取り置き予約</h1>
+    <p class="lead" id="lead">読み込んでいます…</p>
+  </div>
+  <div class="deadline hidden" id="deadline"></div>
+
+  <!-- 受け付けていないとき -->
+  <section class="card msg hidden" id="stepClosed"><div class="big" id="closedTitle"></div><div id="closedText"></div></section>
+
+  <!-- 取り置き専用パスワード -->
+  <section class="card hidden" id="stepPw">
+    <label class="f" for="pw">取り置き専用パスワード</label>
+    <input class="in" id="pw" type="password" autocomplete="off" placeholder="団員からお伝えしたパスワード">
+    <div class="hint">チケットの取り置きは、パスワードをお伝えした方だけが予約できます。</div>
+    <div class="err" id="pwErr"></div>
+    <div class="btns"><button class="btn big block" id="pwBtn">次へ</button></div>
+  </section>
+
+  <!-- 入力 -->
+  <section class="card hidden" id="stepForm">
+    <div class="label">券種と枚数</div>
+    <div id="tickets"></div>
+    <div class="total"><span class="k" id="totalQty"></span><span class="v" id="totalAmt">¥0</span></div>
+    <div class="hint" id="maxHint"></div>
+
+    <label class="f" for="name">お名前<span class="req">必須</span></label>
+    <input class="in" id="name" type="text" maxlength="40" autocomplete="name" placeholder="例: 岡大 太郎">
+    <label class="f" for="kana">フリガナ<span class="req">必須</span></label>
+    <input class="in" id="kana" type="text" maxlength="40" placeholder="例: オカダイ タロウ">
+    <div class="hint">当日の受付で、お名前を探すのに使います。</div>
+    <label class="f" for="contact">連絡先<span class="opt">任意（電話番号かメールアドレス）</span></label>
+    <input class="in" id="contact" type="text" maxlength="100" autocomplete="tel" placeholder="例: 090-1234-5678">
+    <label class="f" for="note">備考<span class="opt">任意</span></label>
+    <textarea class="in" id="note" maxlength="200" placeholder="例: 車いすで伺います"></textarea>
+    <div class="err" id="formErr"></div>
+    <div class="btns"><button class="btn big block" id="toConfirm">確認へ進む</button></div>
+  </section>
+
+  <!-- 確認 -->
+  <section class="card hidden" id="stepConfirm">
+    <div class="label">この内容で予約しますか？</div>
+    <table class="sum" id="cfTable"></table>
+    <div class="pay-note"><span>代金は当日、受付でお支払いください</span><b id="cfAmt"></b></div>
+    <div class="err" id="cfErr"></div>
+    <div class="btns">
+      <button class="btn big block" id="submitBtn">予約する</button>
+      <button class="btn sub block" id="backBtn">← 入力に戻る</button>
+    </div>
+  </section>
+
+  <!-- 完了 -->
+  <section class="card hidden" id="stepDone">
+    <div class="done-no"><div class="k">予約番号</div><div class="v" id="dnNo"></div></div>
+    <p style="text-align:center;margin:0 0 8px;font-weight:700">取り置きを受け付けました</p>
+    <table class="sum" id="dnTable"></table>
+    <div class="pay-note"><span>当日、受付でお支払いください</span><b id="dnAmt"></b></div>
+    <p class="hint" style="font-size:14px">当日は受付で<b>予約番号かお名前</b>をお伝えください。チケットをお渡しします。この画面のスクリーンショットを撮っておくと安心です。変更・取り消しは団員までご連絡ください。</p>
+    <div class="btns"><button class="btn sub block" id="againBtn">続けて別の予約をする</button></div>
+  </section>
+
+  <section class="card hidden" id="mineBox">
+    <div class="label">この端末で予約した取り置き</div>
+    <div class="mine" id="mine"></div>
+  </section>
+</div>
+
+<script type="module">
+  import { priceCart, describeTickets } from '/pricing.js';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
+  const PW_KEY = 'teien_order_pw';      // このタブを閉じるまでパスワードを覚えておく（sessionStorage）
+  const MINE_KEY = 'teien_order_mine';  // この端末で予約した控え（localStorage）
+  const ss = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
+  const ls = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+  let info = null, products = [], cart = {}, password = '', clientId = null;
+  const STEPS = ['stepClosed', 'stepPw', 'stepForm', 'stepConfirm', 'stepDone'];
+  function show(step) { STEPS.forEach(s => $(s).classList.toggle('hidden', s !== step)); window.scrollTo(0, 0); }
+  const when = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const newId = () => crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+
+  async function api(path, body) {
+    let res;
+    try {
+      res = await fetch('/api/' + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+    } catch { throw Object.assign(new Error('通信できませんでした。電波のよいところで、もう一度お試しください'), { network: true }); }
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(d.error || ('エラー ' + res.status)), { status: res.status });
+    return d;
+  }
+
+  function header(d) {
+    $('title').textContent = d.project.name;
+    $('lead').textContent = 'チケットの取り置き予約';
+    document.title = d.project.name + '｜取り置き予約';
+    $('deadline').classList.toggle('hidden', !d.openAt || !d.open);
+    if (d.openAt) $('deadline').textContent = '受付は ' + when(d.openAt) + '（開場時刻）まで';
+  }
+  function closed(state, openAt) {
+    $('closedTitle').textContent = state === 'closed' ? '受付は締め切りました' : 'いまは受け付けていません';
+    $('closedText').innerHTML = state === 'closed'
+      ? 'ウェブでの取り置きは開場時刻' + (openAt ? '（' + esc(when(openAt)) + '）' : '') + 'で締め切りました。<br>当日券をご利用ください。'
+      : 'ウェブでの取り置きの受け付けは、まだ始まっていないか、終わっています。';
+    show('stepClosed');
+  }
+
+  async function start() {
+    renderMine();
+    try {
+      info = await api('order/status');
+      header(info);
+      if (!info.open) return closed(info.state, info.openAt);
+      password = ss.get(PW_KEY) || '';
+      if (password) { await unlock(true); return; }
+      show('stepPw');
+      setTimeout(() => $('pw').focus(), 50);
+    } catch (e) {
+      $('lead').textContent = e.message;
+    }
+  }
+
+  async function unlock(silent) {
+    $('pwErr').textContent = '';
+    try {
+      const d = await api('order/unlock', { password });
+      info = d; header(d);
+      products = d.products;
+      ss.set(PW_KEY, password);
+      cart = {};
+      clientId = newId();
+      renderTickets();
+      show('stepForm');
+    } catch (e) {
+      ss.set(PW_KEY, '');
+      if (e.status === 403) { const st = await api('order/status').catch(() => null); return closed(st ? st.state : 'off', st && st.openAt); }
+      show('stepPw');
+      if (!silent || e.status !== 401) $('pwErr').textContent = e.message;
+    }
+  }
+  $('pwBtn').onclick = () => { password = $('pw').value.trim(); if (!password) { $('pwErr').textContent = 'パスワードを入力してください'; return; } unlock(); };
+  $('pw').onkeydown = e => { if (e.key === 'Enter') $('pwBtn').click(); };
+
+  // ---------- 券種と枚数 ----------
+  const qty = id => cart[id] || 0;
+  const totalQty = () => Object.values(cart).reduce((a, b) => a + b, 0);
+  function priced() { try { return priceCart(products, cart); } catch { return { total: 0, lines: [] }; } }
+  function renderTickets() {
+    const max = info.max;
+    $('tickets').innerHTML = products.length ? products.map(p =>
+      '<div class="tk"><div class="nm">' + esc(p.name) +
+        '<small>' + p.sets.map(s => (s.qty === 1 ? '' : s.qty + esc(p.unit) + ' ') + yen(s.price) + (s.qty === 1 ? '／' + esc(p.unit) : '')).join('・') + '</small></div>' +
+        '<div class="stepper"><button data-id="' + p.id + '" data-d="-1" aria-label="' + esc(p.name) + 'を1' + esc(p.unit) + '減らす"' + (qty(p.id) ? '' : ' disabled') + '>−</button>' +
+        '<span class="q" aria-live="polite">' + qty(p.id) + '</span>' +
+        '<button data-id="' + p.id + '" data-d="1" aria-label="' + esc(p.name) + 'を1' + esc(p.unit) + '増やす"' + (totalQty() >= max ? ' disabled' : '') + '>＋</button></div></div>'
+    ).join('') : '<div class="hint">予約できる券種がありません</div>';
+    const pr = priced();
+    $('totalQty').textContent = totalQty() ? '計 ' + totalQty() + '枚' : '';
+    $('totalAmt').textContent = yen(pr.total);
+    $('maxHint').textContent = '1回の予約は' + max + '枚までです。' + (products.some(p => p.sets.length > 1) ? '複数枚の価格がある券種は、一番お得な組み合わせで計算します。' : '');
+  }
+  $('tickets').addEventListener('click', e => {
+    const b = e.target.closest('button[data-id]');
+    if (!b) return;
+    const id = b.dataset.id, n = Math.max(0, qty(id) + Number(b.dataset.d));
+    if (Number(b.dataset.d) > 0 && totalQty() >= info.max) return;
+    if (n) cart[id] = n; else delete cart[id];
+    renderTickets();
+  });
+
+  function read() {
+    return { name: $('name').value.trim(), kana: $('kana').value.trim(), contact: $('contact').value.trim(), note: $('note').value.trim() };
+  }
+  function ticketsList() { return products.filter(p => qty(p.id)).map(p => ({ name: p.name, unit: p.unit, qty: qty(p.id) })); }
+  $('toConfirm').onclick = () => {
+    const f = read();
+    const err = !totalQty() ? '券種と枚数を選んでください' : !f.name ? 'お名前を入力してください' : !f.kana ? 'フリガナを入力してください' : '';
+    $('formErr').textContent = err;
+    if (err) return;
+    $('cfTable').innerHTML = rows({ ...f, tickets: ticketsList() });
+    $('cfAmt').textContent = yen(priced().total);
+    $('cfErr').textContent = '';
+    $('submitBtn').disabled = false;
+    show('stepConfirm');
+  };
+  function rows(r) {
+    const tr = (k, v) => v ? '<tr><th>' + k + '</th><td>' + v + '</td></tr>' : '';
+    return tr('お名前', esc(r.name) + (r.kana ? '<br><small>' + esc(r.kana) + '</small>' : '')) + tr('チケット', esc(describeTickets(r.tickets))) +
+      tr('連絡先', esc(r.contact || '')) + tr('備考', esc(r.note || '').replace(/\n/g, '<br>'));
+  }
+  $('backBtn').onclick = () => show('stepForm');
+
+  $('submitBtn').onclick = async () => {
+    $('submitBtn').disabled = true;
+    $('cfErr').textContent = '';
+    try {
+      const d = await api('order', { password, clientId, projectId: info.project.id, items: cart, ...read() });
+      const r = d.reservation;
+      const mine = ls.get(MINE_KEY, []).filter(x => x.no !== r.no || x.project.id !== r.project.id);
+      mine.unshift(r);
+      ls.set(MINE_KEY, mine.slice(0, 20));
+      $('dnNo').textContent = r.no;
+      $('dnTable').innerHTML = rows(r);
+      $('dnAmt').textContent = yen(r.amount);
+      show('stepDone');
+      renderMine();
+    } catch (e) {
+      $('submitBtn').disabled = false;
+      if (e.status === 403) { const st = await api('order/status').catch(() => null); return closed(st ? st.state : 'closed', st && st.openAt); }
+      if (e.status === 401) { ss.set(PW_KEY, ''); show('stepPw'); $('pwErr').textContent = e.message; return; }
+      $('cfErr').textContent = e.message;   // 通信できなかったときは、同じ内容でもう一度押せる（二重には予約されない）
+    }
+  };
+  $('againBtn').onclick = () => {
+    cart = {}; clientId = newId();
+    ['name', 'kana', 'contact', 'note'].forEach(id => $(id).value = '');
+    renderTickets();
+    show('stepForm');
+  };
+
+  function renderMine() {
+    const pid = info && info.project ? info.project.id : null;
+    const mine = ls.get(MINE_KEY, []).filter(x => pid == null || x.project.id === pid);
+    $('mineBox').classList.toggle('hidden', !mine.length);
+    $('mine').innerHTML = mine.map(x => '<div class="row"><b>' + esc(x.no) + '</b>　' + esc(x.name) + '　' + esc(describeTickets(x.tickets)) + '　' + yen(x.amount) +
+      '<br><small class="hint">' + esc(x.project.name) + '・' + when(x.createdAt) + ' に予約</small></div>').join('');
+  }
+
+  start();
+</script>
+</body>
+</html>

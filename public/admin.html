@@ -566,6 +566,7 @@
       d.payments.map(m => row(esc(m), (d.byPayment[m] || {}).count || 0, yen((d.byPayment[m] || {}).amount || 0))).join('') +
       '<tr><th>取り置き</th><th></th><th></th></tr>' +
       row('受け渡し済み', r.handed + '/' + r.count + '件', r.handedQty + '/' + r.qty + '枚') +
+      (r.web ? row('　うちウェブ予約', r.web + '件', r.webQty + '枚') : '') +
       row('当日精算 受け取った額', '', yen(r.collected)) +
       row('当日精算 まだ受け取っていない額', '', yen(r.uncollected)) +
       r.byType.map(t => row('　' + esc(t.name), '渡した ' + t.handedQty + '/' + t.qty + esc(t.unit), '')).join('') +

@@ -117,6 +117,8 @@
   .pv-sum { font-size: 14px; margin: 8px 0 4px; }
   .danger-text { color: var(--mg-error); }
   #resvList table td, #resvPreview table td { vertical-align: top; }
+  .url-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; margin: 10px 0 4px; word-break: break-all; }
+  .badge.web { background: var(--mg-info-bg); color: var(--mg-info-text); }
 
 </style>
 </head>
@@ -249,6 +251,26 @@
     </details>
   </section>
 
+  <section class="card" id="webCard">
+    <h2>ウェブ予約（取り置き） <span class="badge" id="webState"></span></h2>
+    <div class="note" style="margin:0 0 8px">取り置き専用パスワードを知っている人が、予約ページから取り置きを予約できます。<b>開場時刻になると自動で締め切ります。</b>届いた予約は W1, W2… の番号で取り置きの一覧に入り、受付の画面にすぐ出ます。代金は当日、受付で受け取ります。</div>
+    <label class="pj-check"><input type="checkbox" id="webEnabled"> ウェブ予約を受け付ける</label>
+    <div class="pj-grid">
+      <label><span class="lb">開場日（締め切りの日）</span><input id="webDate" type="date"></label>
+      <label><span class="lb">開場時刻（締め切り）</span><input id="webTime" type="time" step="300"></label>
+      <label><span class="lb">1回の予約の上限枚数</span><input id="webMax" type="number" min="1" max="200" inputmode="numeric"></label>
+      <label><span class="lb">取り置き専用パスワード <span class="badge" id="webPwState"></span></span><input id="webPw" type="text" autocomplete="off" maxlength="100" placeholder="決める・変えるときだけ入力（4文字以上）"></label>
+    </div>
+    <div class="row"><button class="btn" id="webSave">保存</button><span class="dirty-badge hidden" id="webDirty">保存していません</span></div>
+    <div class="url-row">予約ページ：<a id="webUrl" href="/order" target="_blank"></a> <button class="btn sub small" id="webCopy" type="button">URL をコピー</button></div>
+    <div class="note">
+      ・パスワードは画面に残りません（保存すると「設定済み」と出ます）。お客さんに伝えるパスワードは控えておいてください。忘れたら新しく決め直します。<br>
+      ・予約できる券種は、「券種・価格」で「ウェブ予約に出す」にした券種です（招待券などは外しておきます）。<br>
+      ・受付の端末は数秒ごとに一覧を読み直すので、開場までに届いた予約もそのまま受付に出ます。開場後は新しい予約が来ないので、一覧が確定します。<br>
+      ・予約の取り消しは「取り置き」の一覧の行の「削除」で。変更は「取り置きの一覧と受け渡し」の CSV を書き換えて取り込み直します（W の番号のままなら更新になります）。
+    </div>
+  </section>
+
   <section class="card">
     <h2>券種・価格</h2>
     <div id="prodList"></div>
@@ -257,6 +279,7 @@
       ・券種（例: 一般・学生・招待）ごとに価格を登録します。1枚の価格は必須です。ペア券のように2枚以上の価格（セット）を登録すると、レジでは枚数を入れるだけで一番安い組み合わせを自動で選びます。<br>
       ・取り置きの CSV の「券種」には、ここの券種名と同じ名前を書きます。<br>
       ・「販売中」を外すと、レジ（当日券）に出なくなります（取り置きでは使えます。例: 招待券・前売り券）。<br>
+      ・「ウェブ予約に出す」を外すと、ウェブの取り置き予約で選べなくなります（CSV の取り込みでは使えます）。<br>
       ・当日券の販売の記録や取り置きがある券種は削除できません。<br>
       ・価格を変えても、すでに記録した会計や取り込んだ取り置きの金額は変わりません。
     </div>
@@ -421,6 +444,15 @@
     <p>「取り置き」の欄の数字と「取り込んだ取り置きの一覧」で、受け渡し済みかどうかを確かめられます。「取り置きの一覧と受け渡し」の CSV には、受け渡した時刻・渡した人・受け取った額が入ります（そのまま取り込み直せる形です）。</p>
   </details>
 
+  <details>
+    <summary>ウェブ予約（開場時刻まで）</summary>
+    <p>「ウェブ予約（取り置き）」の欄で、<b>ウェブ予約を受け付ける</b>にチェックを入れ、<b>開場日・開場時刻</b>（締め切り）、1回の予約の上限枚数、<b>取り置き専用パスワード</b>を決めて「保存」を押します。予約ページ（<code>/order</code>）の URL とパスワードを、お客さんに伝えてください。</p>
+    <p>お客さんはパスワードを入れてから、券種と枚数・お名前・フリガナ（・連絡先・備考）を入れて予約します。予約番号は W1, W2… で、代金は当日精算です。届いた予約はすぐ取り置きの一覧と受付の画面に入ります。</p>
+    <p><b>開場時刻を過ぎると自動で締め切り</b>、予約ページには「締め切りました」と出ます。受付の端末は数秒ごとに一覧を読み直しているので、開場までに届いた予約もそのまま受付に出ます（事前に保存した CSV には、そのあとの予約は入っていないので注意）。</p>
+    <p>パスワードは画面に残りません。忘れたら新しく決め直してください（前のパスワードは使えなくなります）。パスワードを何度も間違えた接続元は、10分間止まります。</p>
+    <p>CSV を「この CSV に置き換える」で取り込んでも、ウェブで受け付けた取り置きは消えません。ウェブ予約の<b>取り消し</b>は、「取り置きの一覧」の行の「削除」で 1 件ずつ消せます。<b>変更</b>は、「取り置きの一覧と受け渡し」の CSV を書き換えて取り込み直します（W の番号をそのまま使うと、その予約を更新します）。</p>
+  </details>
+
   <h3 class="help-group">公演・券種</h3>
 
   <details>
@@ -509,6 +541,7 @@
     renderDeleteCard(d);
     renderSales(d);
     renderResv(d);
+    renderWeb(d.projectSettings.webOrder);
 
     $('sessions').innerHTML = d.sessions.length ? '<table class="sessions"><tr><th>種類</th><th>名前</th><th>端末</th><th>ログイン</th><th>最終利用</th><th><span class="visually-hidden">操作</span></th></tr>' +
       d.sessions.map(s => '<tr><td>' + ROLE[s.role] + '</td><td>' + esc(s.staff) + '</td><td>' + esc(s.device) + '</td>' +
@@ -562,7 +595,7 @@
     $('rCount').textContent = r.count + '件・' + r.qty + '枚';
     $('rHanded').textContent = r.handed + '件・' + r.handedQty + '枚';
     $('rDue').textContent = yen(r.uncollected);
-    $('resvListSum').textContent = '取り込んだ取り置きの一覧（' + r.count + '件）';
+    $('resvListSum').textContent = '取り置きの一覧（' + r.count + '件' + (r.web ? '・うちウェブ予約 ' + r.web + '件' : '') + '）';
     $('resvResetInfo').textContent = '今の取り置き：' + r.count + ' 件（うち受け渡し済み ' + r.handed + ' 件・受け取った額 ' + yen(r.collected) + '）';
     renderResvList();
   }
@@ -571,15 +604,24 @@
     const q = normQ($('resvSearch').value);
     const list = resvList.filter(x => !q || normQ(x.name).includes(q) || normQ(x.kana).includes(q) || normQ(x.no).startsWith(q))
       .sort((a, b) => String(a.no).localeCompare(String(b.no), 'ja', { numeric: true }));
-    $('resvList').innerHTML = list.length ? '<table><tr><th>番号</th><th>氏名</th><th>券種</th><th>支払</th><th>受け渡し</th></tr>' +
-      list.map(x => '<tr><td class="t">' + esc(x.no) + '</td><td>' + esc(x.name) + (x.kana ? '<br><small class="note">' + esc(x.kana) + '</small>' : '') +
+    $('resvList').innerHTML = list.length ? '<table><tr><th>番号</th><th>氏名</th><th>券種</th><th>支払</th><th>受け渡し</th><th><span class="visually-hidden">操作</span></th></tr>' +
+      list.map(x => '<tr><td class="t">' + esc(x.no) + (x.source === 'web' ? '<br><span class="badge web">ウェブ</span>' : '') + '</td><td>' + esc(x.name) + (x.kana ? '<br><small class="note">' + esc(x.kana) + '</small>' : '') +
+        (x.contact ? '<br><small class="note">☎ ' + esc(x.contact) + '</small>' : '') +
         (x.note ? '<br><small class="note">' + esc(x.note) + '</small>' : '') + '</td>' +
         '<td>' + esc(describeTickets(x.tickets)) + '</td>' +
         '<td>' + (x.paid ? '<span class="badge ok">済</span>' : x.due ? '<span class="badge warn">当日 ' + yen(x.due) + '</span>' : '<span class="badge">0円</span>') + '</td>' +
-        '<td class="t">' + (x.handedAt ? '✓ ' + fmt(x.handedAt) + (x.handedBy ? '<br>' + esc(x.handedBy) : '') : '—') + '</td></tr>').join('') + '</table>'
+        '<td class="t">' + (x.handedAt ? '✓ ' + fmt(x.handedAt) + (x.handedBy ? '<br>' + esc(x.handedBy) : '') : '—') + '</td>' +
+        '<td><button class="btn danger small" data-rdel="' + x.id + '">削除</button></td></tr>').join('') + '</table>'
       : '<div class="empty">' + (resvList.length ? '合う取り置きはありません' : '取り置きはまだありません') + '</div>';
   }
   $('resvSearch').addEventListener('input', renderResvList);
+  $('resvList').addEventListener('click', e => {
+    const b = e.target.closest('[data-rdel]');
+    if (!b) return;
+    const x = resvList.find(r => String(r.id) === b.dataset.rdel);
+    if (!x || !confirm('取り置き「' + x.no + ' ' + x.name + '（' + describeTickets(x.tickets) + '）」を削除しますか？' + (x.handedAt ? '\n受け渡し済みの取り置きです。' : '') + '\n受付の画面からも消えます。元に戻せません。')) return;
+    run(() => api('reservations/' + x.id + '/delete', {}), '取り置き「' + x.no + ' ' + x.name + '」を削除しました');
+  });
 
   // CSV ファイルを読む：UTF-8 として読めなければ Shift_JIS（Excel で保存した CSV）として読む
   let resvCsv = null, resvFileName = '';
@@ -666,6 +708,37 @@
   $('resvUnhandBtn').onclick = () => resetResv('handed');
   $('resvDeleteBtn').onclick = () => resetResv('all');
 
+  // ---------- ウェブ予約 ----------
+  let webDirty = false;
+  const jst = iso => { const t = new Date(Date.parse(iso) + 9 * 3600000).toISOString(); return { date: t.slice(0, 10), time: t.slice(11, 16) }; };
+  function renderWeb(w) {
+    const label = { open: ['受付中', 'ok'], closed: ['締め切り済み（開場を過ぎた）', 'warn'], off: ['受け付けていない', ''], incomplete: ['設定が足りない', 'warn'] }[w.state];
+    $('webState').textContent = label[0] + (w.state === 'open' && w.openAt ? '・' + fmt(w.openAt) + ' まで' : '');
+    $('webState').className = 'badge ' + label[1];
+    $('webPwState').textContent = w.password ? '設定済み' : '未設定';
+    $('webPwState').className = 'badge ' + (w.password ? 'ok' : 'warn');
+    $('webUrl').textContent = location.origin + '/order';
+    if (webDirty) return;
+    $('webEnabled').checked = w.enabled;
+    const o = w.openAt ? jst(w.openAt) : { date: (lastProject && lastProject.startDate) || '', time: '' };
+    $('webDate').value = o.date; $('webTime').value = o.time;
+    $('webMax').value = w.max;
+    $('webPw').value = '';
+    $('webDirty').classList.add('hidden');
+  }
+  $('webCard').addEventListener('input', () => { webDirty = true; $('webDirty').classList.remove('hidden'); });
+  $('webSave').onclick = () => {
+    const date = $('webDate').value, time = $('webTime').value;
+    if ((date && !time) || (!date && time)) return toast('開場日と開場時刻を両方入れてください', true);
+    const body = { enabled: $('webEnabled').checked, openAt: date ? date + 'T' + time + ':00+09:00' : null, max: Number($('webMax').value) };
+    if ($('webPw').value.trim()) body.password = $('webPw').value.trim();
+    run(async () => { const d = await api('web-order', body); webDirty = false; return d; }, 'ウェブ予約の設定を保存しました');
+  };
+  $('webCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(location.origin + '/order'); toast('予約ページの URL をコピーしました'); }
+    catch { toast('コピーできませんでした。URL を長押ししてコピーしてください', true); }
+  };
+
   // ---------- 券種・価格 ----------
   let forceProducts = false;   // 保存などの直後は編集中でも描き直す
   let allProductsCache = [];
@@ -696,6 +769,7 @@
       '<div class="checks">' + bundleSelect(p) + '</div>' +
       '<div class="checks">' +
         '<label><input type="checkbox" class="pact"' + (p.active !== false ? ' checked' : '') + '> 販売中（レジに出す）</label>' +
+        '<label><input type="checkbox" class="pweb"' + (p.web !== false ? ' checked' : '') + '> ウェブ予約に出す</label>' +
       '</div>' +
       '<div class="pactions">' +
         '<button class="btn small" data-act="save">保存</button>' +
@@ -732,6 +806,7 @@
       sets: [...card.querySelectorAll('.set-row')].map(r => ({ qty: Number(r.querySelector('.sq').value), price: Number(r.querySelector('.sp').value) }))
         .filter(x => x.qty || x.price),
       active: card.querySelector('.pact').checked,
+      web: card.querySelector('.pweb').checked,
       bundleWith: card.querySelector('.pbundle') && card.querySelector('.pbundle').value ? Number(card.querySelector('.pbundle').value) : null,
     };
   }
@@ -774,7 +849,7 @@
   });
   $('addProdBtn').onclick = () => {
     if ($('prodList').querySelector('.empty')) $('prodList').innerHTML = '';
-    $('prodList').insertAdjacentHTML('beforeend', productCard({ unit: '枚', sets: [{ qty: 1, price: '' }], active: true }));
+    $('prodList').insertAdjacentHTML('beforeend', productCard({ unit: '枚', sets: [{ qty: 1, price: '' }], active: true, web: true }));
     const card = $('prodList').lastElementChild;
     refreshUnits(card);
     card.querySelector('.pname').focus();
@@ -1015,6 +1090,7 @@
     if (projectHash() !== id) history.replaceState(null, '', '#project=' + id);
     forceProducts = true;
     psDirty = false;
+    webDirty = false;
     clearResvImport();
     payDirty = false;
     return run(() => api('data')).then(() => { window.scrollTo(0, 0); });
@@ -1023,8 +1099,10 @@
 
   // 開いている公演の見出しと設定
   let psDirty = false;
+  let lastProject = null;
   function renderProjectSettings(ps, list) {
     if (!ps) return;
+    lastProject = ps;
     projectsCache = list || projectsCache;
     $('projSub').textContent = ps.name;
     $('pjTitle').textContent = ps.name;
