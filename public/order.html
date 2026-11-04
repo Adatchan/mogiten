@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>チケットの取り置き予約｜定演チケットシステム</title>
+<title>取り置き予約（団員用）｜定演チケットシステム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
@@ -53,13 +53,24 @@
   .mine .row { padding: 8px 0; border-top: 1px dashed var(--mg-border); }
   .mine .row:first-child { border-top: none; }
   .mine b { font-variant-numeric: tabular-nums; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .two label.f { margin-top: 0; }
+  .in.bad { border-color: var(--mg-error); background: var(--mg-error-bg); }
+  .who { background: var(--mg-surface-sub); border-radius: var(--mg-radius-md); padding: 8px 12px; font-size: var(--mg-text-sm); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .who button { background: none; color: var(--mg-primary); text-decoration: underline; font-size: var(--mg-text-xs); padding: 0; white-space: nowrap; }
+  .sec { font-size: var(--mg-text-md); font-weight: 700; margin: 18px 0 2px; padding-top: 12px; border-top: 1px solid var(--mg-border); }
+  .radio { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--mg-border-field); border-radius: var(--mg-radius-md); margin-top: 6px; font-size: 15px; cursor: pointer; }
+  .radio:has(input:checked) { border-color: var(--mg-primary); background: var(--mg-primary-bg); }
+  .radio input { margin-top: 4px; accent-color: var(--mg-primary); }
+  .radio small { display: block; color: var(--mg-text-sub); font-size: var(--mg-text-xs); }
+  .pay-note.member { background: var(--mg-info-bg); color: var(--mg-info-text); }
 </style>
 </head>
 <body>
 <div class="wrap" role="main">
   <div class="hero">
     <span class="app-mark" aria-hidden="true"></span>
-    <h1 id="title">チケットの取り置き予約</h1>
+    <h1 id="title">取り置き予約（団員用）</h1>
     <p class="lead" id="lead">読み込んでいます…</p>
   </div>
   <div class="deadline hidden" id="deadline"></div>
@@ -69,29 +80,42 @@
 
   <!-- 取り置き専用パスワード -->
   <section class="card hidden" id="stepPw">
-    <label class="f" for="pw">取り置き専用パスワード</label>
-    <input class="in" id="pw" type="password" autocomplete="off" placeholder="団員からお伝えしたパスワード">
-    <div class="hint">チケットの取り置きは、パスワードをお伝えした方だけが予約できます。</div>
+    <p class="hint" style="font-size:14px;margin-top:0">出演者（団員）が、知り合いにチケットを事前に渡せないときに、当日受付で渡せるよう取り置きを予約するページです。</p>
+    <label class="f" for="email">メールアドレス<span class="req">必須</span></label>
+    <input class="in" id="email" type="email" inputmode="email" autocomplete="email" maxlength="100" placeholder="例: taro@example.com">
+    <label class="f" for="pw">取り置き専用パスワード<span class="req">必須</span></label>
+    <input class="in" id="pw" type="password" autocomplete="off" placeholder="事前にお知らせしたパスワード">
     <div class="err" id="pwErr"></div>
     <div class="btns"><button class="btn big block" id="pwBtn">次へ</button></div>
   </section>
 
   <!-- 入力 -->
   <section class="card hidden" id="stepForm">
-    <div class="label">券種と枚数</div>
+    <div class="who"><span id="whoEmail"></span><button id="logoutOrder" type="button">別のメールアドレスで入る</button></div>
+
+    <label class="f" for="member">団員氏名<span class="req">必須</span></label>
+    <input class="in" id="member" type="text" maxlength="40" autocomplete="name" placeholder="例: 山田 花子">
+    <div class="hint">予約する団員（あなた）の名前です。代金の精算に使います。</div>
+
+    <div class="sec">当日来るお客さん</div>
+    <div class="hint" style="margin-top:2px">お名前は<b>カタカナ</b>で、セイとメイに分けて入れてください（受付でお名前を探すのに使います）。ひらがなで入れるとカタカナに直します。</div>
+    <div class="two" style="margin-top:8px">
+      <div><label class="f" for="sei">セイ<span class="req">必須</span></label><input class="in" id="sei" type="text" maxlength="20" autocomplete="off" placeholder="例: オカダイ"></div>
+      <div><label class="f" for="mei">メイ<span class="req">必須</span></label><input class="in" id="mei" type="text" maxlength="20" autocomplete="off" placeholder="例: タロウ"></div>
+    </div>
+    <div class="err" id="kanaErr" style="min-height:0"></div>
+
+    <label class="f" style="margin-top:14px">券種と枚数<span class="req">必須</span></label>
     <div id="tickets"></div>
     <div class="total"><span class="k" id="totalQty"></span><span class="v" id="totalAmt">¥0</span></div>
     <div class="hint" id="maxHint"></div>
 
-    <label class="f" for="name">お名前<span class="req">必須</span></label>
-    <input class="in" id="name" type="text" maxlength="40" autocomplete="name" placeholder="例: 岡大 太郎">
-    <label class="f" for="kana">フリガナ<span class="req">必須</span></label>
-    <input class="in" id="kana" type="text" maxlength="40" placeholder="例: オカダイ タロウ">
-    <div class="hint">当日の受付で、お名前を探すのに使います。</div>
-    <label class="f" for="contact">連絡先<span class="opt">任意（電話番号かメールアドレス）</span></label>
-    <input class="in" id="contact" type="text" maxlength="100" autocomplete="tel" placeholder="例: 090-1234-5678">
+    <label class="f">代金</label>
+    <label class="radio"><input type="radio" name="settle" value="member" checked><span>団員（あなた）が終演後にまとめて払う<small>ふつうはこちら。受付ではお客さんから受け取りません</small></span></label>
+    <label class="radio"><input type="radio" name="settle" value="reception"><span>お客さんが当日、受付で払う</span></label>
+
     <label class="f" for="note">備考<span class="opt">任意</span></label>
-    <textarea class="in" id="note" maxlength="200" placeholder="例: 車いすで伺います"></textarea>
+    <textarea class="in" id="note" maxlength="200" placeholder="例: 車いすで来ます"></textarea>
     <div class="err" id="formErr"></div>
     <div class="btns"><button class="btn big block" id="toConfirm">確認へ進む</button></div>
   </section>
@@ -100,7 +124,7 @@
   <section class="card hidden" id="stepConfirm">
     <div class="label">この内容で予約しますか？</div>
     <table class="sum" id="cfTable"></table>
-    <div class="pay-note"><span>代金は当日、受付でお支払いください</span><b id="cfAmt"></b></div>
+    <div class="pay-note" id="cfPay"><span id="cfPayText"></span><b id="cfAmt"></b></div>
     <div class="err" id="cfErr"></div>
     <div class="btns">
       <button class="btn big block" id="submitBtn">予約する</button>
@@ -113,9 +137,9 @@
     <div class="done-no"><div class="k">予約番号</div><div class="v" id="dnNo"></div></div>
     <p style="text-align:center;margin:0 0 8px;font-weight:700">取り置きを受け付けました</p>
     <table class="sum" id="dnTable"></table>
-    <div class="pay-note"><span>当日、受付でお支払いください</span><b id="dnAmt"></b></div>
-    <p class="hint" style="font-size:14px">当日は受付で<b>予約番号かお名前</b>をお伝えください。チケットをお渡しします。この画面のスクリーンショットを撮っておくと安心です。変更・取り消しは団員までご連絡ください。</p>
-    <div class="btns"><button class="btn sub block" id="againBtn">続けて別の予約をする</button></div>
+    <div class="pay-note" id="dnPay"><span id="dnPayText"></span><b id="dnAmt"></b></div>
+    <p class="hint" style="font-size:14px">お客さんには、当日受付で<b>お名前（または予約番号）</b>を伝えるようお知らせください。チケットをお渡しします。変更・取り消しは、チケット係に連絡してください。</p>
+    <div class="btns"><button class="btn block" id="againBtn">続けて別のお客さんを予約する</button></div>
   </section>
 
   <section class="card hidden" id="mineBox">
@@ -131,10 +155,17 @@
   const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
   const PW_KEY = 'teien_order_pw';      // このタブを閉じるまでパスワードを覚えておく（sessionStorage）
   const MINE_KEY = 'teien_order_mine';  // この端末で予約した控え（localStorage）
+  const ME_KEY = 'teien_order_me';      // 次に開いたときの入力補助（メールアドレスと団員氏名だけ。パスワードは残さない）
   const ss = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
   const ls = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
-  let info = null, products = [], cart = {}, password = '', clientId = null;
+  let info = null, products = [], cart = {}, password = '', email = '', clientId = null;
+  const me = ls.get(ME_KEY, {});
+  $('email').value = me.email || '';
+  $('member').value = me.member || '';
+  // カタカナにそろえる（ひらがな・半角カナを直し、空白を取る）。サーバーと同じきまり
+  const toKatakana = s => String(s || '').normalize('NFKC').replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60)).replace(/\s+/g, '');
+  const isKatakana = s => /^[\u30A1-\u30FC]+$/.test(s);
   const STEPS = ['stepClosed', 'stepPw', 'stepForm', 'stepConfirm', 'stepDone'];
   function show(step) { STEPS.forEach(s => $(s).classList.toggle('hidden', s !== step)); window.scrollTo(0, 0); }
   const when = iso => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' });
@@ -152,7 +183,7 @@
 
   function header(d) {
     $('title').textContent = d.project.name;
-    $('lead').textContent = 'チケットの取り置き予約';
+    $('lead').textContent = '取り置き予約（団員用）';
     document.title = d.project.name + '｜取り置き予約';
     $('deadline').classList.toggle('hidden', !d.openAt || !d.open);
     if (d.openAt) $('deadline').textContent = '受付は ' + when(d.openAt) + '（開場時刻）まで';
@@ -172,9 +203,10 @@
       header(info);
       if (!info.open) return closed(info.state, info.openAt);
       password = ss.get(PW_KEY) || '';
-      if (password) { await unlock(true); return; }
+      email = me.email || '';
+      if (password && email) { await unlock(true); return; }
       show('stepPw');
-      setTimeout(() => $('pw').focus(), 50);
+      setTimeout(() => $(me.email ? 'pw' : 'email').focus(), 50);
     } catch (e) {
       $('lead').textContent = e.message;
     }
@@ -183,10 +215,13 @@
   async function unlock(silent) {
     $('pwErr').textContent = '';
     try {
-      const d = await api('order/unlock', { password });
+      const d = await api('order/unlock', { email, password });
       info = d; header(d);
       products = d.products;
+      email = d.email;
       ss.set(PW_KEY, password);
+      ls.set(ME_KEY, { ...ls.get(ME_KEY, {}), email });
+      $('whoEmail').textContent = '✉ ' + email;
       cart = {};
       clientId = newId();
       renderTickets();
@@ -195,10 +230,17 @@
       ss.set(PW_KEY, '');
       if (e.status === 403) { const st = await api('order/status').catch(() => null); return closed(st ? st.state : 'off', st && st.openAt); }
       show('stepPw');
-      if (!silent || e.status !== 401) $('pwErr').textContent = e.message;
+      if (!silent || (e.status !== 401 && e.status !== 400)) $('pwErr').textContent = e.message;
     }
   }
-  $('pwBtn').onclick = () => { password = $('pw').value.trim(); if (!password) { $('pwErr').textContent = 'パスワードを入力してください'; return; } unlock(); };
+  $('pwBtn').onclick = () => {
+    email = $('email').value.trim(); password = $('pw').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('pwErr').textContent = 'メールアドレスを正しく入力してください'; return; }
+    if (!password) { $('pwErr').textContent = 'パスワードを入力してください'; return; }
+    unlock();
+  };
+  $('email').onkeydown = e => { if (e.key === 'Enter') $('pw').focus(); };
+  $('logoutOrder').onclick = () => { ss.set(PW_KEY, ''); password = ''; $('pw').value = ''; show('stepPw'); };
   $('pw').onkeydown = e => { if (e.key === 'Enter') $('pwBtn').click(); };
 
   // ---------- 券種と枚数 ----------
@@ -228,25 +270,47 @@
     renderTickets();
   });
 
+  // お客さんの氏名：入力が終わったらカタカナに直し、カタカナ以外が残っていたら知らせる
+  function checkKana() {
+    let msg = '';
+    for (const id of ['sei', 'mei']) {
+      const v = toKatakana($(id).value);
+      if (v !== $(id).value && document.activeElement !== $(id)) $(id).value = v;
+      const bad = v && !isKatakana(v);
+      $(id).classList.toggle('bad', !!bad);
+      if (bad) msg = 'お客さんの氏名はカタカナだけで入力してください（漢字・英字・数字・記号は使えません）';
+    }
+    $('kanaErr').textContent = msg;
+    return !msg;
+  }
+  ['sei', 'mei'].forEach(id => { $(id).addEventListener('blur', checkKana); $(id).addEventListener('input', () => { if ($(id).classList.contains('bad')) checkKana(); }); });
+  const settleVal = () => document.querySelector('input[name=settle]:checked').value;
   function read() {
-    return { name: $('name').value.trim(), kana: $('kana').value.trim(), contact: $('contact').value.trim(), note: $('note').value.trim() };
+    return { member: $('member').value.trim(), sei: toKatakana($('sei').value), mei: toKatakana($('mei').value), settle: settleVal(), note: $('note').value.trim() };
   }
   function ticketsList() { return products.filter(p => qty(p.id)).map(p => ({ name: p.name, unit: p.unit, qty: qty(p.id) })); }
   $('toConfirm').onclick = () => {
+    const kanaOk = checkKana();
     const f = read();
-    const err = !totalQty() ? '券種と枚数を選んでください' : !f.name ? 'お名前を入力してください' : !f.kana ? 'フリガナを入力してください' : '';
+    const err = !f.member ? '団員氏名を入力してください' : !f.sei || !f.mei ? 'お客さんの氏名（セイ・メイ）をカタカナで入力してください'
+      : !kanaOk ? 'お客さんの氏名はカタカナだけで入力してください' : !totalQty() ? '券種と枚数を選んでください' : '';
     $('formErr').textContent = err;
     if (err) return;
-    $('cfTable').innerHTML = rows({ ...f, tickets: ticketsList() });
-    $('cfAmt').textContent = yen(priced().total);
+    $('cfTable').innerHTML = rows({ name: f.sei + ' ' + f.mei, member: f.member, email, note: f.note, tickets: ticketsList() });
+    payNote('cf', f.settle, priced().total, f.member);
     $('cfErr').textContent = '';
     $('submitBtn').disabled = false;
     show('stepConfirm');
   };
   function rows(r) {
     const tr = (k, v) => v ? '<tr><th>' + k + '</th><td>' + v + '</td></tr>' : '';
-    return tr('お名前', esc(r.name) + (r.kana ? '<br><small>' + esc(r.kana) + '</small>' : '')) + tr('チケット', esc(describeTickets(r.tickets))) +
-      tr('連絡先', esc(r.contact || '')) + tr('備考', esc(r.note || '').replace(/\n/g, '<br>'));
+    return tr('お客さん', '<b>' + esc(r.name) + '</b>') + tr('チケット', esc(describeTickets(r.tickets))) +
+      tr('団員', esc(r.member || '') + (r.email ? '<br><small>' + esc(r.email) + '</small>' : '')) + tr('備考', esc(r.note || '').replace(/\n/g, '<br>'));
+  }
+  function payNote(prefix, settle, amount, member) {
+    $(prefix + 'Pay').className = 'pay-note' + (settle === 'member' ? ' member' : '');
+    $(prefix + 'PayText').textContent = settle === 'member' ? '代金は終演後に ' + member + ' さんから回収します' : '代金はお客さんが当日、受付で払います';
+    $(prefix + 'Amt').textContent = yen(amount);
   }
   $('backBtn').onclick = () => show('stepForm');
 
@@ -254,14 +318,16 @@
     $('submitBtn').disabled = true;
     $('cfErr').textContent = '';
     try {
-      const d = await api('order', { password, clientId, projectId: info.project.id, items: cart, ...read() });
+      const f = read();
+      const d = await api('order', { email, password, clientId, projectId: info.project.id, items: cart, ...f });
       const r = d.reservation;
+      ls.set(ME_KEY, { ...ls.get(ME_KEY, {}), email, member: f.member });
       const mine = ls.get(MINE_KEY, []).filter(x => x.no !== r.no || x.project.id !== r.project.id);
       mine.unshift(r);
       ls.set(MINE_KEY, mine.slice(0, 20));
       $('dnNo').textContent = r.no;
       $('dnTable').innerHTML = rows(r);
-      $('dnAmt').textContent = yen(r.amount);
+      payNote('dn', r.settle, r.amount, r.member);
       show('stepDone');
       renderMine();
     } catch (e) {
@@ -273,9 +339,12 @@
   };
   $('againBtn').onclick = () => {
     cart = {}; clientId = newId();
-    ['name', 'kana', 'contact', 'note'].forEach(id => $(id).value = '');
+    ['sei', 'mei', 'note'].forEach(id => { $(id).value = ''; $(id).classList.remove('bad'); });   // 団員氏名はそのまま
+    $('kanaErr').textContent = '';
+    document.querySelector('input[name=settle][value=member]').checked = true;
     renderTickets();
     show('stepForm');
+    setTimeout(() => $('sei').focus(), 50);
   };
 
   function renderMine() {
@@ -283,7 +352,10 @@
     const mine = ls.get(MINE_KEY, []).filter(x => pid == null || x.project.id === pid);
     $('mineBox').classList.toggle('hidden', !mine.length);
     $('mine').innerHTML = mine.map(x => '<div class="row"><b>' + esc(x.no) + '</b>　' + esc(x.name) + '　' + esc(describeTickets(x.tickets)) + '　' + yen(x.amount) +
-      '<br><small class="hint">' + esc(x.project.name) + '・' + when(x.createdAt) + ' に予約</small></div>').join('');
+      (x.settle === 'reception' ? '（受付で払う）' : '（団員が払う）') +
+      '<br><small class="hint">' + esc(x.project.name) + '・' + esc(x.member || '') + '・' + when(x.createdAt) + ' に予約</small></div>').join('');
+    const sum = mine.filter(x => x.settle !== 'reception').reduce((a, x) => a + x.amount, 0);
+    if (sum) $('mine').insertAdjacentHTML('beforeend', '<div class="row">団員が終演後に払う額の合計：<b>' + yen(sum) + '</b></div>');
   }
 
   start();

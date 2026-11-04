@@ -11,6 +11,7 @@
 | 取り置きの一覧と受け渡し | `/api/master/reservations.csv` | 1 件の取り置き | 受け渡しの状況・受付で受け取った額の確認（項目は [reservation-csv.md](reservation-csv.md)） |
 | 当日券の会計（データ分析用） | `/api/master/sales.csv` | 1 回の会計 | 売上・支払方法・時間帯の集計 |
 | 当日券の明細（データ分析用） | `/api/master/sale_items.csv` | 1 回の会計 × 1 券種 × 1 セットの種類 | 券種ごと・セットごとの枚数と金額 |
+| 団員ごとの精算 | `/api/master/members.csv` | 1 人の団員 | 終演後に団員から回収する額と回収の状況（団員・メールアドレス・件数・枚数・受け渡し済みの枚数・回収する額・回収済み・未回収・回収（済／一部／未））|
 | 取り置きの様式 | `/api/master/reservations_template.csv` | — | 取り込みの様式（見出しと記入例） |
 
 - どれも管理画面のログインが必要です。

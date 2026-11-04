@@ -212,6 +212,7 @@
     <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
       <a class="btn" href="/api/master/sales_ja.csv" data-csv download>⬇ 当日券の売上（Excel・手集計用）</a>
       <a class="btn" href="/api/master/reservations.csv" data-csv download>⬇ 取り置きの一覧と受け渡し</a>
+      <a class="btn sub" href="/api/master/members.csv" data-csv download>⬇ 団員ごとの精算</a>
       <a class="btn sub" href="/api/master/sales.csv" data-csv download>⬇ 当日券の会計（データ分析用）</a>
       <a class="btn sub" href="/api/master/sale_items.csv" data-csv download>⬇ 当日券の明細（データ分析用）</a>
     </div>
@@ -253,7 +254,7 @@
 
   <section class="card" id="webCard">
     <h2>ウェブ予約（取り置き） <span class="badge" id="webState"></span></h2>
-    <div class="note" style="margin:0 0 8px">取り置き専用パスワードを知っている人が、予約ページから取り置きを予約できます。<b>開場時刻になると自動で締め切ります。</b>届いた予約は W1, W2… の番号で取り置きの一覧に入り、受付の画面にすぐ出ます。代金は当日、受付で受け取ります。</div>
+    <div class="note" style="margin:0 0 8px">団員が、知り合いにチケットを事前に渡せないときに使う予約ページです。団員は<b>メールアドレスと取り置き専用パスワード</b>で入り、団員氏名・お客さんの氏名（カタカナ）・券種と枚数を入れて予約します。<b>開場時刻になると自動で締め切ります。</b>届いた予約は W1, W2… の番号で取り置きの一覧に入り、受付の画面にすぐ出ます。代金はふつう<b>終演後に団員から回収</b>します（下の「団員ごとの精算」）。</div>
     <label class="pj-check"><input type="checkbox" id="webEnabled"> ウェブ予約を受け付ける</label>
     <div class="pj-grid">
       <label><span class="lb">開場日（締め切りの日）</span><input id="webDate" type="date"></label>
@@ -264,11 +265,23 @@
     <div class="row"><button class="btn" id="webSave">保存</button><span class="dirty-badge hidden" id="webDirty">保存していません</span></div>
     <div class="url-row">予約ページ：<a id="webUrl" href="/order" target="_blank"></a> <button class="btn sub small" id="webCopy" type="button">URL をコピー</button></div>
     <div class="note">
-      ・パスワードは画面に残りません（保存すると「設定済み」と出ます）。お客さんに伝えるパスワードは控えておいてください。忘れたら新しく決め直します。<br>
+      ・パスワードは画面に残りません（保存すると「設定済み」と出ます）。団員に伝えるパスワードは控えておいてください。忘れたら新しく決め直します。<br>
       ・予約できる券種は、「券種・価格」で「ウェブ予約に出す」にした券種です（招待券などは外しておきます）。<br>
       ・受付の端末は数秒ごとに一覧を読み直すので、開場までに届いた予約もそのまま受付に出ます。開場後は新しい予約が来ないので、一覧が確定します。<br>
       ・予約の取り消しは「取り置き」の一覧の行の「削除」で。変更は「取り置きの一覧と受け渡し」の CSV を書き換えて取り込み直します（W の番号のままなら更新になります）。
     </div>
+  </section>
+
+  <section class="card" id="memberCard">
+    <h2>団員ごとの精算</h2>
+    <div class="mini">
+      <div><div class="v" id="mbTotal">—</div><div class="k">団員から回収する額</div></div>
+      <div><div class="v" id="mbDone">—</div><div class="k">回収済み</div></div>
+      <div><div class="v" id="mbLeft">—</div><div class="k">未回収</div></div>
+    </div>
+    <div class="scroll" id="memberList" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:8px"><a class="btn sub" href="/api/master/members.csv" data-csv download>⬇ 団員ごとの精算（CSV）</a></div>
+    <div class="note">「代金は団員から回収」にした取り置き（ウェブ予約のふつうの形。CSV では「支払」が「団員」）を、団員の名前ごとにまとめています。終演後に代金を受け取ったら「回収済みにする」を押します。金額は、お客さんが来なかった分（受け渡し前）も含みます。</div>
   </section>
 
   <section class="card">
@@ -424,7 +437,8 @@
       <li><b>番号</b>：取り置きの番号（例: 1, 2, A-12）。<b>入れておくのがおすすめ</b>です。同じ番号の行は1件にまとめ、取り込み直したときは同じ取り置きとして更新します。空欄なら続きの番号を自動で付けます</li>
       <li><b>氏名</b>（必須）、<b>フリガナ</b>：受付での検索と名前順の並びに使います</li>
       <li><b>券種</b>・<b>枚数</b>：券種は「券種・価格」の券種名と同じに。1人で一般2枚と学生1枚のように複数の券種があるときは、同じ番号で2行に分けて書きます。券種名を見出しにした列（「一般」「学生」の列に枚数）でもかまいません</li>
-      <li><b>支払</b>：「済」（事前に支払済み）か「当日」（受付で受け取る）。空欄は「当日」として扱います</li>
+      <li><b>支払</b>：「済」（事前に支払済み）、「当日」（受付で受け取る）、「団員」（終演後に団員から回収）。空欄は、<b>団員</b>の列に名前があれば「団員」、なければ「当日」として扱います</li>
+      <li><b>団員</b>：その取り置きを頼んだ団員の名前（団員ごとの精算に使います）</li>
       <li><b>金額</b>：空欄なら券種の価格から計算します。割引などで違う金額のときだけ書きます</li>
       <li><b>備考</b>：受付のカードに表示します（例：車いす、関係者）</li>
     </ul>
@@ -446,8 +460,9 @@
 
   <details>
     <summary>ウェブ予約（開場時刻まで）</summary>
-    <p>「ウェブ予約（取り置き）」の欄で、<b>ウェブ予約を受け付ける</b>にチェックを入れ、<b>開場日・開場時刻</b>（締め切り）、1回の予約の上限枚数、<b>取り置き専用パスワード</b>を決めて「保存」を押します。予約ページ（<code>/order</code>）の URL とパスワードを、お客さんに伝えてください。</p>
-    <p>お客さんはパスワードを入れてから、券種と枚数・お名前・フリガナ（・連絡先・備考）を入れて予約します。予約番号は W1, W2… で、代金は当日精算です。届いた予約はすぐ取り置きの一覧と受付の画面に入ります。</p>
+    <p>団員が、知り合いにチケットを事前に渡せないときに使います。「ウェブ予約（取り置き）」の欄で、<b>ウェブ予約を受け付ける</b>にチェックを入れ、<b>開場日・開場時刻</b>（締め切り）、1回の予約の上限枚数、<b>取り置き専用パスワード</b>を決めて「保存」を押します。予約ページ（<code>/order</code>）の URL とパスワードを、団員に伝えてください。</p>
+    <p>団員は<b>メールアドレスとパスワード</b>で入り、<b>団員氏名</b>、当日来るお客さんの氏名（<b>カタカナ</b>のセイ・メイ。ひらがなは自動でカタカナに直り、漢字や英字は受け付けません）、券種と枚数を入れて予約します。予約番号は W1, W2… です。届いた予約はすぐ取り置きの一覧と受付の画面に入ります。</p>
+    <p>代金は、ふつう<b>終演後に団員からまとめて回収</b>します（受付ではお客さんから受け取りません）。団員が「お客さんが当日、受付で払う」を選んだ予約だけは、受付で受け取ります。回収の状況は「団員ごとの精算」で確かめ、受け取ったら「回収済みにする」を押します。</p>
     <p><b>開場時刻を過ぎると自動で締め切り</b>、予約ページには「締め切りました」と出ます。受付の端末は数秒ごとに一覧を読み直しているので、開場までに届いた予約もそのまま受付に出ます（事前に保存した CSV には、そのあとの予約は入っていないので注意）。</p>
     <p>パスワードは画面に残りません。忘れたら新しく決め直してください（前のパスワードは使えなくなります）。パスワードを何度も間違えた接続元は、10分間止まります。</p>
     <p>CSV を「この CSV に置き換える」で取り込んでも、ウェブで受け付けた取り置きは消えません。ウェブ予約の<b>取り消し</b>は、「取り置きの一覧」の行の「削除」で 1 件ずつ消せます。<b>変更</b>は、「取り置きの一覧と受け渡し」の CSV を書き換えて取り込み直します（W の番号をそのまま使うと、その予約を更新します）。</p>
@@ -584,6 +599,7 @@
     $('mDetail').textContent = [
       d.byProduct.filter(g => g.qty).map(g => g.name + ' ' + g.qty + g.unit + '（' + yen(g.amount) + '）').join('・'),
       d.payments.filter(m => (d.byPayment[m] || {}).count).map(m => m + ' ' + yen(d.byPayment[m].amount)).join('・'),
+      r.memberTotal ? '団員から回収 ' + yen(r.memberCollected) + '／' + yen(r.memberTotal) : '',
     ].filter(Boolean).join('／') || '当日券の会計はまだありません';
   }
 
@@ -598,7 +614,29 @@
     $('resvListSum').textContent = '取り置きの一覧（' + r.count + '件' + (r.web ? '・うちウェブ予約 ' + r.web + '件' : '') + '）';
     $('resvResetInfo').textContent = '今の取り置き：' + r.count + ' 件（うち受け渡し済み ' + r.handed + ' 件・受け取った額 ' + yen(r.collected) + '）';
     renderResvList();
+    renderMembers(d);
   }
+  const settleCell = x => x.settle === 'member' ? '<span class="badge web">団員 ' + yen(x.memberDue ?? x.amount) + '</span>'
+    : x.paid ? '<span class="badge ok">済</span>' : x.due ? '<span class="badge warn">当日 ' + yen(x.due) + '</span>' : '<span class="badge">0円</span>';
+  function renderMembers(d) {
+    const r = d.reservations, list = d.members || [];
+    $('mbTotal').textContent = yen(r.memberTotal); $('mbDone').textContent = yen(r.memberCollected); $('mbLeft').textContent = yen(r.memberUncollected);
+    $('memberList').innerHTML = list.length ? '<table><tr><th>団員</th><th>取り置き</th><th>回収する額</th><th>状態</th><th><span class="visually-hidden">操作</span></th></tr>' +
+      list.map(g => '<tr><td>' + esc(g.member) + (g.emails.length ? '<br><small class="note">' + g.emails.map(esc).join('<br>') + '</small>' : '') + '</td>' +
+        '<td class="t">' + g.count + '件・' + g.qty + '枚<br><small class="note">渡した ' + g.handedQty + '枚' + (g.others ? '・ほかの払い方 ' + g.others + '件' : '') + '</small></td>' +
+        '<td class="t"><b>' + yen(g.amount) + '</b></td>' +
+        '<td>' + (!g.amount ? '—' : g.uncollected ? (g.collected ? '<span class="badge warn">一部 未回収 ' + yen(g.uncollected) + '</span>' : '<span class="badge warn">未回収</span>') : '<span class="badge ok">回収済み</span>' + (g.lastCollectedAt ? '<br><small class="note">' + fmt(g.lastCollectedAt) + '</small>' : '')) + '</td>' +
+        '<td>' + (g.amount ? (g.uncollected ? '<button class="btn small" data-collect="' + esc(g.key) + '" data-to="1">回収済みにする</button>' : '<button class="btn sub small" data-collect="' + esc(g.key) + '" data-to="0">戻す</button>') : '') + '</td></tr>').join('') + '</table>'
+      : '<div class="empty">団員の予約はまだありません</div>';
+  }
+  $('memberList').addEventListener('click', e => {
+    const b = e.target.closest('[data-collect]');
+    if (!b) return;
+    const to = b.dataset.to === '1';
+    const row = b.closest('tr').querySelector('td').firstChild.textContent;
+    if (!confirm(to ? row + ' さんから代金を回収済みにしますか？' : row + ' さんの回収済みを取り消しますか？')) return;
+    run(() => api('members/collect', { member: b.dataset.collect, collected: to }), to ? row + ' さんを回収済みにしました' : '回収済みを取り消しました');
+  });
   const normQ = s => String(s || '').normalize('NFKC').replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60)).replace(/\s/g, '').toLowerCase();
   function renderResvList() {
     const q = normQ($('resvSearch').value);
@@ -609,7 +647,7 @@
         (x.contact ? '<br><small class="note">☎ ' + esc(x.contact) + '</small>' : '') +
         (x.note ? '<br><small class="note">' + esc(x.note) + '</small>' : '') + '</td>' +
         '<td>' + esc(describeTickets(x.tickets)) + '</td>' +
-        '<td>' + (x.paid ? '<span class="badge ok">済</span>' : x.due ? '<span class="badge warn">当日 ' + yen(x.due) + '</span>' : '<span class="badge">0円</span>') + '</td>' +
+        '<td>' + settleCell(x) + (x.member ? '<br><small class="note">団員：' + esc(x.member) + '</small>' : '') + '</td>' +
         '<td class="t">' + (x.handedAt ? '✓ ' + fmt(x.handedAt) + (x.handedBy ? '<br>' + esc(x.handedBy) : '') : '—') + '</td>' +
         '<td><button class="btn danger small" data-rdel="' + x.id + '">削除</button></td></tr>').join('') + '</table>'
       : '<div class="empty">' + (resvList.length ? '合う取り置きはありません' : '取り置きはまだありません') + '</div>';
@@ -671,13 +709,13 @@
         (p.errors.length ? '<div class="pv-err"><b>直すところが ' + p.errors.length + ' か所あります（取り込めません）</b><ul>' +
           p.errors.map(e => '<li>' + e.line + '行目：' + esc(e.message) + '</li>').join('') + '</ul>CSV を直して、もう一度ファイルを選んでください。</div>' : '') +
         (p.warnings.length ? '<div class="pv-warn"><ul>' + p.warnings.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul></div>' : '') +
-        (p.items.length ? '<div class="pv-sum">' + c.rows + '件（' + (p.totals ? p.totals.qty : 0) + '枚・受付で受け取る額 ' + yen(p.totals ? p.totals.due : 0) + '）：' +
+        (p.items.length ? '<div class="pv-sum">' + c.rows + '件（' + (p.totals ? p.totals.qty : 0) + '枚・受付で受け取る額 ' + yen(p.totals ? p.totals.due : 0) + (p.totals && p.totals.memberDue ? '・団員から回収 ' + yen(p.totals.memberDue) : '') + '）：' +
           '新規 <b>' + c.created + '</b>・更新 <b>' + c.updated + '</b>・変更なし ' + c.unchanged + (c.removed ? '・<span class="danger-text">削除 <b>' + c.removed + '</b></span>' : '') + '</div>' +
           '<div class="scroll"><table><tr><th>番号</th><th>氏名</th><th>券種</th><th>支払</th><th></th></tr>' +
           p.items.map(x => '<tr><td class="t">' + esc(x.no) + (x.autoNo ? '<br><small class="note">自動</small>' : '') + '</td>' +
             '<td>' + esc(x.name) + (x.kana ? '<br><small class="note">' + esc(x.kana) + '</small>' : '') + (x.note ? '<br><small class="note">' + esc(x.note) + '</small>' : '') + '</td>' +
             '<td>' + esc(x.ticketsText) + '</td>' +
-            '<td>' + (x.paid ? '済' : x.due ? '当日 ' + yen(x.due) : '代金なし') + '</td><td>' + (st[x.status] || '') + (x.handed ? '<br><small class="note">受け渡し済み</small>' : '') + '</td></tr>').join('') +
+            '<td>' + (x.settle === 'member' ? '団員 ' + yen(x.amount) : x.paid ? '済' : x.due ? '当日 ' + yen(x.due) : '代金なし') + (x.member ? '<br><small class="note">' + esc(x.member) + '</small>' : '') + '</td><td>' + (st[x.status] || '') + (x.handed ? '<br><small class="note">受け渡し済み</small>' : '') + '</td></tr>').join('') +
           '</table></div>' +
           (p.removedItems && p.removedItems.length ? '<div class="note danger-text">削除される取り置き：' + p.removedItems.map(x => esc(x.no + ' ' + x.name) + (x.handed ? '（受け渡し済み）' : '')).join('、') + (c.removed > p.removedItems.length ? ' ほか' : '') + '</div>' : '')
           : '');

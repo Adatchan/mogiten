@@ -569,6 +569,7 @@
       (r.web ? row('　うちウェブ予約', r.web + '件', r.webQty + '枚') : '') +
       row('当日精算 受け取った額', '', yen(r.collected)) +
       row('当日精算 まだ受け取っていない額', '', yen(r.uncollected)) +
+      (r.memberTotal ? row('団員から終演後に回収', '済 ' + yen(r.memberCollected), '計 ' + yen(r.memberTotal)) : '') +
       r.byType.map(t => row('　' + esc(t.name), '渡した ' + t.handedQty + '/' + t.qty + esc(t.unit), '')).join('') +
       '</table>';
   }

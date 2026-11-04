@@ -66,6 +66,8 @@
   .pay.due { background: var(--mg-warning-bg-strong); color: var(--mg-warning-text); font-size: 15px; }
   .pay.due b { font-size: 24px; font-variant-numeric: tabular-nums; }
   .pay.free { background: var(--mg-surface-sub); color: var(--mg-text-sub); font-size: 14px; }
+  .pay.member { background: var(--mg-info-bg); color: var(--mg-info-text); font-size: 14px; }
+  .mem { font-size: 13px; color: var(--mg-text-sub); margin-top: 2px; }
   .note { font-size: 14px; background: var(--mg-info-bg); color: var(--mg-info-text); border-radius: var(--mg-radius-sm); padding: 3px 8px; margin: 4px 0; white-space: pre-wrap; word-break: break-all; }
   .handed { background: var(--mg-surface-done); border-color: var(--mg-border) !important; }
   .handed .tl li, .handed .rh .nm { color: var(--mg-text-sub); }
@@ -156,7 +158,7 @@
 
   <details>
     <summary>お客さんを探すには？</summary>
-    <p>上の欄に、名前・フリガナ・番号のどれかを入れると、合うカードだけが出ます。ひらがなとカタカナ、空白のあるなしは区別しません（「おかだい」で「オカダイ タロウ」も出ます）。「✕」で検索をやめます。</p>
+    <p>上の欄に、名前・フリガナ・番号・団員の名前のどれかを入れると、合うカードだけが出ます。ひらがなとカタカナ、空白のあるなしは区別しません（「おかだい」で「オカダイ タロウ」も出ます）。「✕」で検索をやめます。</p>
     <p>「番号順」「名前順」のボタンで並び順を切り替えられます（名前順はフリガナの五十音順）。</p>
   </details>
 
@@ -168,6 +170,8 @@
       <li><b>一般 ×2</b>：渡すチケットの券種と枚数</li>
       <li><b>オレンジの「当日 ¥2,000 受け取る」</b>：まだ代金をもらっていない取り置きです。<b>代金を受け取ってから</b>チケットを渡してください</li>
       <li><b>緑の「支払済み」</b>：代金はもらってあるので、チケットを渡すだけです</li>
+      <li><b>青い「代金は団員から回収」</b>：団員がウェブで予約した取り置きです。代金は終演後に団員から回収するので、<b>お客さんからは受け取りません</b>。チケットを渡すだけです</li>
+      <li><b>団員：○○</b>：その取り置きを予約した団員（「山田さんの紹介で…」と言われたら、団員の名前でも探せます）</li>
       <li><b>青い枠</b>：備考（申し込みのときの連絡事項など）</li>
     </ul>
   </details>
@@ -192,7 +196,7 @@
 
   <details>
     <summary>「ウェブ」の印・青い帯は？</summary>
-    <p>お客さんがウェブの予約ページから申し込んだ取り置きです（番号が W1, W2… になります）。代金は当日精算です。ウェブ予約は<b>開場時刻まで</b>受け付けていて、届いた予約は数秒でこの画面に追加され、少しのあいだ青く光ります。開場時刻を過ぎると締め切られ、一覧が確定します。</p>
+    <p>団員がウェブの予約ページから申し込んだ取り置きです（番号が W1, W2… になります。お客さんの名前はカタカナです）。代金はふつう終演後に団員から回収します（カードに出ます）。ウェブ予約は<b>開場時刻まで</b>受け付けていて、届いた予約は数秒でこの画面に追加され、少しのあいだ青く光ります。開場時刻を過ぎると締め切られ、一覧が確定します。</p>
   </details>
 
   <details>
@@ -412,7 +416,7 @@
       : '<span class="none">取り置きはまだありません（管理画面で CSV を取り込みます）</span>';
 
     const q = norm($('q').value);
-    let shown = all.filter(r => !q || norm(r.name).includes(q) || norm(r.kana).includes(q) || norm(r.no) === q || norm('#' + r.no) === q || norm(r.no).startsWith(q));
+    let shown = all.filter(r => !q || norm(r.name).includes(q) || norm(r.kana).includes(q) || norm(r.member).includes(q) || norm(r.no) === q || norm('#' + r.no) === q || norm(r.no).startsWith(q));
     const matched = shown.length;
     if (hideDone && !q) shown = shown.filter(r => !isHanded(r));   // 検索中は渡したものも出す（二重に渡さないため）
     shown.sort(sortBy === 'kana' ? byKana : byNo);
@@ -441,7 +445,8 @@
     else if (r.due > 0) cls.push('unpaid');
     if (pending) cls.push('syncing');
     if (freshIds.has(r.id) && !handed) cls.push('new');
-    const pay = r.paid ? '<div class="pay paid"><span>✓ 支払済み</span></div>'
+    const pay = r.settle === 'member' ? '<div class="pay member"><span>代金は団員から回収（受け取らない）</span></div>'
+      : r.paid ? '<div class="pay paid"><span>✓ 支払済み</span></div>'
       : r.due > 0 ? '<div class="pay due"><span>当日 受け取る</span><b>' + yen(r.due) + '</b></div>'
       : '<div class="pay free"><span>代金なし</span></div>';
     const at = pending ? ops[r.id].at : r.handedAt;
@@ -450,7 +455,8 @@
     return '<div class="' + cls.join(' ') + '" data-id="' + r.id + '" role="button" tabindex="0" aria-pressed="' + handed + '" aria-label="' + esc('#' + r.no + ' ' + r.name + ' ' + describeTickets(r.tickets)) + '">' +
       '<div class="hint ok">✓ 離すと<br>受け渡し済み</div><div class="hint back">↩ 離すと戻す</div>' +
       '<div class="rh"><span class="no">#' + hl(r.no, q && norm(r.no).startsWith(q) ? q : '') + (r.source === 'web' ? '<span class="web">ウェブ</span>' : '') + '</span><span class="nm"><span class="t">' + hl(r.name, q) + '</span></span></div>' +
-      (r.kana ? '<div class="kana">' + hl(r.kana, q) + '</div>' : '') +
+      (r.kana && r.kana !== r.name ? '<div class="kana">' + hl(r.kana, q) + '</div>' : '') +
+      (r.member ? '<div class="mem">団員：' + hl(r.member, q) + '</div>' : '') +
       '<ul class="tl">' + r.tickets.map(t => '<li><span class="t">' + esc(t.name) + '</span><span class="q t">×' + t.qty + '</span></li>').join('') + '</ul>' +
       pay + (r.note ? '<div class="note">' + esc(r.note) + '</div>' : '') +
       '<div class="rstate">' + state + '</div></div>';

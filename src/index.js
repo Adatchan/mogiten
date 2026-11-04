@@ -14,8 +14,10 @@
  * 取り置き：管理画面で所定の様式の CSV を取り込むと、受付の画面に 1 件ずつカードで並ぶ。
  *   渡したらカードをスワイプ（またはタップ）して「受け渡し済み」にする。
  *   支払が「当日」の取り置きは、受け渡しのときに受け取る金額をカードに出し、受け取った額として集計する。
- * 取り置きはウェブ（/order）でも受け付ける。管理画面で決めた取り置き専用パスワードを知っている人だけが予約でき、
+ * 取り置きは、出演者（団員）が知り合いにチケットを事前に渡せないときに使う。団員はウェブ（/order）で、
+ *   メールアドレスと事前に渡した取り置き専用パスワードで認証し、団員氏名とお客さんの氏名（カタカナ）・券種・枚数を入れて予約する。
  *   開場時刻を過ぎると締め切る。届いた予約は番号 W1, W2, … で取り置きの一覧に入り、受付の画面にすぐ出る。
+ *   代金は終演後に団員からまとめて回収するのが基本（settle = 'member'。受付では受け取らない）。管理画面で団員ごとに回収済みを記録する。
  * 当日券：レジで券種と枚数を入れて会計を記録する（受付には出ない）。
  *
  * 認証のしくみ
@@ -249,6 +251,19 @@ async function masterApi(request, env, url, route) {
     return reload();
   }
 
+  // 団員から代金を回収した／戻す（その団員の「団員から回収」の取り置きをまとめて）
+  if (route === 'POST /api/master/members/collect') {
+    const body = await readJson(request);
+    const key = memberKey(body.member);
+    const rows = (await db.prepare("SELECT id, member, amount FROM reservations WHERE project_id = ? AND settle = 'member'").bind(P.id).all()).results
+      .filter((r) => (memberKey(r.member) || '（団員の名前なし）') === key);
+    if (!rows.length) throw httpError('その団員の取り置きが見つかりません', 404);
+    const at = body.collected ? new Date().toISOString() : null;
+    await db.batch(rows.map((r) => db.prepare('UPDATE reservations SET collected_at = ? WHERE id = ?').bind(at, r.id)));
+    await audit(db, 'マスター', role, body.collected ? '団員から代金を回収' : '団員からの回収を取り消し',
+      `${tag}${rows[0].member || '（団員の名前なし）'}：${rows.length} 件 ${yen(rows.reduce((a, r) => a + r.amount, 0))}`);
+    return reload();
+  }
   // 取り置きを 1 件削除（ウェブ予約の取り消しなど）
   const rd = url.pathname.match(/^\/api\/master\/reservations\/(\d+)\/delete$/);
   if (request.method === 'POST' && rd) {
@@ -642,7 +657,9 @@ async function ensureSchema(db) {
     )`),
     db.prepare('CREATE INDEX IF NOT EXISTS sale_items_sale ON sale_items (sale_id)'),
     // 取り置き。res_no は CSV の「番号」（公演ごとに重ならない）。tickets は [{ productId, name, unit, qty }] の JSON
-    //   amount: チケット代の合計、paid: 1 = 支払済み（受付では受け取らない）、handed_at: 受け渡した時刻（null = まだ）
+    //   amount: チケット代の合計、settle: 代金の払い方（reception = 当日受付で / member = 終演後に団員から回収 / paid = 支払済み）
+    //   paid: settle = paid のとき 1（前の版との互換）、handed_at: 受け渡した時刻（null = まだ）
+    //   member / email: 予約した団員（ウェブ予約）・紹介した団員（CSV）、collected_at: 団員から代金を回収した時刻
     db.prepare(`CREATE TABLE IF NOT EXISTS reservations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
@@ -660,7 +677,11 @@ async function ensureSchema(db) {
       updated_at TEXT NOT NULL,
       source TEXT NOT NULL DEFAULT 'csv',
       contact TEXT NOT NULL DEFAULT '',
-      client_id TEXT
+      client_id TEXT,
+      settle TEXT NOT NULL DEFAULT '',
+      member TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      collected_at TEXT
     )`),
     db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS reservations_no ON reservations (project_id, res_no)'),
     // ウェブ予約の記録（同じ接続元からの件数の制限用。古いものは消す）
@@ -703,6 +724,10 @@ async function ensureSchema(db) {
     [rc.includes('source'), "ALTER TABLE reservations ADD COLUMN source TEXT NOT NULL DEFAULT 'csv'"],
     [rc.includes('contact'), "ALTER TABLE reservations ADD COLUMN contact TEXT NOT NULL DEFAULT ''"],
     [rc.includes('client_id'), 'ALTER TABLE reservations ADD COLUMN client_id TEXT'],
+    [rc.includes('settle'), "ALTER TABLE reservations ADD COLUMN settle TEXT NOT NULL DEFAULT ''"],
+    [rc.includes('member'), "ALTER TABLE reservations ADD COLUMN member TEXT NOT NULL DEFAULT ''"],
+    [rc.includes('email'), "ALTER TABLE reservations ADD COLUMN email TEXT NOT NULL DEFAULT ''"],
+    [rc.includes('collected_at'), 'ALTER TABLE reservations ADD COLUMN collected_at TEXT'],
   ]) if (!has) await addColumn(db, sql);
   await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS reservations_client_id ON reservations (client_id)').run();
   // 新しい環境では、空の公演を 1 つ作って「当日に使う」にする（何度実行しても 1 つだけ）
@@ -1024,11 +1049,21 @@ function rowToReservation(r) {
   let tickets = [];
   try { tickets = JSON.parse(r.tickets) || []; } catch {}
   return {
-    id: r.id, no: r.res_no, name: r.name, kana: r.kana, tickets, qty: r.qty, amount: r.amount, paid: !!r.paid,
-    due: r.paid ? 0 : r.amount, note: r.note, handedAt: r.handed_at || null, handedBy: r.handed_by || '',
+    id: r.id, no: r.res_no, name: r.name, kana: r.kana, tickets, qty: r.qty, amount: r.amount, ...settleOf(r),
+    note: r.note, handedAt: r.handed_at || null, handedBy: r.handed_by || '',
     source: r.source || 'csv', contact: r.contact || '', createdAt: r.created_at,
+    member: r.member || '', email: r.email || '', collectedAt: r.collected_at || null,
   };
 }
+
+/** 代金の払い方。due = 受付で受け取る額、memberDue = 終演後に団員から回収する額 */
+function settleOf(r) {
+  const settle = ['reception', 'member', 'paid'].includes(r.settle) ? r.settle : r.paid ? 'paid' : 'reception';
+  return { settle, paid: settle === 'paid', due: settle === 'reception' ? r.amount : 0, memberDue: settle === 'member' ? r.amount : 0 };
+}
+const SETTLE_LABEL = { reception: '当日', member: '団員', paid: '済' };
+/** 団員の名前をそろえる（全角・半角、空白のあるなしで別の人にしない） */
+const memberKey = (s) => String(s || '').normalize('NFKC').replace(/\s+/g, '');
 
 async function getReservations(db, projectId) {
   const rows = (await db.prepare('SELECT * FROM reservations WHERE project_id = ? ORDER BY id').bind(projectId).all()).results;
@@ -1037,7 +1072,8 @@ async function getReservations(db, projectId) {
 
 /** 取り置きの集計（件数・枚数・受け渡し済み・当日精算の受け取り） */
 function reservationSummary(list) {
-  const s = { count: 0, qty: 0, handed: 0, handedQty: 0, dueTotal: 0, collected: 0, uncollected: 0, web: 0, webQty: 0, byType: [] };
+  const s = { count: 0, qty: 0, handed: 0, handedQty: 0, dueTotal: 0, collected: 0, uncollected: 0, web: 0, webQty: 0,
+    memberTotal: 0, memberCollected: 0, memberUncollected: 0, byType: [] };
   const by = new Map();
   for (const r of list) {
     s.count++; s.qty += r.qty;
@@ -1045,6 +1081,8 @@ function reservationSummary(list) {
     if (r.handedAt) { s.handed++; s.handedQty += r.qty; }
     s.dueTotal += r.due;
     if (r.handedAt) s.collected += r.due; else s.uncollected += r.due;
+    s.memberTotal += r.memberDue;
+    if (r.collectedAt) s.memberCollected += r.memberDue; else s.memberUncollected += r.memberDue;
     for (const t of r.tickets) {
       const k = t.productId ? 'id:' + t.productId : 'name:' + t.name;
       const g = by.get(k) || { name: t.name, unit: t.unit || '枚', qty: 0, handedQty: 0 };
@@ -1055,6 +1093,25 @@ function reservationSummary(list) {
   }
   s.byType = [...by.values()];
   return s;
+}
+
+/** 団員ごとの精算（終演後に団員から回収する分）。団員の名前ごとにまとめる */
+function memberSummary(list) {
+  const by = new Map();
+  for (const r of list) {
+    if (r.settle !== 'member' && !r.member) continue;
+    const k = memberKey(r.member) || '（団員の名前なし）';
+    const g = by.get(k) || { key: k, member: r.member || '（団員の名前なし）', emails: [], count: 0, qty: 0, handedQty: 0, amount: 0, collected: 0, uncollected: 0, others: 0, lastCollectedAt: null };
+    if (r.email && !g.emails.includes(r.email)) g.emails.push(r.email);
+    g.count++; g.qty += r.qty;
+    if (r.handedAt) g.handedQty += r.qty;
+    if (r.settle === 'member') {
+      g.amount += r.amount;
+      if (r.collectedAt) { g.collected += r.amount; if (!g.lastCollectedAt || r.collectedAt > g.lastCollectedAt) g.lastCollectedAt = r.collectedAt; } else g.uncollected += r.amount;
+    } else g.others++;
+    by.set(k, g);
+  }
+  return [...by.values()].sort((a, b) => a.member.localeCompare(b.member, 'ja'));
 }
 
 /** 当日の売上（当日券の売上＋取り置きの当日精算で受け取った額） */
@@ -1126,6 +1183,7 @@ async function masterData(db, sess, P) {
   return {
     ...(await summary(db, P)),
     reservationList: await getReservations(db, P.id),
+    members: memberSummary(await getReservations(db, P.id)),
     projects: await projectList(db),
     projectSettings: { ...projectInfo(P), active: P.id === await activeProjectId(db) },
     sessions: sessions.results.map((s) => ({ ...s, current: s.id === sess.id })),
@@ -1307,10 +1365,13 @@ const RES_COLUMNS = {
   pay: ['支払', '支払い', '支払状況', '支払い状況', '精算', '入金', '入金状況', '支払済', '支払い済み'],
   amount: ['金額', '代金', '料金', 'チケット代', '金額(円)', '代金(円)', '料金(円)'],
   note: ['備考', 'メモ', '連絡事項', 'コメント', 'note'],
-  contact: ['連絡先', '電話', '電話番号', 'メール', 'メールアドレス', 'tel', 'email', 'e-mail'],
+  contact: ['連絡先', '電話', '電話番号', 'tel'],
+  member: ['団員', '団員氏名', '団員名', '団員の名前', '紹介者', '担当団員', '招待者', '予約した団員'],
+  email: ['団員のメール', '団員のメールアドレス', 'メール', 'メールアドレス', 'email', 'e-mail'],
 };
 // 書き出した CSV（reservations.csv）にだけある列。取り込むときは黙って読み飛ばす
-const RES_EXPORT_ONLY = ['枚数計', '受付で受け取る額(円)', '受け取った額(円)', '受け渡し', '受け渡し日時', '受け渡した人', '受付方法', '申込日時'];
+const RES_EXPORT_ONLY = ['枚数計', '受付で受け取る額(円)', '受け取った額(円)', '受け渡し', '受け渡し日時', '受け渡した人', '受付方法', '申込日時', '団員から回収'];
+const MEMBER_WORDS = ['団員', '団員精算', '団員払い', '団員から', '団員から回収', '終演後', '終演後精算'];
 const PAID_WORDS = ['済', '済み', '支払済', '支払済み', '支払い済み', '振込済', '振込済み', '入金済', '入金済み', '前払い', '前払', '事前', 'paid', 'yes', '1', '○', '〇', '✓', 'true'];
 const UNPAID_WORDS = ['', '当日', '当日精算', '当日払い', '未', '未払い', '未払', '未入金', '受付で', '受付', 'no', '0', '×', 'false', '-'];
 
@@ -1400,11 +1461,14 @@ async function planImport(db, P, csv, mode) {
       if (q > 0) addTicket(w.p, q);
     }
     const payRaw = cell(r, col.pay).normalize('NFKC').toLowerCase().replace(/\s+/g, '');
-    let paid = false;
-    if (PAID_WORDS.includes(payRaw) || /^(支払|振込|入金)?済/.test(payRaw)) paid = true;
-    else if (!UNPAID_WORDS.includes(payRaw) && !/^当日/.test(payRaw) && !/^未/.test(payRaw)) {
-      err(line, `支払「${cell(r, col.pay)}」が読めません（「済」か「当日」と書いてください）`); ok = false;
-    }
+    const member = cleanName(cell(r, col.member)).normalize('NFKC').replace(/\s+/g, ' ').slice(0, 40);
+    // 支払：済 → 支払済み、団員 → 終演後に団員から回収、当日 → 受付で受け取る。空欄は、団員の名前があれば団員から、なければ当日
+    let settle;
+    if (PAID_WORDS.includes(payRaw) || /^(支払|振込|入金)?済/.test(payRaw)) settle = 'paid';
+    else if (MEMBER_WORDS.includes(payRaw) || /^団員/.test(payRaw)) settle = 'member';
+    else if (payRaw === '') settle = member ? 'member' : 'reception';
+    else if (UNPAID_WORDS.includes(payRaw) || /^当日/.test(payRaw) || /^未/.test(payRaw)) settle = 'reception';
+    else { err(line, `支払「${cell(r, col.pay)}」が読めません（「済」「当日」「団員」のどれかを書いてください）`); ok = false; }
     const amountRaw = cell(r, col.amount);
     let amount = null;
     if (amountRaw !== '') {
@@ -1415,11 +1479,12 @@ async function planImport(db, P, csv, mode) {
     const note = String(cell(r, col.note)).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').slice(0, 200);
     const kana = cleanName(cell(r, col.kana)).slice(0, 40);
     const contact = cleanName(cell(r, col.contact)).slice(0, 100);
+    const email = cleanName(cell(r, col.email)).slice(0, 100);
     const rec = no && byNo.get(no);
     if (rec) {
       // 同じ番号の 2 行目以降：券種を足す
       if (rec.name !== name) { err(line, `番号「${no}」が別の人（${rec.name}）と重なっています`); continue; }
-      if (rec.paid !== paid) { err(line, `番号「${no}」の行で支払（済／当日）が食い違っています`); continue; }
+      if (rec.settle !== settle) { err(line, `番号「${no}」の行で支払（済／当日／団員）が食い違っています`); continue; }
       for (const t of tickets.values()) {
         const x = rec.tickets.get(t.productId);
         if (x) x.qty += t.qty; else rec.tickets.set(t.productId, t);
@@ -1429,7 +1494,7 @@ async function planImport(db, P, csv, mode) {
       if (kana && !rec.kana) rec.kana = kana;
       continue;
     }
-    const item = { line, no, name, kana, tickets, paid, amount, note, contact };
+    const item = { line, no, name, kana, tickets, settle, amount, note, contact, member, email };
     list.push(item);
     if (no) byNo.set(no, item);
   }
@@ -1463,7 +1528,7 @@ async function planImport(db, P, csv, mode) {
     taken.add(it.no);
   }
   const counts = { rows: list.length, created: 0, updated: 0, unchanged: 0, removed: 0, removedHanded: 0 };
-  const sig = (x) => JSON.stringify([x.name, x.kana, x.tickets.map((t) => [t.productId, t.qty]), x.qty, x.amount, !!x.paid, x.note, x.contact || '']);
+  const sig = (x) => JSON.stringify([x.name, x.kana, x.tickets.map((t) => [t.productId, t.qty]), x.qty, x.amount, x.settle, x.note, x.contact || '', x.member || '', x.email || '']);
   for (const it of list) {
     const ex = exByNo.get(it.no);
     if (!ex) { it.status = 'new'; counts.created++; continue; }
@@ -1474,6 +1539,10 @@ async function planImport(db, P, csv, mode) {
     if (col.kana == null) it.kana = old.kana;
     if (col.note == null) it.note = old.note;
     if (col.contact == null) it.contact = old.contact;
+    if (col.member == null) it.member = old.member;
+    if (col.email == null) it.email = old.email;
+    // 支払の列がなく、団員の名前を残したときは、今の払い方のまま
+    if (col.pay == null) it.settle = old.settle;
     if (sig(it) === sig({ ...old, tickets: old.tickets })) { it.status = 'same'; counts.unchanged++; }
     else { it.status = 'update'; counts.updated++; }
   }
@@ -1489,14 +1558,15 @@ async function planImport(db, P, csv, mode) {
 
   const items = list.map((x) => ({
     line: x.line, no: x.no, autoNo: !!x.autoNo, name: x.name, kana: x.kana, tickets: x.tickets, ticketsText: describeTickets(x.tickets),
-    qty: x.qty, amount: x.amount, paid: x.paid, due: x.paid ? 0 : x.amount, note: x.note, status: x.status, handed: !!x.handedAt,
+    qty: x.qty, amount: x.amount, settle: x.settle, paid: x.settle === 'paid', due: x.settle === 'reception' ? x.amount : 0, memberDue: x.settle === 'member' ? x.amount : 0,
+    member: x.member, note: x.note, status: x.status, handed: !!x.handedAt,
   }));
   return {
     list, toRemove,
     preview: {
       errors, warnings, counts, items,
       removedItems: toRemove.slice(0, 50).map((r) => ({ no: r.res_no, name: r.name, handed: !!r.handed_at })),
-      totals: { qty: items.reduce((a, x) => a + x.qty, 0), due: items.reduce((a, x) => a + x.due, 0) },
+      totals: { qty: items.reduce((a, x) => a + x.qty, 0), due: items.reduce((a, x) => a + x.due, 0), memberDue: items.reduce((a, x) => a + x.memberDue, 0) },
     },
   };
 }
@@ -1507,13 +1577,13 @@ async function applyImport(db, P, plan) {
   for (const it of plan.list) {
     const tickets = JSON.stringify(it.tickets);
     if (it.status === 'new') {
-      stmts.push(db.prepare(`INSERT INTO reservations (project_id, res_no, name, kana, tickets, qty, amount, paid, note, contact, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(P.id, it.no, it.name, it.kana, tickets, it.qty, it.amount, it.paid ? 1 : 0, it.note, it.contact || '', now, now));
+      stmts.push(db.prepare(`INSERT INTO reservations (project_id, res_no, name, kana, tickets, qty, amount, paid, settle, note, contact, member, email, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(P.id, it.no, it.name, it.kana, tickets, it.qty, it.amount, it.settle === 'paid' ? 1 : 0, it.settle, it.note, it.contact || '', it.member || '', it.email || '', now, now));
     } else if (it.status === 'update') {
       // 受け渡しの記録（handed_at / handed_by）は残す
-      stmts.push(db.prepare('UPDATE reservations SET name = ?, kana = ?, tickets = ?, qty = ?, amount = ?, paid = ?, note = ?, contact = ?, updated_at = ? WHERE id = ?')
-        .bind(it.name, it.kana, tickets, it.qty, it.amount, it.paid ? 1 : 0, it.note, it.contact || '', now, it.existingId));
+      stmts.push(db.prepare('UPDATE reservations SET name = ?, kana = ?, tickets = ?, qty = ?, amount = ?, paid = ?, settle = ?, note = ?, contact = ?, member = ?, email = ?, updated_at = ? WHERE id = ?')
+        .bind(it.name, it.kana, tickets, it.qty, it.amount, it.settle === 'paid' ? 1 : 0, it.settle, it.note, it.contact || '', it.member || '', it.email || '', now, it.existingId));
     }
   }
   for (const r of plan.toRemove) stmts.push(db.prepare('DELETE FROM reservations WHERE id = ?').bind(r.id));
@@ -1523,27 +1593,38 @@ async function applyImport(db, P, plan) {
 }
 
 // ===== ウェブの取り置き予約（/order） =====
-// ログインはしない。予約のたびに、その公演の取り置き専用パスワードを確かめる（間違いが続くとしばらく止める）。
+// 出演者（団員）が、知り合いにチケットを事前に渡せないときに使う。
+//   1. 団員のメールアドレスと、事前に渡した取り置き専用パスワードで認証（間違いが続くとしばらく止める）
+//   2. 団員氏名、お客さんの氏名（カタカナ。セイ・メイ）、券種と枚数を入れて予約
+//   代金は終演後に団員からまとめて回収するのが基本（settle = member）。お客さんが受付で払うこともできる（settle = reception）
+// ログインはしない。予約のたびにパスワードを確かめる。
 // 受け付けるのは「当日に使う」公演で、ウェブ予約を受け付ける設定にしてあり、開場時刻より前のときだけ。
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** カタカナにそろえる（ひらがな・半角カナ・全角英数を直し、空白を取る） */
+const toKatakana = (s) => String(s || '').normalize('NFKC').replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60)).replace(/\s+/g, '');
+const KATAKANA_RE = /^[ァ-ー]+$/;   // ァ〜ヺ・ー（中黒も可）
+
 async function orderApi(request, env, url, route) {
   const db = env.DB;
   const P = await getActiveProject(db);
   const info = webOrderInfo(P);
   const pub = () => ({ project: { id: P.id, name: P.name, startDate: P.startDate }, open: info.open, state: info.state, openAt: P.openAt, max: P.orderMax });
 
-  // 予約のページを開いたとき（公演名と、受け付けているかどうかだけ。券種と価格はパスワードのあと）
+  // 予約のページを開いたとき（公演名と、受け付けているかどうかだけ。券種と価格は認証のあと）
   if (route === 'GET /api/order/status') return json(pub());
 
   const body = await readJson(request);
   if (!info.open) {
-    throw httpError(info.state === 'closed' ? 'ウェブでの取り置きの受け付けは締め切りました（開場時刻を過ぎました）。当日券をご利用ください' : 'いまはウェブでの取り置きを受け付けていません', 403);
+    throw httpError(info.state === 'closed' ? 'ウェブでの取り置きの受け付けは締め切りました（開場時刻を過ぎました）' : 'いまはウェブでの取り置きを受け付けていません', 403);
   }
+  const email = String(body.email || '').trim().normalize('NFKC').toLowerCase().slice(0, 100);
+  if (!EMAIL_RE.test(email)) throw httpError('メールアドレスを正しく入力してください', 400);
   const row = await db.prepare('SELECT order_pw_hash FROM projects WHERE id = ?').bind(P.id).first();
   await login(request, env, 'order', body.password, '取り置き専用パスワードが違います', (pw) => verifyHash(pw, row.order_pw_hash));
   const products = (await getProducts(db, P.id, { all: true })).filter((p) => p.web);
 
   if (route === 'POST /api/order/unlock') {
-    return json({ ...pub(), products: products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, sets: p.sets, bundleWith: p.bundleWith })) });
+    return json({ ...pub(), email, products: products.map((p) => ({ id: p.id, name: p.name, unit: p.unit, sets: p.sets, bundleWith: p.bundleWith })) });
   }
   if (route !== 'POST /api/order') return json({ error: 'Not Found' }, 404);
 
@@ -1554,12 +1635,15 @@ async function orderApi(request, env, url, route) {
   const dup = await db.prepare('SELECT * FROM reservations WHERE client_id = ?').bind(clientId).first();
   if (dup) return json({ ok: true, duplicate: true, reservation: orderReceipt(rowToReservation(dup), P) });
 
-  const name = cleanName(body.name).slice(0, 40);
-  const kana = cleanName(body.kana).slice(0, 40);
-  const contact = cleanName(body.contact).slice(0, 100);
+  const member = cleanName(body.member).normalize('NFKC').replace(/\s+/g, ' ').slice(0, 40);
+  if (!member) throw httpError('団員氏名を入力してください', 400);
+  const sei = toKatakana(body.sei), mei = toKatakana(body.mei);
+  if (!sei || !mei) throw httpError('お客さんの氏名（セイ・メイ）をカタカナで入力してください', 400);
+  if (!KATAKANA_RE.test(sei) || !KATAKANA_RE.test(mei)) throw httpError('お客さんの氏名はカタカナだけで入力してください（漢字・英字・記号は使えません）', 400);
+  if (sei.length + mei.length > 30) throw httpError('お客さんの氏名が長すぎます', 400);
+  const name = `${sei} ${mei}`;
+  const settle = body.settle === 'reception' ? 'reception' : 'member';
   const note = String(body.note || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').trim().slice(0, 200);
-  if (!name) throw httpError('お名前を入力してください', 400);
-  if (!kana) throw httpError('フリガナを入力してください（受付でお名前を探すのに使います）', 400);
   const cart = {};
   const tickets = [];
   for (const p of products) {
@@ -1587,10 +1671,10 @@ async function orderApi(request, env, url, route) {
   for (let attempt = 0; ; attempt++) {
     try {
       await db.batch([
-        db.prepare(`INSERT INTO reservations (project_id, res_no, name, kana, tickets, qty, amount, paid, note, contact, source, client_id, created_at, updated_at)
+        db.prepare(`INSERT INTO reservations (project_id, res_no, name, kana, tickets, qty, amount, paid, settle, note, member, email, source, client_id, created_at, updated_at)
             VALUES (?, 'W' || (SELECT COALESCE(MAX(CAST(SUBSTR(res_no, 2) AS INTEGER)), 0) + 1 FROM reservations WHERE project_id = ? AND res_no GLOB 'W[0-9]*'),
-              ?, ?, ?, ?, ?, 0, ?, ?, 'web', ?, ?, ?)`)
-          .bind(P.id, P.id, name, kana, JSON.stringify(tickets), qty, amount, note, contact, clientId, now, now),
+              ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 'web', ?, ?, ?)`)
+          .bind(P.id, P.id, name, name, JSON.stringify(tickets), qty, amount, settle, note, member, email, clientId, now, now),
         db.prepare('INSERT INTO order_log (ip, at) VALUES (?, ?)').bind(ip, now),
         db.prepare('DELETE FROM order_log WHERE at < ?').bind(new Date(Date.now() - 86400000).toISOString()),
         bumpRev(db, P.id),
@@ -1607,9 +1691,9 @@ async function orderApi(request, env, url, route) {
   return json({ ok: true, reservation: orderReceipt(rowToReservation(saved), P) });
 }
 
-/** 予約した人に見せる内容（控え） */
+/** 予約した団員に見せる内容（控え） */
 const orderReceipt = (r, P) => ({
-  no: r.no, name: r.name, kana: r.kana, tickets: r.tickets, qty: r.qty, amount: r.amount, note: r.note, contact: r.contact,
+  no: r.no, name: r.name, tickets: r.tickets, qty: r.qty, amount: r.amount, settle: r.settle, member: r.member, email: r.email, note: r.note,
   createdAt: r.createdAt, project: { id: P.id, name: P.name, startDate: P.startDate }, openAt: P.openAt,
 });
 
@@ -1655,13 +1739,14 @@ const CSV_FILES = {
   'sale_items.csv': saleItemsCsvRows,
   'reservations.csv': reservationsCsvRows,
   'reservations_template.csv': reservationsTemplateRows,
+  'members.csv': membersCsvRows,
 };
 
 async function csvResponse(db, P, name, params) {
   const needSales = name.startsWith('sale');
   const sales = needSales ? await attachItems(db, (await db.prepare('SELECT * FROM sales WHERE project_id = ? AND cancelled = 0 ORDER BY id').bind(P.id).all()).results) : [];
   const ctx = { products: await getProducts(db, P.id, { all: true }), project: P };
-  if (name.startsWith('reservations')) ctx.reservations = await getReservations(db, P.id);
+  if (name.startsWith('reservations') || name === 'members.csv') ctx.reservations = await getReservations(db, P.id);
   const rows = CSV_FILES[name](sales, ctx);
   const body = rows.map((cols) => cols.map(csvCell).join(',')).join('\r\n') + '\r\n';
   const stamp = isoJst(new Date().toISOString()).slice(0, 16).replace(/[-:T]/g, '');
@@ -1743,12 +1828,22 @@ function reservationsCsvRows(_, { products, reservations }) {
   const keyOf = (t) => (t.productId ? 'id:' + t.productId : 'name:' + t.name);
   const numSort = (a, b) => String(a.no).localeCompare(String(b.no), 'ja', { numeric: true });
   const header = ['番号', '氏名', 'フリガナ', ...cols.map((c) => `${c.name}(${c.unit})`), '枚数計', '支払', '金額(円)',
-    '受付で受け取る額(円)', '受け取った額(円)', '受け渡し', '受け渡し日時', '受け渡した人', '備考', '連絡先', '受付方法', '申込日時'];
+    '受付で受け取る額(円)', '受け取った額(円)', '受け渡し', '受け渡し日時', '受け渡した人', '備考', '連絡先', '受付方法', '申込日時', '団員', '団員のメール', '団員から回収'];
   return [header].concat([...reservations].sort(numSort).map((r) => [
     r.no, r.name, r.kana || null, ...cols.map((c) => r.tickets.filter((t) => keyOf(t) === c.key).reduce((a, t) => a + t.qty, 0)), r.qty,
-    r.paid ? '済' : '当日', r.amount, r.due, r.handedAt ? r.due : 0, r.handedAt ? '済' : '未',
+    SETTLE_LABEL[r.settle], r.amount, r.due, r.handedAt ? r.due : 0, r.handedAt ? '済' : '未',
     r.handedAt ? isoJst(r.handedAt) : null, r.handedBy || null, r.note || null,
     r.contact || null, r.source === 'web' ? 'ウェブ' : 'CSV', r.createdAt ? isoJst(r.createdAt) : null,
+    r.member || null, r.email || null, r.settle === 'member' ? (r.collectedAt ? '済' : '未') : null,
+  ]));
+}
+
+/** 団員ごとの精算（終演後に団員から回収する分） */
+function membersCsvRows(_, { reservations }) {
+  const header = ['団員', 'メールアドレス', '取り置き(件)', '枚数', 'うち受け渡し済み(枚)', '団員から回収する額(円)', '回収済み(円)', '未回収(円)', '回収', '団員の精算でない取り置き(件)'];
+  return [header].concat(memberSummary(reservations).map((g) => [
+    g.member, g.emails.join(' ') || null, g.count, g.qty, g.handedQty, g.amount, g.collected, g.uncollected,
+    g.amount ? (g.uncollected ? (g.collected ? '一部' : '未') : '済') : null, g.others,
   ]));
 }
 
@@ -1757,9 +1852,9 @@ function reservationsTemplateRows(_, { products }) {
   const a = products[0] ? products[0].name : '一般';
   const b = products[1] ? products[1].name : a;
   return [
-    ['番号', '氏名', 'フリガナ', '券種', '枚数', '支払', '金額', '備考'],
-    ['1', '岡大 太郎', 'オカダイ タロウ', a, '2', '当日', '', ''],
-    ['2', 'グリー 花子', 'グリー ハナコ', a, '1', '済', '', '振込済み'],
-    ['2', 'グリー 花子', 'グリー ハナコ', b, '1', '済', '', ''],
+    ['番号', '氏名', 'フリガナ', '券種', '枚数', '支払', '金額', '団員', '備考'],
+    ['1', '岡大 太郎', 'オカダイ タロウ', a, '2', '団員', '', '山田 花子', ''],
+    ['2', 'グリー 花子', 'グリー ハナコ', a, '1', '済', '', '', '振込済み'],
+    ['2', 'グリー 花子', 'グリー ハナコ', b, '1', '済', '', '', ''],
   ];
 }
